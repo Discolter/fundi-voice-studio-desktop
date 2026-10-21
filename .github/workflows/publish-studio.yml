@@ -1,0 +1,75 @@
+name: Build and publish Studio desktop update
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'package/**'
+      - 'launcher/**'
+      - 'tools/**'
+      - 'go.mod'
+      - 'Build-Installer.ps1'
+      - 'Validate-Source.ps1'
+      - 'installer/**'
+      - 'uninstaller/**'
+      - '.github/workflows/publish-studio.yml'
+permissions:
+  contents: write
+concurrency:
+  group: studio-production-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+      - name: Validate code and compile C#
+        shell: pwsh
+        run: |
+          go test ./launcher ./tools/...
+          if ($LASTEXITCODE -ne 0) { throw 'Go tests failed' }
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\Validate-Source.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'C# failed' }
+      - name: Build release ZIP
+        id: version
+        shell: pwsh
+        run: |
+          $version=(Get-Content package/VERSION.txt -TotalCount 1).Trim()
+          if($version -notmatch '^\d+\.\d+\.\d+$'){throw 'Invalid version'}
+          "version=$version" >> $env:GITHUB_OUTPUT
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          go run ./tools/package-release ./package ./dist/studio-app.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Packing failed' }
+      - name: Verify signing secret and sign update
+        shell: pwsh
+        env:
+          STUDIO_SIGNING_SEED_B64: ${{ secrets.STUDIO_SIGNING_SEED_B64 }}
+        run: |
+          if (-not $env:STUDIO_SIGNING_SEED_B64) {throw 'Configure STUDIO_SIGNING_SEED_B64 first'}
+          go run ./tools/sign-release '${{ steps.version.outputs.version }}' ./dist/studio-app.zip ./dist/studio-update.json
+          if ($LASTEXITCODE -ne 0) { throw 'Release signing failed' }
+      - name: Upload release for updater
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version='${{ steps.version.outputs.version }}'
+          $tag="v$version"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if($LASTEXITCODE -eq 0){
+            Write-Host "Release $tag already exists: not overwriting a signed published update. Bump VERSION.txt."
+            exit 0
+          }
+          gh release create $tag dist/studio-app.zip dist/studio-update.json --repo $env:GITHUB_REPOSITORY --title "Fundi Voice Studio $version" --notes "Automatic signed desktop update $version" --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing GitHub Release failed' }
+      - name: Upload signed assets as CI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-signed-update-${{ steps.version.outputs.version }}
+          path: |
+            dist/studio-app.zip
+            dist/studio-update.json
+          retention-days: 30
