@@ -1,5 +1,6 @@
 name: Build and publish Studio desktop update
 on:
+  pull_request:
   workflow_dispatch:
   push:
     branches: [main]
@@ -29,6 +30,15 @@ jobs:
       - name: Verify animated CSS is actually served by desktop host
         shell: pwsh
         run: python ./tools/check-animated-themes.py
+      - name: Verify secure built-in desktop file browser
+        shell: pwsh
+        run: |
+          python ./tools/check-file-browser.py
+          if($LASTEXITCODE -ne 0){ throw 'Desktop file picker regression failed' }
+          node --check ./package/web/file-browser.js
+          if($LASTEXITCODE -ne 0){ throw 'Desktop browser JavaScript syntax failed' }
+          node --check ./package/web/app.js
+          if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
       - name: Validate code and compile C#
         shell: pwsh
         run: |
@@ -47,6 +57,7 @@ jobs:
           go run ./tools/package-release ./package ./dist/studio-app.zip
           if ($LASTEXITCODE -ne 0) { throw 'Packing failed' }
       - name: Verify signing secret and sign update
+        if: github.event_name != 'pull_request'
         shell: pwsh
         env:
           STUDIO_SIGNING_SEED_B64: ${{ secrets.STUDIO_SIGNING_SEED_B64 }}
@@ -55,6 +66,7 @@ jobs:
           go run ./tools/sign-release '${{ steps.version.outputs.version }}' ./dist/studio-app.zip ./dist/studio-update.json
           if ($LASTEXITCODE -ne 0) { throw 'Release signing failed' }
       - name: Upload release for updater
+        if: github.event_name != 'pull_request'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -69,6 +81,7 @@ jobs:
           gh release create $tag dist/studio-app.zip dist/studio-update.json --repo $env:GITHUB_REPOSITORY --title "Fundi Voice Studio $version" --notes "Automatic signed desktop update $version" --latest
           if ($LASTEXITCODE -ne 0) { throw 'Publishing GitHub Release failed' }
       - name: Upload signed assets as CI artifacts
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: studio-signed-update-${{ steps.version.outputs.version }}

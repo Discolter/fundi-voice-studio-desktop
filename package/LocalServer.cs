@@ -29,7 +29,7 @@ namespace FundiVoice {
             ".mp4", ".mkv", ".mov", ".webm", ".avi", ".srt", ".ass", ".ssa", ".vtt", ".txt", ".pdf", ".png", ".jpg", ".jpeg"
         };
         static readonly HashSet<string> StaticFiles = new HashSet<string>(StringComparer.Ordinal) {
-            "/", "/index.html", "/app.js", "/core.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/compact.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
+            "/", "/index.html", "/app.js", "/core.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/file-browser.js", "/file-browser.css", "/compact.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
         };
         static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = 9 * 1024 * 1024, RecursionLimit = 150 }; }
         static string S(Dictionary<string, object> d, string key) { object v; return d.TryGetValue(key, out v) && v != null ? Convert.ToString(v) : ""; }
@@ -165,6 +165,102 @@ namespace FundiVoice {
                 }
             }
         }
+
+        // Windows-only, loopback-authenticated and read-only folder enumeration.
+        // No cloud endpoint provides this functionality.
+        static readonly HashSet<string> LocalAudioExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            ".wav", ".flac", ".mp3", ".ogg", ".aac", ".m4a", ".aif", ".aiff", ".zip"
+        };
+        static readonly HashSet<string> LocalStudioExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            ".wav", ".flac", ".mp3", ".ogg", ".aac", ".m4a", ".aif", ".aiff", ".zip",
+            ".rpp", ".rtracktemplate", ".prproj", ".srt", ".ass", ".ssa", ".vtt",
+            ".txt", ".pdf", ".mp4", ".mkv", ".mov", ".webm", ".png", ".jpg", ".jpeg"
+        };
+        static string LocalBrowsePath(string raw, bool folder) {
+            if (String.IsNullOrWhiteSpace(raw) || raw.Length > 1800 || raw.IndexOf('\0') >= 0 ||
+                raw.Length < 3 || !Char.IsLetter(raw[0]) || raw[1] != ':' ||
+                (raw[2] != '\\' && raw[2] != '/') || raw.Substring(2).IndexOf(':') >= 0)
+                throw new ArgumentException("Выбери обычный локальный диск и полный путь к файлу или папке.");
+            string absolute = Path.GetFullPath(raw);
+            if (folder ? !Directory.Exists(absolute) : !File.Exists(absolute))
+                throw new ArgumentException("Этот файл или папка больше не существует.");
+            return absolute;
+        }
+        static object LocalBrowse(Dictionary<string, object> request, bool studio) {
+            string mode = (request.ContainsKey("mode") ? Convert.ToString(request["mode"]) : "file");
+            if (mode != "file" && mode != "folder") throw new ArgumentException("Неизвестный режим проводника.");
+            string typed = request.ContainsKey("path") ? Convert.ToString(request["path"]) : "";
+            string query = request.ContainsKey("query") ? Convert.ToString(request["query"]) : "";
+            if (query == null) query = "";
+            query = query.Trim();
+            if (query.Length > 90 || query.IndexOfAny(new char[]{'\\','/','\0'}) >= 0)
+                throw new ArgumentException("Поиск должен содержать только часть имени файла.");
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string downloads = Path.Combine(home, "Downloads");
+            string initial = Directory.Exists(downloads) ? downloads : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (!Directory.Exists(initial)) initial = home;
+            string folder = LocalBrowsePath(String.IsNullOrWhiteSpace(typed) ? initial : typed, true);
+            var extensions = studio ? LocalStudioExtensions : LocalAudioExtensions;
+            var directories = new List<DirectoryInfo>();
+            var files = new List<FileInfo>();
+            var timer = Stopwatch.StartNew();
+            int examined = 0;
+            bool limited = false;
+            Action<string,int> scan = null;
+            scan = delegate(string directory, int depth) {
+                if (examined >= 7000 || timer.ElapsedMilliseconds >= 1400 || directories.Count + files.Count >= 160) {
+                    limited = true;return;
+                }
+                try {
+                    foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos()) {
+                        if (++examined > 7000 || timer.ElapsedMilliseconds >= 1400 ||
+                            directories.Count + files.Count >= 160) {limited = true;break;}
+                        var sub = entry as DirectoryInfo;
+                        if (sub != null) {
+                            if (query.Length == 0 || sub.Name.IndexOf(query,StringComparison.OrdinalIgnoreCase) >= 0)
+                                directories.Add(sub);
+                            // Never recurse through Windows junctions/symlinks: no cycles or network mounts.
+                            if (query.Length > 0 && depth < 3 &&
+                                (sub.Attributes & FileAttributes.ReparsePoint) == 0)
+                                scan(sub.FullName,depth+1);
+                        } else {
+                            var file = entry as FileInfo;
+                            if (mode == "file" && file != null && extensions.Contains(file.Extension) &&
+                                (query.Length == 0 || file.Name.IndexOf(query,StringComparison.OrdinalIgnoreCase) >= 0))
+                                files.Add(file);
+                        }
+                    }
+                } catch (UnauthorizedAccessException) { if (depth==0)throw new ArgumentException("Нет доступа к этой папке."); }
+                catch (IOException) { if (depth==0)throw new ArgumentException("Папка сейчас недоступна."); }
+                catch (System.Security.SecurityException) { if (depth==0)throw new ArgumentException("Нет доступа к папке."); }
+            };
+            scan(folder,0);
+            var pins = new List<object>();
+            Action<string,string> addPin = delegate(string title,string location) {
+                if(!String.IsNullOrEmpty(location) && Directory.Exists(location))
+                    pins.Add(new { name=title, path=location });
+            };
+            addPin("Загрузки",downloads);
+            addPin("Рабочий стол",Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+            addPin("Музыка",Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
+            addPin("Документы",Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+            var drives = new List<object>();
+            foreach(var drive in DriveInfo.GetDrives()){
+                try{if(drive.IsReady)drives.Add(new {name=drive.Name,path=drive.RootDirectory.FullName});}
+                catch(IOException){}
+                catch(UnauthorizedAccessException){}
+            }
+            var directoryRows = directories.OrderBy(d=>d.Name,StringComparer.CurrentCultureIgnoreCase)
+                .Take(160).Select(d=>(object)new {name=d.Name,path=d.FullName}).ToArray();
+            var fileRows = files.OrderByDescending(f=>f.LastWriteTimeUtc)
+                .Take(160).Select(f=>(object)new {name=f.Name,path=f.FullName,size=f.Length,
+                    modified=f.LastWriteTime.ToString("yyyy-MM-dd HH:mm")}).ToArray();
+            string parent="";
+            try{var up=Directory.GetParent(folder);if(up!=null)parent=up.FullName;}catch{}
+            return new {path=folder,parent=parent,directories=directoryRows,files=fileRows,
+                places=pins.ToArray(),drives=drives.ToArray(),limited=limited,searched=query.Length>0};
+        }
+
         static void Route(NetworkStream stream, string method, string route, string raw) {
             if (method == "GET" && route == "info") { SendJson(stream,200,new { name="Fundi Voice", version="1.8.0", local=true }); return; }
             if (method == "GET" && route == "cloud/status") { SendJson(stream,200,Cloud.Status());return; }
@@ -227,6 +323,7 @@ namespace FundiVoice {
             if (route == "check") { string path = ExistingPath(S(dataBody,"path")); SendJson(stream,200,new { path=path, folder=Directory.Exists(path) }); return; }
             if (route == "open") { OpenPath(ExistingPath(S(dataBody,"path"))); SendJson(stream,200,new { opened=true }); return; }
             if (route == "pick") { SendJson(stream,200,Pick(S(dataBody,"type") == "folder")); return; }
+            if (route == "file-browser") { SendJson(stream,200,LocalBrowse(dataBody,true)); return; }
             if (route == "scan") { SendJson(stream,200,Scan(ExistingDirectory(S(dataBody,"path")))); return; }
             if (route == "detect") { SendJson(stream,200,new { paths=Detect(ExistingDirectory(S(dataBody,"path"))) }); return; }
             if (route == "roles") { SendJson(stream,200,Roles(ExistingDirectory(S(dataBody,"path")),S(dataBody,"subs"))); return; }
