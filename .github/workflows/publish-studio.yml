@@ -29,6 +29,15 @@ jobs:
       - name: Verify animated CSS is actually served by desktop host
         shell: pwsh
         run: python ./tools/check-animated-themes.py
+      - name: Verify secure built-in desktop file browser
+        shell: pwsh
+        run: |
+          python ./tools/check-file-browser.py
+          if($LASTEXITCODE -ne 0){ throw 'Desktop file picker regression failed' }
+          node --check ./package/web/file-browser.js
+          if($LASTEXITCODE -ne 0){ throw 'Desktop browser JavaScript syntax failed' }
+          node --check ./package/web/app.js
+          if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
       - name: Validate code and compile C#
         shell: pwsh
         run: |
