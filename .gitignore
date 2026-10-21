@@ -1,0 +1,5 @@
+**/*.exe
+installer/payload.zip
+dist/
+STUDIO_RELEASE_SIGNING_SEED_KEEP_PRIVATE.txt
+.unsigned-*

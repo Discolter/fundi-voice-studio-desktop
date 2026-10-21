@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fundi-voice.invalid/schemas/actor-feed-v1.json",
+  "title": "Fundi Voice Actor read-only feed v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "actorId", "roles"],
+  "properties": {
+    "version": {"const": 1},
+    "actorId": {"type": "string", "minLength": 1, "maxLength": 80},
+    "roles": {
+      "type": "array", "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["roleId", "projectId", "projectTitle", "season", "episodeId", "episodeNumber", "episodeTitle", "character", "status", "due"],
+        "properties": {
+          "roleId": {"type": "string", "minLength": 1, "maxLength": 80},
+          "projectId": {"type": "string", "minLength": 1, "maxLength": 80},
+          "projectTitle": {"type": "string", "maxLength": 160},
+          "season": {"type": "string", "maxLength": 4},
+          "episodeId": {"type": "string", "minLength": 1, "maxLength": 80},
+          "episodeNumber": {"type": "string", "maxLength": 4},
+          "episodeTitle": {"type": "string", "maxLength": 120},
+          "character": {"type": "string", "maxLength": 200},
+          "status": {"enum": ["waiting", "recording", "received", "processing", "processed", "retake", "done"]},
+          "due": {"anyOf": [ {"const": ""}, {"type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"} ]}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+Fundi Voice Studio 1.6.9: clean transparent FV gradient mark. All icon sizes 16-256. Icon embedded in launcher and setup. New versioned shortcut icon path to avoid old Windows icon cache. Projects/settings untouched.
