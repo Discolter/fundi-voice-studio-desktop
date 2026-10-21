@@ -4,10 +4,10 @@ import re
 from pathlib import Path
 
 root=Path(__file__).resolve().parents[1]
-html=(root/"web/index.html").read_text(encoding="utf-8-sig")
-host=(root/"LocalServer.cs").read_text(encoding="utf-8-sig")
-animated=(root/"web/animated-themes.css").read_text(encoding="utf-8-sig")
-core=(root/"web/core.js").read_text(encoding="utf-8-sig")
+html=(root/"package/web/index.html").read_text(encoding="utf-8-sig")
+host=(root/"package/LocalServer.cs").read_text(encoding="utf-8-sig")
+animated=(root/"package/web/animated-themes.css").read_text(encoding="utf-8-sig")
+core=(root/"package/web/core.js").read_text(encoding="utf-8-sig")
 # Both apps serve files from explicit deny-by-default routes. Every local stylesheet
 # referenced by index.html must appear in the C# allowlist, otherwise CSS quietly 404s.
 sheets=re.findall(r'<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"',html)
