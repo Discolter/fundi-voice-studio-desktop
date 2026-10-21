@@ -29,7 +29,7 @@ namespace FundiVoice {
             ".mp4", ".mkv", ".mov", ".webm", ".avi", ".srt", ".ass", ".ssa", ".vtt", ".txt", ".pdf", ".png", ".jpg", ".jpeg"
         };
         static readonly HashSet<string> StaticFiles = new HashSet<string>(StringComparer.Ordinal) {
-            "/", "/index.html", "/app.js", "/core.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/compact.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
+            "/", "/index.html", "/app.js", "/core.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/compact.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
         };
         static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = 9 * 1024 * 1024, RecursionLimit = 150 }; }
         static string S(Dictionary<string, object> d, string key) { object v; return d.TryGetValue(key, out v) && v != null ? Convert.ToString(v) : ""; }
