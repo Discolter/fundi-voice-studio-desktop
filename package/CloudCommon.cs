@@ -102,6 +102,12 @@ namespace FundiVoice.Desktop {
     }
     public static class ActorProjection {
         static string S(Dictionary<string,object> value,string key){return JsonData.S(value,key);}
+        static object RoleLineCount(Dictionary<string,object> role){
+            object value;
+            if(!role.TryGetValue("lineCount",out value)||value==null)return null;
+            long number;
+            return Int64.TryParse(Convert.ToString(value,System.Globalization.CultureInfo.InvariantCulture),out number)&&number>=0&&number<=1000000?(object)(int)number:null;
+        }
         public static object[] Build(Dictionary<string,object> state){
             var actors=new SortedDictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);
             var roles=new Dictionary<string,List<object>>(StringComparer.Ordinal);
@@ -121,7 +127,7 @@ namespace FundiVoice.Desktop {
                         roles[actorId].Add(new Dictionary<string,object>{
                             {"roleId",S(role,"id")},{"projectId",S(project,"id")},{"projectTitle",S(project,"title")},{"season",S(project,"season")},
                             {"episodeId",S(episode,"id")},{"episodeNumber",S(episode,"number")},{"episodeTitle",S(episode,"title")},
-                            {"character",S(role,"character")},{"status",S(role,"status")},{"due",due}
+                            {"character",S(role,"character")},{"lineCount",RoleLineCount(role)},{"status",S(role,"status")},{"due",due}
                         });
                     }
                 }

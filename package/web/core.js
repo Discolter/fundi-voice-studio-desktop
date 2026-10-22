@@ -211,7 +211,7 @@ export function normalizeState(raw) {
       if(matches.length===1)linked=matches[0];
       else if(matches.length===0&&raw.actors===undefined){linked=newActor({id:id(''),name});actors.push(linked);}
     }
-    return {id:id(r.id),character:str(r.character,200),actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),reviewSeen:str(r.reviewSeen,260)};
+    return {id:id(r.id),character:str(r.character,200),lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0&&r.lineCount<=1000000?r.lineCount:null,actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),reviewSeen:str(r.reviewSeen,260)};
   }
   function normalizeProject(p) {
     if (!p || typeof p !== 'object' || !str(p.title,160).trim()) throw new Error('У проекта должно быть название.');
@@ -291,7 +291,7 @@ export function actorPublicFeed(state, actorId, {preview=false}={}) {
       roleId:r.id,
       projectId:p.id, projectTitle:p.title, season:p.season,
       episodeId:ep.id, episodeNumber:ep.number, episodeTitle:ep.title,
-      character:r.character, status:r.status,
+      character:r.character, lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null, status:r.status,
       due:effectiveRoleDue(r,ep)
     }))));
   // Do not include actor name, Telegram, email, notes, avatars or local paths.
