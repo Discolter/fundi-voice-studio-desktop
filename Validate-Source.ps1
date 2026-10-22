@@ -5,7 +5,7 @@ Set-Location $PSScriptRoot
 try {
     Add-Type -AssemblyName System.Windows.Forms
     $files = @('LocalServer.cs','CloudCommon.cs','StudioCloud.cs','StudioVacations.cs','StudioFiles.cs',
-               'FileTransfers.cs','ReviewMailbox.cs','StudioNotifications.cs') |
+               'FileTransfers.cs','ReviewMailbox.cs','StudioNotifications.cs','UpdateNotice.cs') |
         ForEach-Object { Join-Path (Join-Path $PSScriptRoot 'package') $_ }
     Add-Type -Path $files -ReferencedAssemblies 'System.dll','System.Core.dll',
         'System.Security.dll','System.Web.Extensions.dll','System.Windows.Forms.dll','System.Drawing.dll' -ErrorAction Stop
