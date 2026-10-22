@@ -91,6 +91,28 @@ export function episodeRoleActorOptions(state, roles) {
   }
   return [...actors.values()].sort((a,b)=>(a.key==='unassigned'?1:0)-(b.key==='unassigned'?1:0)||b.count-a.count||a.label.localeCompare(b.label,'ru'));
 }
+// Actors without any assigned role in the *current episode*, regardless of role status,
+// visible filters, REAPER state, or assignments in other episodes.
+export function episodeUnassignedActors(state, episode) {
+  const actors=state.actors||[];
+  const uniqueNames=new Map();
+  for(const actor of actors) {
+    const name=String(actor.name||'').trim().toLocaleLowerCase('ru');
+    if(name)uniqueNames.set(name,(uniqueNames.get(name)||0)+1);
+  }
+  const assigned=new Set();
+  for(const role of episode?.roles||[]) {
+    if(role.actorId) { assigned.add(role.actorId); continue; }
+    // Legacy projects can have actor text without an actorId. Match only an
+    // unambiguous profile to avoid marking two equal names as assigned.
+    const legacy=String(role.actor||'').trim().toLocaleLowerCase('ru');
+    if(!legacy || uniqueNames.get(legacy)!==1)continue;
+    const match=actors.find(actor=>String(actor.name||'').trim().toLocaleLowerCase('ru')===legacy);
+    if(match)assigned.add(match.id);
+  }
+  return actors.filter(actor=>!assigned.has(actor.id))
+    .sort((a,b)=>a.name.localeCompare(b.name,'ru',{sensitivity:'base',numeric:true}));
+}
 // Character filter parallels actor filtering. Keys are case/whitespace normalized,
 // but display labels preserve the original character spelling.
 export const episodeRoleCharacterKey = role =>
