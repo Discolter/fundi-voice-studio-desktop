@@ -58,9 +58,9 @@ namespace FundiVoice {
             if(alerts.Count>0&&VacationNotify!=null){
                 var recent=alerts.OrderByDescending(item=>JsonData.N(item,"id")).First();
                 string kind=JsonData.S(recent,"kind"),actor=JsonData.S(recent,"username");
-                string action=kind=="started"?"начал отпуск":kind=="planned"?"запланировал отпуск":
-                    kind=="updated"?"изменил даты отпуска":kind=="returned"?"вернулся к работе":"отменил отпуск";
-                VacationNotify("Изменение отпуска",(actor==""?"Актёр":"@"+actor)+" "+action+
+                string action=kind=="started"?"отпуск начался":kind=="planned"?"отпуск запланирован":
+                    kind=="updated"?"даты отпуска изменены":kind=="returned"?"отпуск завершён":"отпуск отменён";
+                VacationNotify("Изменение отпуска",(actor==""?"Актёр":"@"+actor)+" · "+action+
                     (alerts.Count>1?". Ещё событий: "+(alerts.Count-1):""));
             }
         }
