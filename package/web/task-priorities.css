@@ -1,0 +1,70 @@
+/* Studio 1.8.6 — priority-aware personal assignments, full-width row tint. */
+.my-priority-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;min-width:0}
+.my-priority-label{color:var(--muted);font-size:11px}
+.my-priority-toolbar .fv-priority-filter{width:200px;max-width:100%}
+.my-priority-toolbar .fv-priority-filter .fv-select-trigger{min-height:40px}
+.task-table-wrap{margin-top:4px}
+.tasks-priority-table{min-width:610px}
+.tasks-priority-table th:nth-last-child(3){min-width:147px}
+.tasks-priority-table td{position:relative}
+.tasks-priority-table tbody tr.task-priority-row{
+  --task-accent:#729cfa;
+  background:linear-gradient(90deg,
+    color-mix(in srgb,var(--task-accent) 25%,var(--surface,#152239)),
+    color-mix(in srgb,var(--task-accent) 15%,var(--surface,#152239)) 50%,
+    color-mix(in srgb,var(--task-accent) 11%,var(--surface,#152239)) 100%);
+  transition:background-color .15s ease,filter .15s ease
+}
+.tasks-priority-table tbody tr.task-priority-row.priority-urgent{--task-accent:#ff6377}
+.tasks-priority-table tbody tr.task-priority-row.priority-high{--task-accent:#ffae64}
+.tasks-priority-table tbody tr.task-priority-row.priority-normal{--task-accent:#729cfa}
+.tasks-priority-table tbody tr.task-priority-row.priority-low{--task-accent:#67c8a4}
+.tasks-priority-table tbody tr.task-priority-row:hover{
+  background:linear-gradient(90deg,
+    color-mix(in srgb,var(--task-accent) 38%,var(--surface,#152239)),
+    color-mix(in srgb,var(--task-accent) 24%,var(--surface,#152239)) 55%,
+    color-mix(in srgb,var(--task-accent) 18%,var(--surface,#152239)))
+}
+.tasks-priority-table tbody tr.task-priority-row td:first-child{
+  border-left:4px solid var(--task-accent);
+  padding-left:12px
+}
+.tasks-priority-table .task-row-title{font-size:12px;font-weight:650;line-height:1.45}
+.tasks-priority-table .task-priority-row.task-done{opacity:.65}
+.tasks-priority-table .fv-task-priority{max-width:190px;min-width:136px}
+.tasks-priority-table .fv-task-priority .fv-select-trigger{
+  min-height:38px;padding:4px 6px;border-color:color-mix(in srgb,var(--task-accent) 35%,transparent);
+  background:color-mix(in srgb,var(--task-accent) 8%,var(--surface,#152239))
+}
+.tasks-priority-table .fv-task-priority .fv-select-trigger:hover,
+.tasks-priority-table .fv-task-priority .fv-select-trigger[aria-expanded=true]{
+  border-color:var(--task-accent);
+  background:color-mix(in srgb,var(--task-accent) 17%,var(--surface,#152239))
+}
+.fv-type-priority .fv-priority-art{color:var(--task-priority-color,#8fb3ff);border-color:color-mix(in srgb,var(--task-priority-color,#8fb3ff) 36%,var(--line));background:color-mix(in srgb,var(--task-priority-color,#8fb3ff) 13%,var(--surface2))}
+.fv-type-priority .fv-priority-art[data-priority=urgent],
+.fv-dropdown-priority .fv-priority-art[data-priority=urgent]{--task-priority-color:#ff687e}
+.fv-type-priority .fv-priority-art[data-priority=high],
+.fv-dropdown-priority .fv-priority-art[data-priority=high]{--task-priority-color:#ffb064}
+.fv-type-priority .fv-priority-art[data-priority=normal],
+.fv-dropdown-priority .fv-priority-art[data-priority=normal]{--task-priority-color:#83a9ff}
+.fv-type-priority .fv-priority-art[data-priority=low],
+.fv-dropdown-priority .fv-priority-art[data-priority=low]{--task-priority-color:#68c9a7}
+.fv-type-priority .fv-priority-art[data-priority=all],
+.fv-dropdown-priority .fv-priority-art[data-priority=all]{--task-priority-color:#a0b1c9}
+.fv-dropdown-priority .fv-priority-art{color:var(--task-priority-color);border-color:color-mix(in srgb,var(--task-priority-color) 35%,var(--line));background:color-mix(in srgb,var(--task-priority-color) 15%,var(--surface2))}
+.fv-dropdown-priority .fv-dropdown-option.selected{background:color-mix(in srgb,var(--lime) 10%,var(--surface))}
+.fv-type-priority .fv-select-trigger .fv-option-name{font-size:11px}
+@media(max-width:760px){
+  .my-priority-toolbar{align-items:flex-start;flex-direction:column}
+  .my-priority-actions{justify-content:flex-start;width:100%}
+  .my-priority-toolbar .fv-priority-filter{width:min(230px,100%)}
+}
+body[data-theme=light] .tasks-priority-table tbody tr.priority-urgent,
+body[data-theme=silver] .tasks-priority-table tbody tr.priority-urgent{--task-accent:#d74956}
+body[data-theme=light] .tasks-priority-table tbody tr.priority-high,
+body[data-theme=silver] .tasks-priority-table tbody tr.priority-high{--task-accent:#bf791f}
+body[data-theme=light] .tasks-priority-table tbody tr.priority-normal,
+body[data-theme=silver] .tasks-priority-table tbody tr.priority-normal{--task-accent:#456fbb}
+body[data-theme=light] .tasks-priority-table tbody tr.priority-low,
+body[data-theme=silver] .tasks-priority-table tbody tr.priority-low{--task-accent:#248266}
