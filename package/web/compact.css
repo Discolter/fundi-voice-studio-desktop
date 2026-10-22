@@ -303,5 +303,9 @@ body[data-theme=silver] .search kbd{color:#40566c;border-color:#a6b2c0}
 .studio-vacation-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:11px}
 .studio-vacation-card>div:first-child{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.studio-vacation-card strong{font-size:14px}.studio-vacation-card small{color:var(--muted)}
 .studio-vacation-card>.studio-vacation-tag{margin-top:10px}.studio-vacation-card p{color:var(--muted);font-size:12px;margin:9px 0 0;overflow-wrap:anywhere}.studio-vacation-card .studio-vacation-reason{color:var(--text);white-space:pre-wrap}
+.studio-vacation-picked{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface2)}
+.studio-vacation-picked .actor-pick-avatar{width:36px;height:36px;flex:0 0 36px}
+.studio-vacation-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.studio-vacation-actions .btn{font-size:11px}
 .studio-vacation-error,.studio-vacation-empty{padding:16px;border:1px solid var(--border);border-radius:10px;margin-top:16px}
 @media(max-width:730px){.studio-vacation-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.studio-vacation-stats>div{padding:10px}.studio-vacation-stats strong{font-size:23px}.studio-refresh-button{padding:7px}.studio-refresh-button span{display:none}}
