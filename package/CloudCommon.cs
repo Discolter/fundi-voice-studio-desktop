@@ -131,6 +131,9 @@ namespace FundiVoice.Desktop {
                 bool enabled=JsonData.B(actor.Value,"actorAccess");
                 roles[actor.Key].Sort(delegate(object a,object b){return String.CompareOrdinal(S(JsonData.D(a),"roleId"),S(JsonData.D(b),"roleId"));});
                 result.Add(new Dictionary<string,object>{{"actorId",actor.Key},{"enabled",enabled},
+                    {"profile",new Dictionary<string,object>{
+                        {"name",S(actor.Value,"name")},{"telegram",S(actor.Value,"telegram")},
+                        {"avatar",S(actor.Value,"avatarPreview")}}},
                     {"feed",enabled?new Dictionary<string,object>{{"version",1},{"actorId",actor.Key},{"roles",roles[actor.Key].ToArray()}}:null}});
             }
             return result.ToArray();
