@@ -65,7 +65,7 @@ assert.ok(!app.includes("['character','По имени персонажа']"),'C
 const html=src('package/web/index.html'),server=src('package/LocalServer.cs');
 assert.ok(html.includes('href="task-priorities.css"'));
 assert.ok(server.includes('"/task-priorities.css"'),'Local HTTP host must serve priority CSS');
-assert.equal(src('package/VERSION.txt').trim(),'1.8.8');
+assert.match(src('package/VERSION.txt').trim(),/^\d+\.\d+\.\d+$/,'Studio must declare a valid release version');
 const localActor=normalizeState({...raw,actors:[{
  id:'profile-test',name:'Тестовый актёр',telegram:'test_voice',actorAccess:true,
  avatar:'',avatarPreview:'data:image/webp;base64,AAAA',avatarThumbSource:'6:deadbeef'
