@@ -9,8 +9,10 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     'not-in-project':'reaper', prep:'folder', edit:'edit', mix:'settings',
     review:'search', accepted:'check', note:'chat'
   };
-  const sortIcons = {original:'list',workload:'users',actor:'users',
+  const sortIcons = {original:'list',workload:'users',actor:'users',character:'sort',
     recent:'clock',due:'calendar',name:'list'};
+  const priorityIcons = {all:'grid',urgent:'bell',high:'arrow',normal:'list',low:'clock'};
+  const priorityDetails = {all:'Все поручения',urgent:'Сделать как можно скорее',high:'Высокая срочность',normal:'Стандартный приоритет',low:'Можно выполнить позже'};
   const detailText = {
     waiting:'Ожидаем запись актёра',recording:'Актёр работает над ролью',
     received:'Запись отправлена в студию',processing:'Идёт обработка аудио',
@@ -18,7 +20,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     done:'Работа принята',accepted:'Работа принята',note:'Замечание актёру',
     all:'Показать все варианты','not-in-project':'Не добавлено в проект REAPER',
     original:'Исходная последовательность',workload:'Сначала самые загруженные',
-    actor:'Сортировка по алфавиту',recent:'Недавно открытые проекты',
+    actor:'По имени актёра',character:'От А до Я по персонажам',recent:'Недавно открытые проекты',
     due:'Ближайшие сроки первыми',name:'По алфавиту'
   };
   let openDropdown = null;
@@ -31,6 +33,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     return node;
   };
   function kind(select) {
+    if(select.id === 'task-priority-filter' || select.classList.contains('task-priority-select') || select.name === 'priority' && select.options.length === 4) return 'priority';
     if(select.id === 'role-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
     if(select.id === 'role-order' || select.id === 'sort-select') return 'sort';
     if(select.id === 'role-filter' || select.id === 'debt-status-filter' ||
@@ -63,7 +66,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
         count:count?.[1] || '', actor, value
       };
     }
-    return {label,subtitle:detailText[value] || '',count:'',actor:null,value};
+    return {label,subtitle:type==='priority'?priorityDetails[value] || '':detailText[value] || '',count:'',actor:null,value};
   }
   function artFor(detail, type) {
     const art = element('span','fv-option-art');
@@ -71,6 +74,10 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
       art.classList.add('fv-actor-art');
       if(detail.actor) art.innerHTML = actorAvatar(detail.actor);
       else art.innerHTML = icon(detail.value === 'all' || detail.value === 'unassigned' ? 'users' : 'users');
+    } else if(type === 'priority') {
+      art.classList.add('fv-priority-art');
+      art.dataset.priority = detail.value;
+      art.innerHTML = icon(priorityIcons[detail.value] || 'list');
     } else if(type === 'status' || roleStages.has(detail.value)) {
       art.classList.add('fv-status-art');
       art.dataset.status = detail.value;
@@ -86,7 +93,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     content.append(artFor(d,type));
     const words = element('span','fv-option-words');
     words.append(element('strong','fv-option-name',d.label));
-    if(!condensed && (type === 'actor' || type === 'status' || type === 'sort') && d.subtitle)
+    if(!condensed && (type === 'actor' || type === 'status' || type === 'sort' || type === 'priority') && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
     if(condensed && type === 'actor' && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
@@ -114,6 +121,8 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     if(select.id === 'episode-select') wrapper.classList.add('fv-episode-select');
     if(select.id === 'role-actor-filter') wrapper.classList.add('fv-role-actor-filter');
     if(select.id === 'role-order') wrapper.classList.add('fv-role-order');
+    if(select.classList.contains('task-priority-select')) wrapper.classList.add('fv-task-priority');
+    if(select.id === 'task-priority-filter') wrapper.classList.add('fv-priority-filter');
     const button = element('button','fv-select-trigger');
     button.type = 'button';
     button.setAttribute('aria-haspopup','dialog');
@@ -135,6 +144,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
       button.insertAdjacentHTML('beforeend',icon('chevron'));
       button.disabled = select.disabled;
       if(type === 'status') button.dataset.status = option?.value || '';
+      if(type === 'priority') button.dataset.priority = option?.value || '';
     };
     redraw();
     select.addEventListener('change',redraw);
