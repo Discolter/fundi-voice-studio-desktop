@@ -91,6 +91,22 @@ function renderCard(p){
   const ep=currentEpisode(p),ready=ep.roles.filter(r=>r.inProject).length;
   return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,ep))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button></div><div class="card-stage">${badge(ep)}${ep.roles.length?`<span class="progress-text">${ready}/${ep.roles.length} в REAPER</span>`:''}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div><div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
 }
+// Collapsible project strips, retaining all existing role cards and their project actions.
+let myRolesExpanded=null;
+function groupedMyRoles(roles){
+  const groups=new Map();
+  for(const entry of roles){
+    if(!groups.has(entry.p.id))groups.set(entry.p.id,{p:entry.p,items:[]});
+    groups.get(entry.p.id).items.push(entry);
+  }
+  return `<div class="my-role-project-groups">${[...groups.values()].map(({p,items},index)=>{
+    const isOpen=myRolesExpanded===null?index===0:myRolesExpanded.has(p.id);
+    return `<details class="my-role-project-group" data-my-role-group="${e(p.id)}" ${isOpen?'open':''}>
+      <summary class="my-role-group-summary">${projectArt(p)}<span class="my-role-group-caption"><strong>${e(p.title)}</strong><small>${items.length} ${items.length===1?'роль':'ролей'}${p.archived?' · Архив':''} · Нажми, чтобы ${isOpen?'свернуть':'развернуть'}</small></span><span class="my-role-group-count">${items.length}</span>${icon('chevron')}</summary>
+      <div class="my-role-group-body"><div class="my-roles-grid">${items.map(({p,ep,r})=>`<article class="my-role-card ${p.archived?'my-role-archived':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3>${e(r.character)}</h3><button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><span class="my-reaper-indicator ${r.inProject?'ready':''}">${icon(r.inProject?'check':'clock')}${r.inProject?'В REAPER':'Не в REAPER'}</span><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div></div>
+    </details>`;
+  }).join('')}</div>`;
+}
 function renderMyTasks(){
   const roles=myRoleRows(state,{query:ui.query});
   const tasks=taskRows(state,{query:ui.query,includeArchived:true,priority:ui.taskPriority||'all',order:'priority'});
@@ -103,10 +119,10 @@ function renderMyTasks(){
   if(!roles.length){
     html+=`<div class="my-empty">${icon('mic')}<strong>${ui.query?'Роли не найдены':'Пока нет назначенных ролей'}</strong><p>${ui.query?'Попробуй другой запрос.':'Укажи @Discolter в карточке актёра и назначь его на персонажей. Роли также появятся здесь, если отметить их как «Моя роль».'}</p><button class="btn ghost small" data-nav="actors">${icon('users')}Открыть актёров</button></div>`;
   }else{
-    html+=`<div class="my-roles-grid">${roles.map(({p,ep,r})=>`<article class="my-role-card ${p.archived?'my-role-archived':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3>${e(r.character)}</h3><button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><span class="my-reaper-indicator ${r.inProject?'ready':''}">${icon(r.inProject?'check':'clock')}${r.inProject?'В REAPER':'Не в REAPER'}</span><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div>`;
+    html+=groupedMyRoles(roles);
   }
   html+=`<div class="panel-head my-section-head my-priority-toolbar"><h2>Мои поручения <span class="my-section-count">${tasks.length}</span></h2><div class="my-priority-actions"><label class="my-priority-label" for="task-priority-filter">Приоритет</label><select id="task-priority-filter" aria-label="Фильтр поручений по приоритету">${options([['all','Все приоритеты'],...TASK_PRIORITIES],ui.taskPriority||'all')}</select><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div></div>`;
-  html+=tasksTable(tasks,true)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||ui.taskPriority!=='all'?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.taskPriority!=='all'?'По этому приоритету поручений нет. Выбери «Все приоритеты».':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`;
+  html+='<div class="my-priority-table">'+(tasksTable(tasks,true)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||ui.taskPriority!=='all'?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.taskPriority!=='all'?'По этому приоритету поручений нет. Выбери «Все приоритеты».':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
   return html;
 }
 
@@ -922,6 +938,8 @@ async function action(a,d,el){
   }
 }
 document.addEventListener('click',event=>{
+  const mySummary=event.target.closest('.my-role-project-group > summary');
+  if(mySummary){if(myRolesExpanded===null)myRolesExpanded=new Set([...document.querySelectorAll('.my-role-project-group[open]')].map(group=>group.dataset.myRoleGroup));const id=mySummary.parentElement.dataset.myRoleGroup;if(myRolesExpanded.has(id))myRolesExpanded.delete(id);else myRolesExpanded.add(id);}
   if(!event.target.closest('.actor-picker'))closeActorPickers();
   const el=event.target.closest('[data-action],[data-nav],[data-mode],[data-filter],[data-tab]');if(!el)return;event.preventDefault();event.stopPropagation();
   if(el.dataset.nav){navigate(el.dataset.nav);return;}
