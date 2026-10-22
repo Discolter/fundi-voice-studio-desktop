@@ -277,6 +277,14 @@ function moveActorToGroup(id,cast,voice){
   const card=Array.from(app.querySelectorAll('[data-drag-actor]')).find(el=>el.dataset.dragActor===id);if(card){card.classList.add('actor-drop-flash');setTimeout(()=>card.classList.remove('actor-drop-flash'),700);}
   toast('Актёр перенесён');return true;
 }
+function actorRegistrationInfo(account, connection){
+  if(!connection.connected)return {state:'unknown',label:'Регистрация: неизвестна',hint:'Подключи Windows Studio к Fundi Voice Cloud, чтобы проверить регистрацию.'};
+  if(connection.error)return {state:'unknown',label:'Регистрация: нет связи',hint:'Не удалось обновить данные с сервера. Повтори синхронизацию.'};
+  if(!account)return {state:'unknown',label:'Регистрация: нет данных',hint:'Сначала опубликуй актёра на сервере и дождись синхронизации.'};
+  return account.registered===true
+    ? {state:'yes',label:'Зарегистрирован',hint:'Актёр создал учётную запись в Fundi Voice Actor.'}
+    : {state:'no',label:'Не зарегистрирован',hint:'Актёр ещё не активировал приглашение в Fundi Voice Actor.'};
+}
 function renderActorPortal(){
   const actors=[...(state.actors||[])].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
   const enabled=actors.filter(a=>a.actorAccess===true).length;
@@ -290,7 +298,8 @@ function renderActorPortal(){
   html+=`<div class="actor-cloud-grid">${filtered.map(a=>{
     const feed=actorPublicFeed(state,a.id,{preview:true});
     const account=(cloud.actors||[]).find(x=>x.actorId===a.id);
-    return `<article class="actor-cloud-card"><div class="actor-cloud-identity">${actorPickAvatar(a)}<div><strong>${e(a.name)}</strong>${vacationTag(a.id)}<small>${account?.registered?'Логин: '+e(account.username):a.telegram?'@'+e(a.telegram):'Аккаунт ещё не создан'}</small></div></div><div class="actor-cloud-card-bottom"><label class="actor-cloud-checkbox"><input type="checkbox" class="actor-access-toggle" data-actor="${e(a.id)}" ${a.actorAccess?'checked':''}><span>Доступ</span></label><button class="btn ghost small" data-action="actor-access-preview" data-actor="${e(a.id)}">Роли · ${feed.roles.length}</button><button class="btn primary small" data-action="cloud-invite" data-actor="${e(a.id)}" ${!a.actorAccess||!cloud.connected?'disabled':''}>Пригласить</button></div></article>`;
+    const registration=actorRegistrationInfo(account,{connected:native&&cloud.connected,error:cloud.error});
+    return `<article class="actor-cloud-card"><div class="actor-cloud-identity">${actorPickAvatar(a)}<div><strong>${e(a.name)}</strong>${vacationTag(a.id)}${a.telegram?`<small>@${e(a.telegram)}</small>`:''}<span class="actor-registration actor-registration-${registration.state}" title="${e(registration.hint)}">${e(registration.label)}</span>${registration.state==='yes'&&account.username?`<small>Логин Actor: @${e(account.username)}</small>`:''}</div></div><div class="actor-cloud-card-bottom"><label class="actor-cloud-checkbox"><input type="checkbox" class="actor-access-toggle" data-actor="${e(a.id)}" ${a.actorAccess?'checked':''}><span>Доступ</span></label><button class="btn ghost small" data-action="actor-access-preview" data-actor="${e(a.id)}">Роли · ${feed.roles.length}</button><button class="btn primary small" data-action="cloud-invite" data-actor="${e(a.id)}" ${!a.actorAccess||!cloud.connected?'disabled':''}>Пригласить</button></div></article>`;
   }).join('')||'<p class="muted">Актёры не найдены. Добавь актёра в базе или измени поиск.</p>'}</div>`;
   html+=`<p class="muted small">Актёр видит только свои роли. Выключение доступа вступит в силу после синхронизации.</p>`;
   return html;
