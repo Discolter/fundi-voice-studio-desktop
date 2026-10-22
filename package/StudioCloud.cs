@@ -18,6 +18,7 @@ namespace FundiVoice {
         bool conflict=false,busy=false;
         DateTime nextTry=DateTime.MinValue,lastStatus=DateTime.MinValue;
         object[] accounts=new object[0];
+        object[] sourceLinks=new object[0];
         public StudioCloud(string dataRoot){
             root=dataRoot;connectionFile=Path.Combine(root,"cloud.connection.bin");pendingFile=Path.Combine(root,"cloud.pending.json");setupFile=Path.Combine(root,"cloud.setup.bin");
             try{connection=PrivateFile.Read(connectionFile);}catch(CloudFault problem){error=problem.Message;}
@@ -35,7 +36,7 @@ namespace FundiVoice {
                 reviewApiAvailable=reviewApiAvailable,reviews=reviews,mailbox=mailbox.View(),
                 fileApiAvailable=fileApiAvailable,files=recordingFiles,usedBytes=usedBytes,quotaBytes=quotaBytes,fileError=fileError,unreadFiles=unreadFiles,transfer=transfers.View(),
                 vacations=vacationRows,vacationEvents=vacationEvents,vacationUnread=vacationUnread,
-                vacationApiAvailable=vacationApiAvailable,vacationError=vacationError};
+                vacationApiAvailable=vacationApiAvailable,vacationError=vacationError,sourceLinks=sourceLinks};
         }
         public void Queue(Dictionary<string,object> state){
             var actors=ActorProjection.Build(state);string digest=JsonData.Digest(JsonData.Json().Serialize(actors));
@@ -46,6 +47,23 @@ namespace FundiVoice {
                 JsonData.AtomicText(pendingFile,JsonData.Json().Serialize(pending));nextTry=DateTime.MinValue;
             }
         }
+        void RefreshSourceLinks(){
+            string server,token;
+            lock(gate){if(!Connected())return;server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");}
+            var data=CloudHttp.Request(server,"/v1/studio/source-links","GET",null,token);
+            lock(gate)sourceLinks=JsonData.A(data,"links");
+        }
+        public object EditSourceLink(string projectId,string episodeId,string url){
+            if(!System.Text.RegularExpressions.Regex.IsMatch(projectId??"",@"^[A-Za-z0-9_-]{1,128}$")||
+               !System.Text.RegularExpressions.Regex.IsMatch(episodeId??"",@"^[A-Za-z0-9_-]{1,128}$"))
+               throw new CloudFault(400,"invalid_episode","Выбери серию.");
+            string server,token;
+            lock(gate){if(!Connected())throw new CloudFault(409,"not_connected","Сначала подключи Fundi Voice Cloud.");server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");}
+            CloudHttp.Request(server,"/v1/studio/source-links/set","POST",new{projectId=projectId,episodeId=episodeId,url=url??""},token);
+            RefreshSourceLinks();
+            return Status();
+        }
+        public object SourceLinksNow(){RefreshSourceLinks();return Status();}
         public object NewSetupCode(bool renew){
             lock(gate){
                 if(renew)File.Delete(setupFile);
@@ -133,6 +151,7 @@ namespace FundiVoice {
                 lock(gate){accounts=JsonData.A(remote,"actors");reviews=JsonData.A(remote,"reviews");reviewApiAvailable=JsonData.B(remote,"reviewApiAvailable");lastStatus=DateTime.UtcNow;error="";nextTry=DateTime.MinValue;}
                 RefreshFiles(false);
                 RefreshVacations(force);
+                try{RefreshSourceLinks();}catch(CloudFault){}
                 if(notification!=null&&Notify!=null)Notify(notification);
             }
             catch(CloudFault problem){
@@ -170,7 +189,7 @@ namespace FundiVoice {
         public object DeleteMessage(long id){mailbox.DeleteNotifications(new long[]{id});ThreadPool.QueueUserWorkItem(delegate{Sync(false);});return Status();}
         public object ClearMessages(){mailbox.DeleteAllNotifications();ThreadPool.QueueUserWorkItem(delegate{Sync(false);});return Status();}
         public object DismissFailures(){mailbox.DismissFailures();return Status();}
-        public object Disconnect(){lock(syncGate)lock(gate){if(transfers.Busy)throw new CloudFault(409,"transfer_busy","Дождись завершения скачивания или отмени его.");recordingFiles=new object[0];fileApiAvailable=false;fileError="";usedBytes=0;connection=new Dictionary<string,object>();File.Delete(connectionFile);error="";conflict=false;accounts=new object[0];reviews=new object[0];reviewApiAvailable=false;vacationRows=new object[0];vacationEvents=new object[0];vacationUnread=0;vacationApiAvailable=false;vacationError="";return Status();}}
+        public object Disconnect(){lock(syncGate)lock(gate){if(transfers.Busy)throw new CloudFault(409,"transfer_busy","Дождись завершения скачивания или отмени его.");recordingFiles=new object[0];fileApiAvailable=false;fileError="";usedBytes=0;connection=new Dictionary<string,object>();File.Delete(connectionFile);error="";conflict=false;accounts=new object[0];reviews=new object[0];reviewApiAvailable=false;vacationRows=new object[0];vacationEvents=new object[0];vacationUnread=0;vacationApiAvailable=false;vacationError="";sourceLinks=new object[0];return Status();}}
         public void Dispose(){if(timer!=null)timer.Dispose();transfers.Dispose();}
     }
 }
