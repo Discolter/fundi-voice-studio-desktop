@@ -39,6 +39,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Desktop browser JavaScript syntax failed' }
           node --check ./package/web/app.js
           if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
+          node --check ./package/web/visual-selects.js
+          if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
       - name: Validate code and compile C#
         shell: pwsh
         run: |
