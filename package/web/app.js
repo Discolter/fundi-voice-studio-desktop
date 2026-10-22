@@ -91,6 +91,22 @@ function renderCard(p){
   const ep=currentEpisode(p),ready=ep.roles.filter(r=>r.inProject).length;
   return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,ep))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button></div><div class="card-stage">${badge(ep)}${ep.roles.length?`<span class="progress-text">${ready}/${ep.roles.length} в REAPER</span>`:''}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div><div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
 }
+// Collapsible project strips, retaining all existing role cards and their project actions.
+let myRolesExpanded=null;
+function groupedMyRoles(roles){
+  const groups=new Map();
+  for(const entry of roles){
+    if(!groups.has(entry.p.id))groups.set(entry.p.id,{p:entry.p,items:[]});
+    groups.get(entry.p.id).items.push(entry);
+  }
+  return `<div class="my-role-project-groups">${[...groups.values()].map(({p,items},index)=>{
+    const isOpen=myRolesExpanded===null?index===0:myRolesExpanded.has(p.id);
+    return `<details class="my-role-project-group" data-my-role-group="${e(p.id)}" ${isOpen?'open':''}>
+      <summary class="my-role-group-summary">${projectArt(p)}<span class="my-role-group-caption"><strong>${e(p.title)}</strong><small>${items.length} ${items.length===1?'роль':'ролей'}${p.archived?' · Архив':''} · Нажми, чтобы ${isOpen?'свернуть':'развернуть'}</small></span><span class="my-role-group-count">${items.length}</span>${icon('chevron')}</summary>
+      <div class="my-role-group-body"><div class="my-roles-grid">${items.map(({p,ep,r})=>`<article class="my-role-card ${p.archived?'my-role-archived':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3>${e(r.character)}</h3><button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><span class="my-reaper-indicator ${r.inProject?'ready':''}">${icon(r.inProject?'check':'clock')}${r.inProject?'В REAPER':'Не в REAPER'}</span><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div></div>
+    </details>`;
+  }).join('')}</div>`;
+}
 function renderMyTasks(){
   const roles=myRoleRows(state,{query:ui.query});
   const tasks=taskRows(state,{query:ui.query,includeArchived:true,priority:ui.taskPriority||'all',order:'priority'});
@@ -103,10 +119,10 @@ function renderMyTasks(){
   if(!roles.length){
     html+=`<div class="my-empty">${icon('mic')}<strong>${ui.query?'Роли не найдены':'Пока нет назначенных ролей'}</strong><p>${ui.query?'Попробуй другой запрос.':'Укажи @Discolter в карточке актёра и назначь его на персонажей. Роли также появятся здесь, если отметить их как «Моя роль».'}</p><button class="btn ghost small" data-nav="actors">${icon('users')}Открыть актёров</button></div>`;
   }else{
-    html+=`<div class="my-roles-grid">${roles.map(({p,ep,r})=>`<article class="my-role-card ${p.archived?'my-role-archived':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3>${e(r.character)}</h3><button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><span class="my-reaper-indicator ${r.inProject?'ready':''}">${icon(r.inProject?'check':'clock')}${r.inProject?'В REAPER':'Не в REAPER'}</span><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div>`;
+    html+=groupedMyRoles(roles);
   }
   html+=`<div class="panel-head my-section-head my-priority-toolbar"><h2>Мои поручения <span class="my-section-count">${tasks.length}</span></h2><div class="my-priority-actions"><label class="my-priority-label" for="task-priority-filter">Приоритет</label><select id="task-priority-filter" aria-label="Фильтр поручений по приоритету">${options([['all','Все приоритеты'],...TASK_PRIORITIES],ui.taskPriority||'all')}</select><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div></div>`;
-  html+=tasksTable(tasks,true)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||ui.taskPriority!=='all'?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.taskPriority!=='all'?'По этому приоритету поручений нет. Выбери «Все приоритеты».':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`;
+  html+='<div class="my-priority-table">'+(tasksTable(tasks,true)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||ui.taskPriority!=='all'?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.taskPriority!=='all'?'По этому приоритету поручений нет. Выбери «Все приоритеты».':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
   return html;
 }
 
@@ -159,7 +175,7 @@ function episodeUnassignedList(ep){
     const actorUsername=String(account?.username||'').trim().replace(/^@/,'');
     const telegram=cleanTelegram(actor.telegram||'');
     const label=actorUsername?'Actor @'+actorUsername+(telegram&&telegram.toLocaleLowerCase('ru')!==actorUsername.toLocaleLowerCase('ru')?' · TG @'+telegram:''):telegram?'@'+telegram:'Юзернейм не указан';
-    return `<div class="episode-unassigned-person" role="listitem" data-unassigned-search="${e([actor.name,actorUsername,telegram].join(' ').toLocaleLowerCase('ru'))}">${actorPickAvatar(actor)}<span class="episode-unassigned-person-copy"><strong>${e(actor.name)}</strong><small>${e(label)}</small></span>${activeVacation(actor.id)?`<span class="episode-unassigned-vacation" title="Актёр сейчас в отпуске">Отпуск</span>`:''}</div>`;
+    return `<div class="episode-unassigned-person ${vacationFor(actor.id)?'on-vacation':''}" role="listitem" data-unassigned-search="${e([actor.name,actorUsername,telegram].join(' ').toLocaleLowerCase('ru'))}">${actorPickAvatar(actor)}<span class="episode-unassigned-person-copy"><strong>${e(actor.name)}</strong><small>${e(label)}</small></span>${vacationFor(actor.id)?`<span class="episode-unassigned-vacation" title="${activeVacation(actor.id)?'Недоступен для назначения новых ролей':'Отпуск запланирован'}">${activeVacation(actor.id)?'⛔ В отпуске':'Отпуск скоро'}</span>`:''}</div>`;
   }).join('');
   return `<details class="episode-unassigned-dropdown">
     <summary aria-label="Показать актёров без назначений в текущей серии">${icon('users')}<span>Не задействованы</span><b>${available.length}</b>${icon('chevron')}</summary>
@@ -211,7 +227,7 @@ function fillActorPicker(picker,query=''){
   const q=query.trim().toLocaleLowerCase('ru');
   const found=(state.actors||[]).filter(a=>`${a.name} ${a.telegram||''}`.toLocaleLowerCase('ru').includes(q));
   const max=200;
-  const makeCard=a=>`<button type="button" class="actor-picker-option ${activeVacation(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${activeVacation(a.id)?' · В отпуске — недоступен':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${activeVacation(a.id)?'В отпуске — недоступен':a.telegram?'@'+e(a.telegram):'Без Telegram'}</small></span></button>`;
+  const makeCard=a=>`<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${activeVacation(a.id)?' · В отпуске — недоступен':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${activeVacation(a.id)?'⛔ В отпуске — недоступен':vacationFor(a.id)?'Отпуск запланирован':a.telegram?'@'+e(a.telegram):'Без Telegram'}</small></span></button>`;
   const groups=CAST_GROUPS.map(([cast,label])=>{
     const members=found.filter(a=>(a.castGroup||'')===cast);
     if(!members.length)return '';
@@ -376,10 +392,10 @@ function renderVacations(){
   html+=`<div class="studio-vacation-stats"><div><strong>${active.length}</strong><span>В отпуске</span></div><div><strong>${planned.length}</strong><span>Запланировано</span></div><div><strong>${cloud.vacationUnread||0}</strong><span>Новых событий</span></div></div>`;
   const names={active:'В отпуске',planned:'Запланирован',completed:'Завершён',ended:'Досрочный возврат',cancelled:'Отменён'};
   const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('ru-RU'):'Срок неизвестен';
-  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:''}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
+  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
   html+=section('Сейчас в отпуске',active)+section('Предстоящие отпуска',planned);
   const types={planned:'Отпуск запланирован',started:'Отпуск начался',updated:'Отпуск обновлён',cancelled:'Отпуск отменён',returned:'Отпуск завершён'};
-  html+=`<section class="studio-vacation-section"><h2>Изменения<span>${cloud.vacationUnread||0} новых</span></h2>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}</article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</section>`;
+  html+=`<section class="studio-vacation-section"><h2>Изменения<span>${cloud.vacationUnread||0} новых</span></h2>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</section>`;
   html+=section('История отпусков',rows.filter(v=>!['active','planned'].includes(v.status)).slice(0,50));
   html+='<p class="muted small">Причины видны только руководителю и самому актёру. Отпуск может назначить руководитель даже без регистрации актёра. После входа в Actor актёр увидит отпуск и сможет его изменить или завершить. Назначенные ранее роли не исчезают; актёров в отпуске нельзя выбрать для новых ролей.</p>';
   return html;
@@ -785,6 +801,25 @@ async function action(a,d,el){
     case 'studio-vacation-new':studioVacationForm();break;
     case 'studio-vacation-edit':studioVacationForm(d.actor);break;
     case 'studio-vacation-end':await studioVacationEnd(d.actor);break;
+    case 'studio-vacation-delete-event':{
+      const event=(cloud.vacationEvents||[]).find(item=>String(item.id)===String(d.event));
+      if(!event)break;
+      confirmAction('Удалить событие отпуска?','Уведомление о событии исчезнет из облачной истории. Сам отпуск и доступность актёра не изменятся. Отменить удаление нельзя.','Удалить навсегда',async()=>{
+        cloud=await api('cloud/vacations/delete',{kind:'event',value:String(event.id)});
+        toast('Событие удалено с сервера');
+      });
+      break;
+    }
+    case 'studio-vacation-delete-history':{
+      const item=(cloud.vacations||[]).find(v=>v.vacationId===d.vacation);
+      if(!item||['active','planned'].includes(item.status)){toast('Сначала заверши действующий отпуск.',true);break;}
+      const actor=state.actors.find(a=>a.id===item.actorId);
+      confirmAction('Удалить историю отпуска?',`Запись об отпуске <strong>${e(actor?.name||item.username||'актёра')}</strong> и связанные с ней события будут навсегда удалены с сервера и из истории Actor. Действующие назначения ролей не изменятся.`,'Удалить навсегда',async()=>{
+        cloud=await api('cloud/vacations/delete',{kind:'history',value:item.vacationId});
+        toast('История отпуска удалена');
+      });
+      break;
+    }
     case 'studio-vacation-read':cloud=await api('cloud/vacations/events/read',{ids:[Number(d.event)]});render();toast('Событие отмечено прочитанным');break;
     case 'role-recordings':{
       const role=ep?.roles.find(r=>r.id===d.item);if(role)await showStudioFiles({roleId:role.id,actorId:role.actorId,title:role.character+' · '+p.title+' · '+episodeLabel(p,ep)});break;
@@ -922,6 +957,8 @@ async function action(a,d,el){
   }
 }
 document.addEventListener('click',event=>{
+  const mySummary=event.target.closest('.my-role-project-group > summary');
+  if(mySummary){if(myRolesExpanded===null)myRolesExpanded=new Set([...document.querySelectorAll('.my-role-project-group[open]')].map(group=>group.dataset.myRoleGroup));const id=mySummary.parentElement.dataset.myRoleGroup;if(myRolesExpanded.has(id))myRolesExpanded.delete(id);else myRolesExpanded.add(id);}
   if(!event.target.closest('.actor-picker'))closeActorPickers();
   const el=event.target.closest('[data-action],[data-nav],[data-mode],[data-filter],[data-tab]');if(!el)return;event.preventDefault();event.stopPropagation();
   if(el.dataset.nav){navigate(el.dataset.nav);return;}
@@ -999,5 +1036,5 @@ async function boot(){
     }if(!saveError){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
   }catch(err){app.innerHTML=`<div class="boot"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><p>Не удалось загрузить данные студии.</p><p class="small muted">${e(err.message)}</p><div class="btn-row"><button class="btn ghost" id="download-broken">Скачать сохранённые данные</button><button class="btn primary" id="recover-start">Открыть пустую студию</button></div><p class="small muted">Перед новым стартом сохрани текущие данные.</p></div>`;document.querySelector('#download-broken').onclick=()=>{const blob=new Blob([localStorage.getItem(STORAGE)||'{}'],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Fundi-Voice-recovery.json';a.click();};document.querySelector('#recover-start').onclick=()=>{state=seedState();saveError='';render();persist();};}
 }
-installVisualSelects({getActors:()=>state?.actors||[],actorAvatar:actorPickAvatar,icon});
+installVisualSelects({getActors:()=>state?.actors||[],getVacation:vacationFor,actorAvatar:actorPickAvatar,icon});
 boot();

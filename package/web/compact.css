@@ -309,3 +309,39 @@ body[data-theme=silver] .search kbd{color:#40566c;border-color:#a6b2c0}
 .studio-vacation-actions .btn{font-size:11px}
 .studio-vacation-error,.studio-vacation-empty{padding:16px;border:1px solid var(--border);border-radius:10px;margin-top:16px}
 @media(max-width:730px){.studio-vacation-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.studio-vacation-stats>div{padding:10px}.studio-vacation-stats strong{font-size:23px}.studio-refresh-button{padding:7px}.studio-refresh-button span{display:none}}
+
+
+/* My roles: expandable anime strips, same actionable role cards inside. */
+.my-role-project-groups{display:flex;flex-direction:column;gap:12px}
+.my-role-project-group{border:1px solid var(--line);border-radius:13px;background:var(--panel2);overflow:hidden}
+.my-role-group-summary{display:flex;gap:14px;align-items:center;min-height:79px;padding:12px 18px;cursor:pointer;list-style:none;transition:background .18s,border-color .18s}
+.my-role-group-summary::-webkit-details-marker{display:none}
+.my-role-group-summary:hover,.my-role-project-group[open]>.my-role-group-summary{background:color-mix(in srgb,var(--lime) 6%,var(--panel2))}
+.my-role-group-summary:focus-visible{outline:2px solid var(--lime);outline-offset:-3px}
+.my-role-group-summary .project-poster,.my-role-group-summary .mini-emblem{width:48px;height:57px;flex:0 0 48px;border-radius:8px;object-fit:cover;overflow:hidden}
+.my-role-group-caption{display:flex;flex:1;min-width:0;flex-direction:column;gap:6px}
+.my-role-group-caption strong{font-size:16px;font-weight:700;line-height:1.3;color:var(--text)}
+.my-role-group-caption small{font-size:12px;line-height:1.3;color:var(--muted)}
+.my-role-group-count{padding:4px 10px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px;font-weight:650}
+.my-role-group-summary>.icon{flex-shrink:0;width:18px;height:18px;color:var(--muted);transform:rotate(90deg);transition:transform .2s}
+.my-role-project-group[open]>.my-role-group-summary>.icon{transform:rotate(-90deg)}
+.my-role-group-body{padding:16px;border-top:1px solid var(--line)}
+.my-role-group-body .my-roles-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.my-role-group-body .my-role-card{background:var(--surface);min-height:207px}
+.my-role-group-body .my-role-card:hover{transform:none}
+.my-priority-table .tasks-priority-table .task-row-title{font-size:15px;font-weight:700;line-height:1.5;letter-spacing:0}
+.my-priority-table .tasks-priority-table tbody td:nth-child(3) .text-button{font-size:14px;font-weight:600;line-height:1.45;text-align:left}
+.my-priority-table .tasks-priority-table tbody td:nth-child(3) .table-sub{font-size:12px;line-height:1.4}
+.my-priority-table .tasks-priority-table tbody td:nth-child(2){min-width:250px}
+@media(max-width:1250px){.my-role-group-body .my-roles-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.my-role-group-body .my-roles-grid{grid-template-columns:1fr}.my-role-group-summary{padding:10px 13px}.my-role-group-body{padding:11px}.my-role-group-caption strong{font-size:14px}}
+/* Vacations visible directly in all actor pickers. */
+.actor-picker-option.on-vacation{opacity:1;border-color:color-mix(in srgb,#e46f78 45%,var(--line));background:color-mix(in srgb,#c14b55 10%,var(--surface))}
+.actor-picker-option.on-vacation .actor-picker-option-text small{color:#ffadb5;font-size:11px;font-weight:650}
+.episode-unassigned-person.on-vacation{border-color:color-mix(in srgb,#e46f78 38%,var(--line));background:color-mix(in srgb,#c14b55 9%,var(--surface))}
+.episode-unassigned-person.on-vacation .episode-unassigned-vacation{font-weight:700;color:#ffadb5}
+.fv-dropdown-option.on-vacation{border-color:color-mix(in srgb,#e46f78 35%,var(--line));background:color-mix(in srgb,#c14b55 9%,var(--surface))}
+.fv-dropdown-option.on-vacation .fv-option-subtitle{color:#ffadb5;font-size:11px;font-weight:700}
+.fv-dropdown-option.on-vacation .fv-option-name::after{content:' · В отпуске';color:#ff9da5;font-size:10px;font-weight:650}
+.studio-vacation-delete{margin-left:auto;color:#ff9da5!important;border-color:color-mix(in srgb,#c14b55 50%,var(--line))!important}
+.studio-vacation-card.event .studio-vacation-delete{margin-top:12px}

@@ -88,6 +88,28 @@ namespace FundiVoice {
             RefreshVacations(true);
             return Status();
         }
+        public object DeleteVacationRecord(string kind,string value){
+            string endpoint;object body;
+            if(kind=="event"){
+                long id;
+                if(!Int64.TryParse(value,out id)||id<=0)
+                    throw new CloudFault(400,"invalid_event","Некорректное событие.");
+                endpoint="/v1/studio/vacations/events/delete";body=new{id=id};
+            } else if(kind=="history"){
+                Guid id;
+                if(!Guid.TryParse(value,out id)||id==Guid.Empty)
+                    throw new CloudFault(400,"invalid_vacation","Некорректный отпуск.");
+                endpoint="/v1/studio/vacations/history/delete";body=new{vacationId=id};
+            } else throw new CloudFault(400,"invalid_kind","Можно удалять только прошлые события и завершённые отпуска.");
+            string server,token;
+            lock(gate){
+                if(!Connected())throw new CloudFault(409,"not_connected","Подключи Studio к облаку.");
+                server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");
+            }
+            CloudHttp.Request(server,endpoint,"POST",body,token);
+            RefreshVacations(true);
+            return Status();
+        }
         public object ReadVacationEvents(object[] rawIds){
             if(rawIds==null||rawIds.Length==0||rawIds.Length>100)
                 throw new CloudFault(400,"invalid_ids","Выбери от 1 до 100 событий.");
