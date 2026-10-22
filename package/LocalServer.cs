@@ -263,6 +263,7 @@ namespace FundiVoice {
 
         static void Route(NetworkStream stream, string method, string route, string raw) {
             if (method == "GET" && route == "info") { SendJson(stream,200,new { name="Fundi Voice", version="1.8.0", local=true }); return; }
+            if (method == "GET" && route == "update/check") { SendJson(stream,200,UpdateNotice.Check(Path.GetDirectoryName(WebRoot),"fundi-voice-studio-desktop","studio-update.json","studio-app.zip","FundiVoiceStudio.exe"));return; }
             if (method == "GET" && route == "cloud/status") { SendJson(stream,200,Cloud.Status());return; }
             if (method == "GET" && route == "state") {
                 lock (SaveLock) {
@@ -308,6 +309,7 @@ namespace FundiVoice {
                     SendJson(stream,200,result);return;
                 }catch(FundiVoice.Desktop.CloudFault problem){SendJson(stream,400,new{error=problem.Message,code=problem.Code});return;}
             }
+            if (route == "update/restart") { UpdateNotice.Restart(Path.GetDirectoryName(WebRoot),"FundiVoiceStudio.exe");SendJson(stream,200,new {restarting=true});Running=false;Listener.Stop();return; }
             if (route == "state") {
                 object projects;
                 if (S(dataBody,"schema") != "1" || !dataBody.TryGetValue("projects",out projects) || !(projects is object[])) throw new ArgumentException("Неверный формат рабочего пространства.");
