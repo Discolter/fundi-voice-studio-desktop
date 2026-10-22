@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const app=readFileSync('package/web/app.js','utf8'),core=readFileSync('package/web/core.js','utf8'),cloud=readFileSync('package/CloudCommon.cs','utf8');
+assert.match(app,/field\('Количество реплик'/);
+assert.match(app,/lineCountRaw===''/);
+assert.match(app,/lineCount,actorId/);
+assert.match(app,/role-line-count/);
+assert.match(core,/lineCount:Number\.isInteger/);
+assert.match(cloud,/RoleLineCount\(role\)/);
+assert.match(cloud,/\{"lineCount",RoleLineCount\(role\)\}/);
+console.log('PASS: Studio manual character counts survive save/normalize/cloud projection');
