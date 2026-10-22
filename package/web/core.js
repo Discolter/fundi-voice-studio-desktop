@@ -4,6 +4,9 @@ export const STAGES = [
   ['edit', 'Монтаж'], ['mix', 'Сведение'], ['review', 'Проверка'], ['done', 'Готово']
 ];
 export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['processed','Обработано'],['retake','На перезапись'],['done','Принято']];
+export const TASK_PRIORITIES = [['urgent','Срочно'],['high','Высокий'],['normal','Обычный'],['low','Низкий']];
+export const taskPriority = value => TASK_PRIORITIES.some(([key])=>key===value)?value:'normal';
+export const taskPriorityName = value => TASK_PRIORITIES.find(([key])=>key===taskPriority(value))[1];
 export const DEBT_STAGES = ['waiting','retake'];
 // Associate the last applied cloud review with the stored status. A director's manual
 // selection is authoritative until a NEW review/submission arrives from the server.
@@ -94,8 +97,9 @@ export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', 
   const rows=roles.filter(role=>(status==='all'||
       (status==='not-in-project'?!role.inProject:role.status===status))&&
       (actorKey==='all'||episodeRoleActorKey(state,role)===actorKey));
-  if(order==='workload'||order==='actor'){
+  if(order==='workload'||order==='actor'||order==='character'){
     rows.sort((a,b)=>{
+      if(order==='character')return a.character.localeCompare(b.character,'ru',{sensitivity:'base',numeric:true})||a.id.localeCompare(b.id);
       const keyA=episodeRoleActorKey(state,a),keyB=episodeRoleActorKey(state,b);
       const countOrder=order==='workload'?(counts.get(keyB)||0)-(counts.get(keyA)||0):0;
       const labelA=actorName(state,a)||'Без актёра';
@@ -180,7 +184,7 @@ export function normalizeState(raw) {
       for(const key of ['resources','tasks','roles']) if(ep[key] && (!Array.isArray(ep[key]) || ep[key].length>2000)) throw new Error('Слишком много записей в серии.');
       return {id:id(ep.id),number:num(ep.number),title:str(ep.title,120),stage:STAGES.some(s=>s[0]===ep.stage)?ep.stage:'unset',due:dateValue(ep.due),notes:str(ep.notes,12000),paths:Object.fromEntries(PATHS.map(([key])=>[key,str(ep.paths?.[key],2000)])),
         resources:(ep.resources||[]).map(r=>({id:id(r.id),kind:KINDS.some(k=>k[0]===r.kind)?r.kind:'source',label:str(r.label,200)||'Материал',path:str(r.path,2000),folder:!!r.folder})),
-        tasks:(ep.tasks||[]).map(t=>({id:id(t.id),title:str(t.title,500),done:!!t.done,mine:!!t.mine,due:dateValue(t.due)})).filter(t=>t.title.trim()),
+        tasks:(ep.tasks||[]).map(t=>({id:id(t.id),title:str(t.title,500),done:!!t.done,mine:!!t.mine,due:dateValue(t.due),priority:taskPriority(t.priority)})).filter(t=>t.title.trim()),
         roles:(ep.roles||[]).map(normalizeRole).filter(r=>r.character.trim())};
     })};
   }
@@ -259,12 +263,12 @@ export function actorPublicFeed(state, actorId, {preview=false}={}) {
 }
 // Common task projection: original episode records only; no duplicate rows or migrations.
 // includeArchived is enabled by the Studio personal dashboard to include every project.
-export function taskRows(state,{mine=false,query='',includeArchived=false}={}) {
+export function taskRows(state,{mine=false,query='',includeArchived=false,priority='all',order='due'}={}) {
   const q=query.trim().toLocaleLowerCase('ru');
   return state.projects.filter(p=>includeArchived||!p.archived)
     .flatMap(p=>p.episodes.flatMap(ep=>ep.tasks.map(t=>({p,ep,t}))))
-    .filter(({p,ep,t})=>(!mine||t.mine)&&`${p.title} ${episodeLabel(p,ep)} ${t.title}`.toLocaleLowerCase('ru').includes(q))
-    .sort((a,b)=>Number(a.t.done)-Number(b.t.done)||Number(a.p.archived)-Number(b.p.archived)||(a.t.due||'9999').localeCompare(b.t.due||'9999'));
+    .filter(({p,ep,t})=>(!mine||t.mine)&&(priority==='all'||taskPriority(t.priority)===priority)&&`${p.title} ${episodeLabel(p,ep)} ${t.title}`.toLocaleLowerCase('ru').includes(q))
+    .sort((a,b)=>Number(a.t.done)-Number(b.t.done)||(order==='priority'?TASK_PRIORITIES.findIndex(([key])=>key===taskPriority(a.t.priority))-TASK_PRIORITIES.findIndex(([key])=>key===taskPriority(b.t.priority)):0)||Number(a.p.archived)-Number(b.p.archived)||(a.t.due||'9999').localeCompare(b.t.due||'9999')||a.t.title.localeCompare(b.t.title,'ru'));
 }
 export function roleRows(state,{mine=false,query=''}={}) {
   return state.projects.filter(p=>!p.archived).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,r})=>(!mine||r.mine)&&(`${p.title} ${r.character} ${r.actor}`.toLowerCase().includes(query.toLowerCase())));
