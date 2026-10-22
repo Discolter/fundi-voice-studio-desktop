@@ -64,6 +64,30 @@ namespace FundiVoice {
                     (alerts.Count>1?". Ещё событий: "+(alerts.Count-1):""));
             }
         }
+        public object ManageVacation(string action, string actorId, string startDate, string endDate, string reason, string timeZone){
+            if(String.IsNullOrWhiteSpace(actorId)||actorId.Length>128||
+                !System.Text.RegularExpressions.Regex.IsMatch(actorId,@"^[A-Za-z0-9_-]+$"))
+                throw new CloudFault(400,"invalid_actor","Выбери актёра из базы Studio.");
+            if(action!="start"&&action!="update"&&action!="end")
+                throw new CloudFault(400,"invalid_action","Неизвестное действие с отпуском.");
+            string server,token;
+            lock(gate){
+                if(!Connected())throw new CloudFault(409,"not_connected","Подключи Studio к Fundi Voice Cloud.");
+                server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");
+            }
+            // Send any locally queued actor profiles first; no Actor account is necessary.
+            SyncNow(false);
+            string path="/v1/studio/actors/"+Uri.EscapeDataString(actorId)+"/vacation/"+action;
+            object body=action=="start"?
+                (object)new{startDate=startDate,endDate=String.IsNullOrEmpty(endDate)?null:endDate,
+                    reason=reason??"",timeZone=String.IsNullOrWhiteSpace(timeZone)?"Europe/Madrid":timeZone}:
+                action=="update"?
+                (object)new{endDate=String.IsNullOrEmpty(endDate)?null:endDate,reason=reason??""}:
+                new{};
+            CloudHttp.Request(server,path,"POST",body,token);
+            RefreshVacations(true);
+            return Status();
+        }
         public object ReadVacationEvents(object[] rawIds){
             if(rawIds==null||rawIds.Length==0||rawIds.Length>100)
                 throw new CloudFault(400,"invalid_ids","Выбери от 1 до 100 событий.");
