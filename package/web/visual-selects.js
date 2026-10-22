@@ -9,7 +9,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     'not-in-project':'reaper', prep:'folder', edit:'edit', mix:'settings',
     review:'search', accepted:'check', note:'chat'
   };
-  const sortIcons = {original:'list',workload:'users',actor:'users',character:'sort',
+  const sortIcons = {original:'list',workload:'users',actor:'users',
     recent:'clock',due:'calendar',name:'list'};
   const priorityIcons = {all:'grid',urgent:'bell',high:'arrow',normal:'list',low:'clock'};
   const priorityDetails = {all:'Все поручения',urgent:'Сделать как можно скорее',high:'Высокая срочность',normal:'Стандартный приоритет',low:'Можно выполнить позже'};
@@ -20,7 +20,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     done:'Работа принята',accepted:'Работа принята',note:'Замечание актёру',
     all:'Показать все варианты','not-in-project':'Не добавлено в проект REAPER',
     original:'Исходная последовательность',workload:'Сначала самые загруженные',
-    actor:'По имени актёра',character:'От А до Я по персонажам',recent:'Недавно открытые проекты',
+    actor:'По имени актёра',recent:'Недавно открытые проекты',
     due:'Ближайшие сроки первыми',name:'По алфавиту'
   };
   let openDropdown = null;
@@ -35,6 +35,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
   function kind(select) {
     if(select.id === 'task-priority-filter' || select.classList.contains('task-priority-select') || select.name === 'priority' && select.options.length === 4) return 'priority';
     if(select.id === 'role-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
+    if(select.id === 'role-character-filter') return 'character';
     if(select.id === 'role-order' || select.id === 'sort-select') return 'sort';
     if(select.id === 'role-filter' || select.id === 'debt-status-filter' ||
       select.classList.contains('role-status') || select.classList.contains('episode-stage') ||
@@ -66,6 +67,11 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
         count:count?.[1] || '', actor, value
       };
     }
+    if(type === 'character') {
+      const name=label.replace(/\s+\(\d+\)$/,'');
+      const count=label.match(/\((\d+)\)$/)?.[1] || '';
+      return {label:name,subtitle:value==='all'?'Показать роли всех персонажей':'Фильтр по персонажу',count,actor:null,value};
+    }
     return {label,subtitle:type==='priority'?priorityDetails[value] || '':detailText[value] || '',count:'',actor:null,value};
   }
   function artFor(detail, type) {
@@ -74,6 +80,9 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
       art.classList.add('fv-actor-art');
       if(detail.actor) art.innerHTML = actorAvatar(detail.actor);
       else art.innerHTML = icon(detail.value === 'all' || detail.value === 'unassigned' ? 'users' : 'users');
+    } else if(type === 'character') {
+      art.classList.add('fv-character-art');
+      art.innerHTML = icon(detail.value === 'all' ? 'grid' : 'star');
     } else if(type === 'priority') {
       art.classList.add('fv-priority-art');
       art.dataset.priority = detail.value;
@@ -93,7 +102,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     content.append(artFor(d,type));
     const words = element('span','fv-option-words');
     words.append(element('strong','fv-option-name',d.label));
-    if(!condensed && (type === 'actor' || type === 'status' || type === 'sort' || type === 'priority') && d.subtitle)
+    if(!condensed && (type === 'actor' || type === 'character' || type === 'status' || type === 'sort' || type === 'priority') && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
     if(condensed && type === 'actor' && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
@@ -120,6 +129,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
     if(select.classList.contains('role-status')) wrapper.classList.add('fv-role-status');
     if(select.id === 'episode-select') wrapper.classList.add('fv-episode-select');
     if(select.id === 'role-actor-filter') wrapper.classList.add('fv-role-actor-filter');
+    if(select.id === 'role-character-filter') wrapper.classList.add('fv-role-character-filter');
     if(select.id === 'role-order') wrapper.classList.add('fv-role-order');
     if(select.classList.contains('task-priority-select')) wrapper.classList.add('fv-task-priority');
     if(select.id === 'task-priority-filter') wrapper.classList.add('fv-priority-filter');
@@ -204,13 +214,13 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
         }
         if(!matches) list.append(element('p','fv-no-matches','Ничего не найдено'));
       }
-      if(type === 'actor' && selectOptions.length > 5) {
+      if((type === 'actor' || type === 'character') && selectOptions.length > 5) {
         const searchBox = element('div','fv-dropdown-search');
         searchBox.innerHTML = icon('search');
         searchField = element('input','fv-search-input');
         searchField.type = 'search';
-        searchField.placeholder = 'Поиск по нику или @username';
-        searchField.setAttribute('aria-label','Поиск актёра');
+        searchField.placeholder = type==='actor'?'Поиск по нику или @username':'Поиск персонажа';
+        searchField.setAttribute('aria-label',type==='actor'?'Поиск актёра':'Поиск персонажа');
         searchField.addEventListener('input',()=>drawItems(searchField.value));
         searchBox.append(searchField);
         menu.insertBefore(searchBox,list);
@@ -221,7 +231,7 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
       try { if(typeof menu.showPopover === 'function') menu.showPopover(); } catch {}
       const rect = button.getBoundingClientRect();
       const width = Math.min(window.innerWidth - 16,
-        Math.max(rect.width,type === 'actor' ? 340 : 260));
+        Math.max(rect.width,type === 'actor' ? 340 : type === 'character' ? 315 : 260));
       const left = Math.max(8,Math.min(rect.left,window.innerWidth - width - 8));
       const roomBelow = window.innerHeight - rect.bottom - 10;
       const above = roomBelow < 260 && rect.top > roomBelow;
