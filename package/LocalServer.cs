@@ -309,7 +309,17 @@ namespace FundiVoice {
                     SendJson(stream,200,result);return;
                 }catch(FundiVoice.Desktop.CloudFault problem){SendJson(stream,400,new{error=problem.Message,code=problem.Code});return;}
             }
-            if (route == "update/restart") { UpdateNotice.Restart(Path.GetDirectoryName(WebRoot),"FundiVoiceStudio.exe");SendJson(stream,200,new {restarting=true});Running=false;Listener.Stop();return; }
+            if (route == "update/restart") {
+                UpdateNotice.Restart(Path.GetDirectoryName(WebRoot),"FundiVoiceStudio.exe");
+                SendJson(stream,200,new {restarting=true});
+                // Let the HTTP response reach the app before closing its Edge window.
+                ThreadPool.QueueUserWorkItem(delegate {
+                    Thread.Sleep(250);
+                    try { UpdateNotice.CloseOldAppWindows(false); }
+                    finally { Running=false;try { Listener.Stop(); } catch {} }
+                });
+                return;
+            }
             if (route == "state") {
                 object projects;
                 if (S(dataBody,"schema") != "1" || !dataBody.TryGetValue("projects",out projects) || !(projects is object[])) throw new ArgumentException("Неверный формат рабочего пространства.");
