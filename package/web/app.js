@@ -569,9 +569,55 @@ function actorForm(id,castGroup='',voiceGroup=''){
     expandActorGroup(a);persist();modal.close();render();toast('Актёр сохранён');
   },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-actor" data-actor="${e(a.id)}">Удалить</button>`:''});
 }
+// Browser-generated small avatar preview for owner-only Studio Web.
+// Full local actor photos are never included in the shared cloud roster.
+let avatarPreviewRunning=false;
+function avatarSourceHash(source){
+  let hash=2166136261,step=Math.max(1,Math.floor(source.length/128));
+  for(let i=0;i<source.length;i+=step)hash=Math.imul(hash^source.charCodeAt(i),16777619);
+  return source.length+':'+(hash>>>0).toString(16);
+}
+async function makeAvatarPreview(source){
+  if(!source)return '';
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      try {
+        const canvas=document.createElement('canvas');
+        canvas.width=canvas.height=96;
+        const context=canvas.getContext('2d');
+        if(!context)throw Error('Canvas unavailable');
+        const size=Math.min(img.naturalWidth,img.naturalHeight);
+        context.drawImage(img,(img.naturalWidth-size)/2,(img.naturalHeight-size)/2,size,size,0,0,96,96);
+        let preview=canvas.toDataURL('image/webp',0.68);
+        if(preview.length>35000)preview=canvas.toDataURL('image/jpeg',0.62);
+        resolve(preview.length<=35000?preview:'');
+      }catch{resolve('');}
+    };
+    img.onerror=()=>resolve('');
+    img.src=source;
+  });
+}
+async function ensureActorPreviews(){
+  if(avatarPreviewRunning)return;
+  avatarPreviewRunning=true;
+  let changed=false;
+  try{
+    for(const actor of state.actors||[]){
+      const signature=actor.avatar?avatarSourceHash(actor.avatar):'';
+      if(actor.avatarThumbSource===signature && (actor.avatarPreview || !signature))continue;
+      const newPreview=await makeAvatarPreview(actor.avatar);
+      if(actor.avatar!==undefined && (actor.avatarThumbSource!==signature||actor.avatarPreview!==newPreview)){
+        actor.avatarPreview=newPreview;actor.avatarThumbSource=signature;changed=true;
+      }
+    }
+    if(changed)persist();
+  }finally{avatarPreviewRunning=false;}
+}
+
 function actorAvatarForm(id){
   const a=state.actors.find(a=>a.id===id);if(!a)return;
-  showModal('Аватар актёра',a.name,`<div class="form-grid">${coverEditor(a.avatar||'','Аватар',true)}</div>`,'Сохранить',data=>{a.avatar=safeCover(data.cover);persist();modal.close();render();toast('Аватар сохранён');});
+  showModal('Аватар актёра',a.name,`<div class="form-grid">${coverEditor(a.avatar||'','Аватар',true)}</div>`,'Сохранить',data=>{a.avatar=safeCover(data.cover);a.avatarPreview='';a.avatarThumbSource='';persist();modal.close();render();ensureActorPreviews().catch(()=>{});toast('Аватар сохранён');});
 }
 function actorDetails(id,tab='demos'){
   const a=state.actors.find(a=>a.id===id);if(!a)return;const rows=actorAssignments(state,id);
@@ -873,7 +919,7 @@ async function boot(){
       const params=new URLSearchParams(location.hash.slice(1));token=params.get('key')||sessionStorage.getItem('fundi-key')||'';
       if(token){sessionStorage.setItem('fundi-key',token);history.replaceState(null,'',location.pathname);native=true;try{info=await api('info');const data=await api('state');if(data.state)state=normalizeState(data.state);else state=seedState();}catch(err){saveError=err.message;}}
     }
-    await refreshCloud();render();if(native)setInterval(()=>refreshCloud(true),1500);if(!saveError){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
+    await refreshCloud();render();ensureActorPreviews().catch(()=>{});if(native)setInterval(()=>refreshCloud(true),1500);if(!saveError){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
   }catch(err){app.innerHTML=`<div class="boot"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><p>Не удалось загрузить данные студии.</p><p class="small muted">${e(err.message)}</p><div class="btn-row"><button class="btn ghost" id="download-broken">Скачать сохранённые данные</button><button class="btn primary" id="recover-start">Открыть пустую студию</button></div><p class="small muted">Перед новым стартом сохрани текущие данные.</p></div>`;document.querySelector('#download-broken').onclick=()=>{const blob=new Blob([localStorage.getItem(STORAGE)||'{}'],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Fundi-Voice-recovery.json';a.click();};document.querySelector('#recover-start').onclick=()=>{state=seedState();saveError='';render();persist();};}
 }
 installVisualSelects({getActors:()=>state?.actors||[],actorAvatar:actorPickAvatar,icon});
