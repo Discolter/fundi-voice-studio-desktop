@@ -392,10 +392,10 @@ function renderVacations(){
   html+=`<div class="studio-vacation-stats"><div><strong>${active.length}</strong><span>В отпуске</span></div><div><strong>${planned.length}</strong><span>Запланировано</span></div><div><strong>${cloud.vacationUnread||0}</strong><span>Новых событий</span></div></div>`;
   const names={active:'В отпуске',planned:'Запланирован',completed:'Завершён',ended:'Досрочный возврат',cancelled:'Отменён'};
   const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('ru-RU'):'Срок неизвестен';
-  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:''}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
+  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
   html+=section('Сейчас в отпуске',active)+section('Предстоящие отпуска',planned);
   const types={planned:'Отпуск запланирован',started:'Отпуск начался',updated:'Отпуск обновлён',cancelled:'Отпуск отменён',returned:'Отпуск завершён'};
-  html+=`<section class="studio-vacation-section"><h2>Изменения<span>${cloud.vacationUnread||0} новых</span></h2>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}</article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</section>`;
+  html+=`<section class="studio-vacation-section"><h2>Изменения<span>${cloud.vacationUnread||0} новых</span></h2>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</section>`;
   html+=section('История отпусков',rows.filter(v=>!['active','planned'].includes(v.status)).slice(0,50));
   html+='<p class="muted small">Причины видны только руководителю и самому актёру. Отпуск может назначить руководитель даже без регистрации актёра. После входа в Actor актёр увидит отпуск и сможет его изменить или завершить. Назначенные ранее роли не исчезают; актёров в отпуске нельзя выбрать для новых ролей.</p>';
   return html;
@@ -801,6 +801,25 @@ async function action(a,d,el){
     case 'studio-vacation-new':studioVacationForm();break;
     case 'studio-vacation-edit':studioVacationForm(d.actor);break;
     case 'studio-vacation-end':await studioVacationEnd(d.actor);break;
+    case 'studio-vacation-delete-event':{
+      const event=(cloud.vacationEvents||[]).find(item=>String(item.id)===String(d.event));
+      if(!event)break;
+      confirmAction('Удалить событие отпуска?','Уведомление о событии исчезнет из облачной истории. Сам отпуск и доступность актёра не изменятся. Отменить удаление нельзя.','Удалить навсегда',async()=>{
+        cloud=await api('cloud/vacations/delete',{kind:'event',value:String(event.id)});
+        toast('Событие удалено с сервера');
+      });
+      break;
+    }
+    case 'studio-vacation-delete-history':{
+      const item=(cloud.vacations||[]).find(v=>v.vacationId===d.vacation);
+      if(!item||['active','planned'].includes(item.status)){toast('Сначала заверши действующий отпуск.',true);break;}
+      const actor=state.actors.find(a=>a.id===item.actorId);
+      confirmAction('Удалить историю отпуска?',`Запись об отпуске <strong>${e(actor?.name||item.username||'актёра')}</strong> и связанные с ней события будут навсегда удалены с сервера и из истории Actor. Действующие назначения ролей не изменятся.`,'Удалить навсегда',async()=>{
+        cloud=await api('cloud/vacations/delete',{kind:'history',value:item.vacationId});
+        toast('История отпуска удалена');
+      });
+      break;
+    }
     case 'studio-vacation-read':cloud=await api('cloud/vacations/events/read',{ids:[Number(d.event)]});render();toast('Событие отмечено прочитанным');break;
     case 'role-recordings':{
       const role=ep?.roles.find(r=>r.id===d.item);if(role)await showStudioFiles({roleId:role.id,actorId:role.actorId,title:role.character+' · '+p.title+' · '+episodeLabel(p,ep)});break;
