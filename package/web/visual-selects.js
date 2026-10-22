@@ -1,7 +1,7 @@
 // Studio-wide visual dropdowns. The original <select> remains the single source
 // of truth for FormData, validation, existing change handlers and stored IDs.
 // Only presentation is enhanced; Actor Desktop and the web portal are untouched.
-export function installVisualSelects({getActors, actorAvatar, icon}) {
+export function installVisualSelects({getActors, getVacation=()=>null, actorAvatar, icon}) {
   const roleStages = new Set(['waiting','recording','received','processing','processed','retake','done']);
   const stageIcons = {
     waiting:'clock', recording:'mic', received:'download', processing:'settings',
@@ -59,12 +59,14 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
       const name = label.replace(/\s+\(\d+\)$/, '');
       const count = label.match(/\((\d+)\)$/);
       const actor = findActor(value, name);
+      const vacation=actor?getVacation(actor.id):null;
+      const absent=vacation?.status === 'active',planned=vacation?.status === 'planned';
       return {
-        label:actor?.name || name,subtitle:actor?.telegram ? '@' + actor.telegram :
+        label:actor?.name || name,subtitle:absent ? '⛔ В отпуске — недоступен' : planned ? 'Отпуск запланирован' : actor?.telegram ? '@' + actor.telegram :
           (value === 'all' ? 'Показать все назначения' :
           value === 'unassigned' ? 'Без назначенного актёра' :
           actor ? 'Telegram не указан' : 'Старая запись / без профиля'),
-        count:count?.[1] || '', actor, value
+        count:count?.[1] || '', actor, value, vacation
       };
     }
     if(type === 'character') {
@@ -204,6 +206,10 @@ export function installVisualSelects({getActors, actorAvatar, icon}) {
           item.type = 'button';
           item.setAttribute('role','option');
           item.setAttribute('aria-selected',String(option.value === select.value));
+          if(d.vacation?.status==='active'||d.vacation?.status==='planned'){
+            item.classList.add('on-vacation');
+            item.title=(d.vacation.status==='active'?'В отпуске — новые роли не назначать':'Отпуск запланирован');
+          }
           if(option.value === select.value) item.classList.add('selected');
           item.disabled = option.disabled;
           item.append(choiceContent(option,type));
