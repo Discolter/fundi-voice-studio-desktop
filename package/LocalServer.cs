@@ -293,6 +293,7 @@ namespace FundiVoice {
                     else if(route=="cloud/messages/clear")result=Cloud.ClearMessages();
                     else if(route=="cloud/messages/dismiss-failed")result=Cloud.DismissFailures();
                     else if(route=="cloud/vacations/refresh"){Cloud.RefreshVacations(true);result=Cloud.Status();}
+                    else if(route=="cloud/vacations/manage")result=Cloud.ManageVacation(S(dataBody,"action"),S(dataBody,"actorId"),S(dataBody,"startDate"),S(dataBody,"endDate"),S(dataBody,"reason"),S(dataBody,"timeZone"));
                     else if(route=="cloud/vacations/events/read")result=Cloud.ReadVacationEvents(FundiVoice.Desktop.JsonData.A(dataBody,"ids"));
                     else if(route=="cloud/files")result=Cloud.FilesNow();
                     else if(route=="cloud/files/download"){
