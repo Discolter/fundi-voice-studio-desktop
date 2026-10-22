@@ -47,7 +47,7 @@ assert.equal(filterEpisodeRoles(normalized,caseInsensitive,{characterKey:'charac
 assert.deepEqual(filterEpisodeRoles(normalized,normalized.projects[0].episodes[0].roles,{order:'original'}).map(r=>r.character),['Бета','Альфа','Вега']);
 const app=src('package/web/app.js'),css=src('package/web/task-priorities.css'),picker=src('package/web/visual-selects.js');
 for(const required of [
-  "id=\\\"role-character-filter\\\"",
+  "id=\"role-character-filter\"",
   "characterKey:ui.roleCharacter||'all'",
   "id=\"task-priority-filter\"",
   "class=\"task-priority-select\"",
