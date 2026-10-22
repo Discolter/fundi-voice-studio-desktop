@@ -330,22 +330,58 @@ function actorAccessPreview(id){
   const rows=feed.roles.map(r=>`<div class="actor-cloud-preview-row"><strong>${e(r.character)}</strong><span>${e(r.projectTitle)} · ${e(r.season?'Сезон '+r.season+' · ':'')}${e(r.episodeNumber?'Серия '+r.episodeNumber:r.episodeTitle||'Серия')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span><span class="muted small">${r.due?'Сдать до '+e(dueLabel(r.due)):'Срок не указан'}</span></div>`).join('')||'<p class="muted">Назначенных ролей в активных проектах нет.</p>';
   showModal('Что увидит актёр',actor.name+(actor.actorAccess?' · Доступ разрешён':' · Доступ выключен'),`<div class="actor-cloud-preview">${rows}</div>`);
 }
+function studioVacationForm(actorId=''){
+  const current=actorId?vacationFor(actorId):null;
+  const actor=current?state.actors.find(a=>a.id===actorId):null;
+  const available=(state.actors||[]).filter(a=>!vacationFor(a.id));
+  if(!current&&!available.length){toast('Все актёры уже отмечены или список актёров пуст.',true);return;}
+  const selected=actor||available[0];
+  const picker=current?`<div class="studio-vacation-picked">${actorPickAvatar(actor||{name:actorId})}<strong>${e(actor?.name||actorId)}</strong></div>`:
+    `<select name="actorId" id="vacation-owner-actor" required aria-label="Выбери актёра">${available.map(a=>`<option value="${e(a.id)}">${e(a.name)}${a.telegram?' @'+e(a.telegram):''}</option>`).join('')}</select>`;
+  const body=`<div class="form-grid">
+    ${field('Актёр *',picker,'Выбирай из своей базы: регистрация в Actor не нужна.',true)}
+    ${current?'':field('Первый день *',input('startDate',today(),'date',`required min="${today()}"`),'Сегодня или день начала будущего отпуска.')}
+    ${field('Последний день',input('endDate',current?.endDate||'','date'),'Необязательно: оставь пустым для отпуска без даты возвращения.')}
+    ${field('Причина или комментарий',`<textarea name="reason" maxlength="800" rows="4" placeholder="По желанию">${e(current?.reason||'')}</textarea>`,'Виден руководителю и самому актёру после регистрации.',true)}
+  </div>`;
+  showModal(current?'Изменить отпуск':'Назначить отпуск',current?actor?.name||actorId:'Для актёра без приложения или сайта',body,'Сохранить',async data=>{
+    const id=current?actorId:data.actorId;
+    if(!id||!(state.actors||[]).some(a=>a.id===id))throw new Error('Выбери актёра из базы.');
+    if(!current&&!data.startDate)throw new Error('Укажи дату начала.');
+    const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Europe/Madrid';
+    cloud=await api('cloud/vacations/manage',{
+      action:current?'update':'start',actorId:id,
+      startDate:current?'':data.startDate,endDate:data.endDate||'',
+      reason:data.reason||'',timeZone:zone
+    });
+    modal.close();render();toast(current?'Отпуск обновлён':'Отпуск актёра сохранён в облаке');
+  });
+}
+async function studioVacationEnd(actorId){
+  const current=vacationFor(actorId);
+  if(!current)return;
+  const actor=state.actors.find(a=>a.id===actorId);
+  const text=current.status==='planned'?'Отменить будущий отпуск':'Завершить отпуск сейчас';
+  if(!window.confirm(text+' для '+(actor?.name||actorId)+'?'))return;
+  cloud=await api('cloud/vacations/manage',{action:'end',actorId});
+  render();toast(current.status==='planned'?'Запланированный отпуск отменён':'Актёр возвращён к работе');
+}
 function renderVacations(){
   const rows=cloud.vacations||[],events=cloud.vacationEvents||[];
   const active=rows.filter(v=>v.status==='active'),planned=rows.filter(v=>v.status==='planned');
-  let html=heading('Отпуска','Доступность актёров · обновляется через Fundi Voice Cloud',cloud.connected?'<button class="btn ghost small" data-action="refresh-all">Обновить данные</button>':'');
+  let html=heading('Отпуска','Доступность актёров · обновляется через Fundi Voice Cloud',cloud.connected?'<div class="btn-row"><button class="btn primary small" data-action="studio-vacation-new">+ Отметить отпуск</button><button class="btn ghost small" data-action="refresh-all">Обновить данные</button></div>':'');
   if(!native||!cloud.connected)return html+`<div class="studio-vacation-empty">Сначала подключи Studio к Fundi Voice Cloud во вкладке «Доступ актёров».</div>`;
   if(cloud.vacationError)html+=`<div class="cloud-error studio-vacation-error">${e(cloud.vacationError)}</div>`;
   if(!cloud.vacationApiAvailable)return html+`<div class="studio-vacation-empty">Функция отпусков недоступна. Проверь, что Fundi Voice Cloud обновлён до версии 0.6.0.</div>`;
   html+=`<div class="studio-vacation-stats"><div><strong>${active.length}</strong><span>В отпуске</span></div><div><strong>${planned.length}</strong><span>Запланировано</span></div><div><strong>${cloud.vacationUnread||0}</strong><span>Новых событий</span></div></div>`;
   const names={active:'В отпуске',planned:'Запланирован',completed:'Завершён',ended:'Досрочный возврат',cancelled:'Отменён'};
   const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('ru-RU'):'Срок неизвестен';
-  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
+  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:''}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
   html+=section('Сейчас в отпуске',active)+section('Предстоящие отпуска',planned);
   const types={planned:'Запланировал отпуск',started:'Ушёл в отпуск',updated:'Изменил отпуск',cancelled:'Отменил отпуск',returned:'Вернулся к работе'};
   html+=`<section class="studio-vacation-section"><h2>Изменения<span>${cloud.vacationUnread||0} новых</span></h2>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}</article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</section>`;
   html+=section('История отпусков',rows.filter(v=>!['active','planned'].includes(v.status)).slice(0,50));
-  html+='<p class="muted small">Причины видны только руководителю и самому актёру. Изменения отпуска актёр делает в Actor Web. Назначенные ранее роли не исчезают; актёров в отпуске нельзя выбрать для новых ролей.</p>';
+  html+='<p class="muted small">Причины видны только руководителю и самому актёру. Отпуск может назначить руководитель даже без регистрации актёра. После входа в Actor актёр увидит отпуск и сможет его изменить или завершить. Назначенные ранее роли не исчезают; актёров в отпуске нельзя выбрать для новых ролей.</p>';
   return html;
 }
 function renderCloudConnection(){
@@ -746,6 +782,9 @@ async function action(a,d,el){
     case 'close-modal':modal.close();break;
     case 'studio-files':await showStudioFiles();break;
     case 'refresh-all':await refreshAllStudio(el);break;
+    case 'studio-vacation-new':studioVacationForm();break;
+    case 'studio-vacation-edit':studioVacationForm(d.actor);break;
+    case 'studio-vacation-end':await studioVacationEnd(d.actor);break;
     case 'studio-vacation-read':cloud=await api('cloud/vacations/events/read',{ids:[Number(d.event)]});render();toast('Событие отмечено прочитанным');break;
     case 'role-recordings':{
       const role=ep?.roles.find(r=>r.id===d.item);if(role)await showStudioFiles({roleId:role.id,actorId:role.actorId,title:role.character+' · '+p.title+' · '+episodeLabel(p,ep)});break;
