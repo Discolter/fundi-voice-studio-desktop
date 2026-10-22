@@ -245,9 +245,10 @@ body[data-theme=silver] .search kbd{color:#40566c;border-color:#a6b2c0}
 .role-toolbar #role-filter{max-width:180px}
 .role-toolbar #role-actor-filter{max-width:230px;min-width:150px}
 .role-toolbar #role-order{max-width:225px;min-width:165px}
+.role-toolbar #role-character-filter{max-width:230px;min-width:175px}
 .role-filter-count{font-size:11px;color:var(--muted);white-space:nowrap}
 .role-toolbar [data-action="import-roles"]{margin-left:auto}
-@media(max-width:700px){.role-toolbar #role-filter,.role-toolbar #role-actor-filter,.role-toolbar #role-order{flex:1 1 155px;min-width:0;max-width:none}.role-filter-count{flex-basis:100%}.role-toolbar [data-action="import-roles"]{margin-left:0}}
+@media(max-width:700px){.role-toolbar #role-filter,.role-toolbar #role-actor-filter,.role-toolbar #role-order,.role-toolbar #role-character-filter{flex:1 1 155px;min-width:0;max-width:none}.role-filter-count{flex-basis:100%}.role-toolbar [data-action="import-roles"]{margin-left:0}}
 
 /* Studio 1.8.0: owner vacations and top-bar force refresh. */
 .studio-refresh-button{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:9px;font-size:12px;padding:9px 12px}

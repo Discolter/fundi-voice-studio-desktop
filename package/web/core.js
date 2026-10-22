@@ -91,15 +91,30 @@ export function episodeRoleActorOptions(state, roles) {
   }
   return [...actors.values()].sort((a,b)=>(a.key==='unassigned'?1:0)-(b.key==='unassigned'?1:0)||b.count-a.count||a.label.localeCompare(b.label,'ru'));
 }
-export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', order='original'}={}) {
+// Character filter parallels actor filtering. Keys are case/whitespace normalized,
+// but display labels preserve the original character spelling.
+export const episodeRoleCharacterKey = role =>
+  'character:'+String(role.character||'').trim().toLocaleLowerCase('ru');
+export function episodeRoleCharacterOptions(roles) {
+  const characters=new Map();
+  for(const role of roles){
+    const label=String(role.character||'').trim();
+    if(!label)continue;
+    const key=episodeRoleCharacterKey(role);
+    if(!characters.has(key))characters.set(key,{key,label,count:0});
+    characters.get(key).count++;
+  }
+  return [...characters.values()].sort((a,b)=>a.label.localeCompare(b.label,'ru',{sensitivity:'base',numeric:true}));
+}
+export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', characterKey='all', order='original'}={}) {
   const all=episodeRoleActorOptions(state,roles);
   const counts=new Map(all.map(actor=>[actor.key,actor.count]));
   const rows=roles.filter(role=>(status==='all'||
       (status==='not-in-project'?!role.inProject:role.status===status))&&
-      (actorKey==='all'||episodeRoleActorKey(state,role)===actorKey));
-  if(order==='workload'||order==='actor'||order==='character'){
+      (actorKey==='all'||episodeRoleActorKey(state,role)===actorKey)&&
+      (characterKey==='all'||episodeRoleCharacterKey(role)===characterKey));
+  if(order==='workload'||order==='actor'){
     rows.sort((a,b)=>{
-      if(order==='character')return a.character.localeCompare(b.character,'ru',{sensitivity:'base',numeric:true})||a.id.localeCompare(b.id);
       const keyA=episodeRoleActorKey(state,a),keyB=episodeRoleActorKey(state,b);
       const countOrder=order==='workload'?(counts.get(keyB)||0)-(counts.get(keyA)||0):0;
       const labelA=actorName(state,a)||'Без актёра';
