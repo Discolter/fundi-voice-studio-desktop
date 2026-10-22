@@ -70,7 +70,7 @@ export const projectFolderName = (title,season='') => diskFolderName(title+(seas
 export const episodeFolderName = (number='',title='') => diskFolderName((number?'Серия '+number:'Серия')+(title?' - '+title:''));
 export function expandFolderKeys(keys){const all=new Set(keys.filter(k=>PATHS.some(p=>p[0]===k)&&!['root','reaper'].includes(k)));if(all.has('premiere'))all.add('video');if(all.has('characterSubs'))all.add('subs');if(['video','audio','subs'].some(k=>all.has(k)))all.add('source');return [...all];}
 export const cleanTelegram = v => str(v,150).trim().replace(/^https?:\/\/(?:www\.)?t\.me\//i,'').replace(/^t\.me\//i,'').replace(/^@/,'').replace(/\/$/,'');
-export function newActor(input={}) { return {id:uid(),name:'',telegram:'',voiceGroup:'',castGroup:'',avatar:'',notes:'',demos:[],actorAccess:false,...input}; }
+export function newActor(input={}) { return {id:uid(),name:'',telegram:'',voiceGroup:'',castGroup:'',avatar:'',avatarPreview:'',avatarThumbSource:'',notes:'',demos:[],actorAccess:false,...input}; }
 export const actorForRole = (state,r) => (state.actors||[]).find(a=>a.id===r.actorId) || null;
 export const actorName = (state,r) => actorForRole(state,r)?.name || r.actor || '';
 // Episode-only actor filtering and workload order. Does not mutate actor assignments.
@@ -180,7 +180,7 @@ export function normalizeState(raw) {
   const actors=(raw.actors||[]).map(a=>{
     if(!a||!str(a.name,160).trim())throw new Error('У актёра должно быть имя.');
     if(a.demos&&(!Array.isArray(a.demos)||a.demos.length>200))throw new Error('У одного актёра может быть до 200 демок.');
-    const actor=newActor({id:id(a.id),name:str(a.name,160).trim(),telegram:cleanTelegram(a.telegram).replace(/[^a-zA-Z0-9_]/g,''),voiceGroup:ACTOR_GROUPS.some(([key])=>key===a.voiceGroup)?a.voiceGroup:'',castGroup:CAST_GROUPS.some(([key])=>key===a.castGroup)?a.castGroup:'',avatar:safeCover(a.avatar),notes:str(a.notes,4000),demos:(a.demos||[]).map(d=>({id:id(d.id),label:str(d.label,200)||'Демка',path:str(d.path,2000),folder:!!d.folder})).filter(d=>d.path),actorAccess:a.actorAccess===true});
+    const actor=newActor({id:id(a.id),name:str(a.name,160).trim(),telegram:cleanTelegram(a.telegram).replace(/[^a-zA-Z0-9_]/g,''),voiceGroup:ACTOR_GROUPS.some(([key])=>key===a.voiceGroup)?a.voiceGroup:'',castGroup:CAST_GROUPS.some(([key])=>key===a.castGroup)?a.castGroup:'',avatar:safeCover(a.avatar),avatarPreview:safeCover(a.avatarPreview),avatarThumbSource:str(a.avatarThumbSource,64),notes:str(a.notes,4000),demos:(a.demos||[]).map(d=>({id:id(d.id),label:str(d.label,200)||'Демка',path:str(d.path,2000),folder:!!d.folder})).filter(d=>d.path),actorAccess:a.actorAccess===true});
     if(a.id&&!actorIdMap.has(a.id))actorIdMap.set(a.id,actor.id);return actor;
   });
   function normalizeRole(r){
