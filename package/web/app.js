@@ -175,7 +175,7 @@ function episodeUnassignedList(ep){
     const actorUsername=String(account?.username||'').trim().replace(/^@/,'');
     const telegram=cleanTelegram(actor.telegram||'');
     const label=actorUsername?'Actor @'+actorUsername+(telegram&&telegram.toLocaleLowerCase('ru')!==actorUsername.toLocaleLowerCase('ru')?' · TG @'+telegram:''):telegram?'@'+telegram:'Юзернейм не указан';
-    return `<div class="episode-unassigned-person" role="listitem" data-unassigned-search="${e([actor.name,actorUsername,telegram].join(' ').toLocaleLowerCase('ru'))}">${actorPickAvatar(actor)}<span class="episode-unassigned-person-copy"><strong>${e(actor.name)}</strong><small>${e(label)}</small></span>${activeVacation(actor.id)?`<span class="episode-unassigned-vacation" title="Актёр сейчас в отпуске">Отпуск</span>`:''}</div>`;
+    return `<div class="episode-unassigned-person ${vacationFor(actor.id)?'on-vacation':''}" role="listitem" data-unassigned-search="${e([actor.name,actorUsername,telegram].join(' ').toLocaleLowerCase('ru'))}">${actorPickAvatar(actor)}<span class="episode-unassigned-person-copy"><strong>${e(actor.name)}</strong><small>${e(label)}</small></span>${vacationFor(actor.id)?`<span class="episode-unassigned-vacation" title="${activeVacation(actor.id)?'Недоступен для назначения новых ролей':'Отпуск запланирован'}">${activeVacation(actor.id)?'⛔ В отпуске':'Отпуск скоро'}</span>`:''}</div>`;
   }).join('');
   return `<details class="episode-unassigned-dropdown">
     <summary aria-label="Показать актёров без назначений в текущей серии">${icon('users')}<span>Не задействованы</span><b>${available.length}</b>${icon('chevron')}</summary>
@@ -227,7 +227,7 @@ function fillActorPicker(picker,query=''){
   const q=query.trim().toLocaleLowerCase('ru');
   const found=(state.actors||[]).filter(a=>`${a.name} ${a.telegram||''}`.toLocaleLowerCase('ru').includes(q));
   const max=200;
-  const makeCard=a=>`<button type="button" class="actor-picker-option ${activeVacation(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${activeVacation(a.id)?' · В отпуске — недоступен':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${activeVacation(a.id)?'В отпуске — недоступен':a.telegram?'@'+e(a.telegram):'Без Telegram'}</small></span></button>`;
+  const makeCard=a=>`<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${activeVacation(a.id)?' · В отпуске — недоступен':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${activeVacation(a.id)?'⛔ В отпуске — недоступен':vacationFor(a.id)?'Отпуск запланирован':a.telegram?'@'+e(a.telegram):'Без Telegram'}</small></span></button>`;
   const groups=CAST_GROUPS.map(([cast,label])=>{
     const members=found.filter(a=>(a.castGroup||'')===cast);
     if(!members.length)return '';
@@ -1017,5 +1017,5 @@ async function boot(){
     }if(!saveError){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
   }catch(err){app.innerHTML=`<div class="boot"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><p>Не удалось загрузить данные студии.</p><p class="small muted">${e(err.message)}</p><div class="btn-row"><button class="btn ghost" id="download-broken">Скачать сохранённые данные</button><button class="btn primary" id="recover-start">Открыть пустую студию</button></div><p class="small muted">Перед новым стартом сохрани текущие данные.</p></div>`;document.querySelector('#download-broken').onclick=()=>{const blob=new Blob([localStorage.getItem(STORAGE)||'{}'],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Fundi-Voice-recovery.json';a.click();};document.querySelector('#recover-start').onclick=()=>{state=seedState();saveError='';render();persist();};}
 }
-installVisualSelects({getActors:()=>state?.actors||[],actorAvatar:actorPickAvatar,icon});
+installVisualSelects({getActors:()=>state?.actors||[],getVacation:vacationFor,actorAvatar:actorPickAvatar,icon});
 boot();
