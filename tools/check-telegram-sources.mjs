@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const ui=readFileSync('package/web/app.js','utf8');
+const bridge=readFileSync('package/StudioCloud.cs','utf8');
+const server=readFileSync('package/LocalServer.cs','utf8');
+assert.match(ui,/telegramEpisodeUrl\(p.id,ep.id\)/);
+assert.match(ui,/Ссылка на исходники в Telegram/);
+assert.match(ui,/cloud\/source-links\/set/);
+assert.match(ui,/sourceUrl!==telegramEpisodeUrl/);
+assert.match(bridge,/\/v1\/studio\/source-links\/set/);
+assert.match(bridge,/sourceLinks=sourceLinks/);
+assert.match(server,/route=="cloud\/source-links\/set"/);
+console.log('PASS: Desktop Studio episode Telegram sources editor');
