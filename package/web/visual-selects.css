@@ -3,6 +3,8 @@
 .fv-select.fv-row{width:auto;max-width:260px}
 .fv-select.fv-role-status{width:100%;min-width:136px;max-width:192px}
 .fv-select.fv-role-actor-filter{min-width:210px}
+.fv-select.fv-role-character-filter{min-width:178px;width:210px;max-width:230px}
+.fv-type-character .fv-character-art{color:#d1abff;background:#a876ed1c;border-color:#a876ed4a}
 .fv-select.fv-role-order{min-width:188px}
 .fv-select.fv-episode-select{max-width:330px}
 .fv-select .fv-native-select{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;clip-path:inset(50%);margin:0!important;padding:0!important}
@@ -53,6 +55,8 @@
 .role-toolbar .fv-select-trigger{font-size:11px}
 .role-toolbar .fv-type-actor .fv-select-trigger{min-height:45px}
 .role-toolbar .fv-type-actor .fv-option-name{font-size:11px}
+.role-toolbar .fv-role-character-filter .fv-select-trigger{min-height:45px}
+.role-toolbar .fv-role-character-filter .fv-option-name{font-size:11px}
 .episode-bar .fv-select.fv-episode-select{margin-right:0}
 .episode-bar .fv-select:has(.episode-stage){margin-left:auto;max-width:190px}
 .episode-bar .fv-select-trigger{max-height:52px}
@@ -67,7 +71,7 @@
 .scan-item .fv-option-art{width:25px;height:25px;flex-basis:25px}
 @media(max-width:700px){
  .role-toolbar .fv-select{width:100%;max-width:100%}
- .fv-select.fv-row,.fv-select.fv-role-actor-filter,.fv-select.fv-role-order{min-width:0}
+ .fv-select.fv-row,.fv-select.fv-role-actor-filter,.fv-select.fv-role-character-filter,.fv-select.fv-role-order{min-width:0}
  .fv-dropdown{max-width:calc(100vw - 16px)}
  .scan-item .fv-select{width:135px}
 }
