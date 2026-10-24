@@ -40,14 +40,19 @@ export function createSiteManager({toast, escapeHTML, rerender}) {
       method,
       headers: {
         apikey:config.key,
-        Authorization:'Bearer '+(session?.access_token||config.key),
+        ...(session?.access_token?{Authorization:'Bearer '+session.access_token}:{}),
         Accept:'application/json',
         ...(body===undefined?{}:{'Content-Type':'application/json'}),
         ...headers
       }
     };
     if(body!==undefined)opts.body=JSON.stringify(body);
-    const response=await fetch(config.url+endpoint,opts);
+    let response;
+    try { response=await fetch(config.url+endpoint,opts); }
+    catch(err){
+      if(err instanceof TypeError)throw Error('Не удалось связаться с Supabase. Проверь подключение к интернету, URL проекта и разрешения сети приложения.');
+      throw err;
+    }
     const raw=await response.text();
     let data;
     try {data=raw?JSON.parse(raw):null;}catch{data=raw;}
