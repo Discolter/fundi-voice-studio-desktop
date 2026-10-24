@@ -60,6 +60,15 @@ export function createSiteManager({toast, escapeHTML, rerender}) {
     const email=String(fd.get('email')||'').trim(),password=String(fd.get('password')||'');
     if(!url.includes('supabase.co') && !confirm('Домен Supabase нестандартный. Продолжить подключение?'))return;
     if(!key||!email||!password)throw Error('Заполни адрес, публичный ключ, email и пароль.');
+    // Reject privileged/secret keys even if accidentally pasted by the operator.
+    const isPublishable=key.startsWith('sb_publishable_')||(()=>{
+      try{
+        const encoded=key.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+        return JSON.parse(atob(encoded)).role==='anon';
+      }catch{return false;}
+    })();
+    if(!isPublishable)throw Error('Вводи только публичный publishable/anon key. Secret/service_role запрещён.');
+
     config={url,key}; // Never persist the password.
     const login=await request('/auth/v1/token?grant_type=password','POST',{email,password});
     if(!login?.access_token)throw Error('Supabase не выдал токен для входа.');
