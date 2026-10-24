@@ -515,7 +515,7 @@ namespace FundiVoice {
         static void SendJson(NetworkStream stream,int status,object value){Send(stream,status,Encoding.UTF8.GetBytes(Json().Serialize(value)),"application/json; charset=utf-8");}
         static void Send(NetworkStream stream,int status,byte[] body,string mime){
             string label=status==200?"OK":status==404?"Not Found":status==403?"Forbidden":status==413?"Payload Too Large":"Bad Request";
-            string header="HTTP/1.1 "+status+" "+label+"\r\nContent-Type: "+mime+"\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'\r\n\r\n";
+            string header="HTTP/1.1 "+status+" "+label+"\r\nContent-Type: "+mime+"\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://xsbeatjomlcegxmqnapw.supabase.co; connect-src 'self' https://xsbeatjomlcegxmqnapw.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'\r\n\r\n";
             byte[] bytes=Encoding.ASCII.GetBytes(header);stream.Write(bytes,0,bytes.Length);stream.Write(body,0,body.Length);stream.Flush();
         }
     }
