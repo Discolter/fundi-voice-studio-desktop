@@ -49,7 +49,7 @@ const app=src('package/web/app.js'),css=src('package/web/task-priorities.css'),p
 for(const required of [
   "id=\"role-character-filter\"",
   "characterKey:ui.roleCharacter||'all'",
-  "id=\"task-priority-filter\"",
+  "filterControl('task-priority-filter'",
   "class=\"task-priority-select\"",
   "priority:taskPriority(data.priority)",
   "priority:ui.taskPriority||'all'",
