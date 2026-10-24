@@ -63,6 +63,29 @@ namespace FundiVoice {
             RefreshSourceLinks();
             return Status();
         }
+        // Task snapshots are owner-only, separate from actor feeds and roster revisions.
+        public object TasksBaseline(){
+            string path=Path.Combine(root,"cloud.tasks.baseline.json");
+            try {return File.Exists(path)?(object)JsonData.Read(path):new {known=false};}
+            catch{return new {known=false};}
+        }
+        public object SaveTasksBaseline(Dictionary<string,object> data){
+            if(JsonData.Json().Serialize(data).Length>2600000)throw new CloudFault(413,"too_large","Слишком большой список поручений.");
+            JsonData.AtomicText(Path.Combine(root,"cloud.tasks.baseline.json"),JsonData.Json().Serialize(data));
+            return new {saved=true};
+        }
+        public object TasksNow(){
+            string server,token;
+            lock(gate){if(!Connected())throw new CloudFault(409,"not_connected","Сначала подключи Fundi Voice Cloud.");
+                server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");}
+            return CloudHttp.Request(server,"/v1/studio/tasks","GET",null,token);
+        }
+        public object SaveTasks(Dictionary<string,object> body){
+            string server,token;
+            lock(gate){if(!Connected())throw new CloudFault(409,"not_connected","Сначала подключи Fundi Voice Cloud.");
+                server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");}
+            return CloudHttp.Request(server,"/v1/studio/tasks","POST",body,token);
+        }
         public object SourceLinksNow(){RefreshSourceLinks();return Status();}
         public object NewSetupCode(bool renew){
             lock(gate){

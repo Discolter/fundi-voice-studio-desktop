@@ -29,7 +29,7 @@ namespace FundiVoice {
             ".mp4", ".mkv", ".mov", ".webm", ".avi", ".srt", ".ass", ".ssa", ".vtt", ".txt", ".pdf", ".png", ".jpg", ".jpeg"
         };
         static readonly HashSet<string> StaticFiles = new HashSet<string>(StringComparer.Ordinal) {
-            "/", "/index.html", "/app.js", "/core.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/file-browser.js", "/file-browser.css", "/visual-selects.js", "/visual-selects.css", "/task-priorities.css", "/update-notice.css", "/update-notice.js", "/compact.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
+            "/", "/index.html", "/app.js", "/core.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/file-browser.js", "/file-browser.css", "/visual-selects.js", "/visual-selects.css", "/task-priorities.css", "/task-cloud-sync.js", "/update-notice.css", "/update-notice.js", "/compact.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
         };
         static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = 9 * 1024 * 1024, RecursionLimit = 150 }; }
         static string S(Dictionary<string, object> d, string key) { object v; return d.TryGetValue(key, out v) && v != null ? Convert.ToString(v) : ""; }
@@ -292,6 +292,10 @@ namespace FundiVoice {
                     else if(route=="cloud/messages/delete")result=Cloud.DeleteMessage(FundiVoice.Desktop.JsonData.N(dataBody,"id"));
                     else if(route=="cloud/messages/clear")result=Cloud.ClearMessages();
                     else if(route=="cloud/messages/dismiss-failed")result=Cloud.DismissFailures();
+                    else if(route=="cloud/tasks/read")result=Cloud.TasksNow();
+                    else if(route=="cloud/tasks/baseline")result=Cloud.TasksBaseline();
+                    else if(route=="cloud/tasks/baseline/save")result=Cloud.SaveTasksBaseline(dataBody);
+                    else if(route=="cloud/tasks/write")result=Cloud.SaveTasks(dataBody);
                     else if(route=="cloud/source-links")result=Cloud.SourceLinksNow();
                     else if(route=="cloud/source-links/set")result=Cloud.EditSourceLink(S(dataBody,"projectId"),S(dataBody,"episodeId"),S(dataBody,"url"));
                     else if(route=="cloud/vacations/refresh"){Cloud.RefreshVacations(true);result=Cloud.Status();}

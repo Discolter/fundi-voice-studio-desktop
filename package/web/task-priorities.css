@@ -88,3 +88,25 @@ body[data-theme=light] .tasks-priority-table tbody tr.priority-normal,
 body[data-theme=silver] .tasks-priority-table tbody tr.priority-normal{--task-accent:#456fbb}
 body[data-theme=light] .tasks-priority-table tbody tr.priority-low,
 body[data-theme=silver] .tasks-priority-table tbody tr.priority-low{--task-accent:#248266}
+
+/* Workload traffic light. Applied only to known numeric counts. */
+.tasks-priority-table .task-line-count.task-workload-low,
+.tasks-priority-table .task-line-count.task-workload-medium,
+.tasks-priority-table .task-line-count.task-workload-high{
+  border-radius:8px;padding:5px 9px;font-weight:750;border:1px solid transparent
+}
+.tasks-priority-table .task-line-count.task-workload-low{
+  color:#5ee0a0;background:rgba(32,159,100,.19);border-color:rgba(65,199,137,.36)
+}
+.tasks-priority-table .task-line-count.task-workload-medium{
+  color:#ffd66b;background:rgba(196,142,29,.19);border-color:rgba(234,185,56,.34)
+}
+.tasks-priority-table .task-line-count.task-workload-high{
+  color:#ff8893;background:rgba(204,67,79,.18);border-color:rgba(244,98,113,.35)
+}
+body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-low,
+body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-low{color:#126e43;background:#e1f8ed;border-color:#95d9b6}
+body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-medium,
+body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-medium{color:#855800;background:#fff4ca;border-color:#e9c970}
+body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-high,
+body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-high{color:#a62a39;background:#ffe5e9;border-color:#eca1ad}
