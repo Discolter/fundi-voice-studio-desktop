@@ -72,3 +72,8 @@ assert.ok(style.includes('grid-template-columns'));
 assert.ok(picker.includes("select.id === 'task-order-filter'"));
 assert.ok(picker.includes("select.id === 'task-actor-filter'"));
 console.log('PASS: 6 Studio filters, all sorts, live workload, zero-vs-unknown, archived and completed behavior');
+
+assert.ok(app.includes('task-workload-low'),'Desktop uses green for 0–20 lines');
+assert.ok(app.includes('task-workload-medium'),'Desktop uses yellow for 21–100 lines');
+assert.ok(app.includes('task-workload-high'),'Desktop uses red for 101+ lines');
+assert.ok(css.includes('body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-high'),'Light mode contrast maintained');
