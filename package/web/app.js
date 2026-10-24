@@ -647,11 +647,11 @@ function taskActorChoices(selected='') {
   return '<option value="">Не указан</option>'+actors.map(a=>`<option value="${e(a.id)}" ${selected===a.id?'selected':''}>${e(a.name)}${a.telegram?' (@'+e(a.telegram)+')':''}</option>`).join('');
 }
 function taskRoleChoices(ep,actorId='',selected='') {
-  const roles=(ep?.roles||[]).filter(r=>!actorId||r.actorId===actorId);
+  const roles=(ep?.roles||[]).filter(r=>!actorId||r.actorId===actorId||!r.actorId);
   return '<option value="">Не указан</option>'+roles.map(r=>`<option value="${e(r.id)}" ${selected===r.id?'selected':''}>${e(r.character)}${Number.isInteger(r.lineCount)?' · '+r.lineCount+' репл.':''}</option>`).join('');
 }
 function taskAssignmentFields(ep,t) {
-  const actorId=t.actorId||ep?.roles.find(r=>r.id===t.roleId)?.actorId||'';
+  const actorId=ep?.roles.find(r=>r.id===t.roleId)?.actorId||t.actorId||'';
   return `<div class="field task-assignment-form"><label>Актёр</label><div id="task-actor-slot"><select name="actorId" aria-label="Актёр для задачи">${taskActorChoices(actorId)}</select></div><small class="task-assignment-help">Необязательно, из базы актёров студии.</small></div><div class="field"><label>Персонаж / роль</label><div id="task-role-slot"><select name="roleId" aria-label="Персонаж для задачи">${taskRoleChoices(ep,actorId,t.roleId||'')}</select></div><small class="task-assignment-help">Роли выбранной серии. Реплики берутся из карточки персонажа.</small></div>`;
 }
 function updateTaskAssignmentPickers(source) {
