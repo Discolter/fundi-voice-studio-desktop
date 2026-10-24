@@ -349,3 +349,41 @@ body[data-theme=silver] .search kbd{color:#40566c;border-color:#a6b2c0}
 /* Optional manual dialogue count, shown only when explicitly supplied. */
 .role-line-count{display:inline-block;margin:4px 4px 4px 9px;padding:3px 8px;border-radius:7px;background:color-mix(in srgb,var(--lime) 10%,var(--panel2));border:1px solid color-mix(in srgb,var(--lime) 25%,var(--line));color:var(--lime);font-size:11px;font-weight:650;white-space:nowrap}
 .my-role-card>.role-line-count{align-self:flex-start;margin:0 0 5px}
+
+/* In gradient themes, the role roster has an opaque base: animated desktop
+   gradients should never show through table rows. Preserve status tints. */
+body[data-theme="aurora"] .cast-table tbody tr.role-row,
+body[data-theme="midnight"] .cast-table tbody tr.role-row,
+body[data-theme="gold"] .cast-table tbody tr.role-row,
+body[data-theme="sunset"] .cast-table tbody tr.role-row,
+body[data-theme="mintwave"] .cast-table tbody tr.role-row,
+body[data-theme="twilight"] .cast-table tbody tr.role-row,
+body[data-theme="rose"] .cast-table tbody tr.role-row,
+body[data-theme^="living-"] .cast-table tbody tr.role-row{
+  background:linear-gradient(90deg,
+    color-mix(in srgb,var(--row-accent) 18%,var(--panel)),
+    color-mix(in srgb,var(--row-accent) 8%,var(--panel)) 55%,
+    color-mix(in srgb,var(--row-accent) 4%,var(--panel)));
+}
+body[data-theme="aurora"] .cast-table tbody tr.role-row:hover,
+body[data-theme="midnight"] .cast-table tbody tr.role-row:hover,
+body[data-theme="gold"] .cast-table tbody tr.role-row:hover,
+body[data-theme="sunset"] .cast-table tbody tr.role-row:hover,
+body[data-theme="mintwave"] .cast-table tbody tr.role-row:hover,
+body[data-theme="twilight"] .cast-table tbody tr.role-row:hover,
+body[data-theme="rose"] .cast-table tbody tr.role-row:hover,
+body[data-theme^="living-"] .cast-table tbody tr.role-row:hover{
+  background:linear-gradient(90deg,
+    color-mix(in srgb,var(--row-accent) 29%,var(--panel)),
+    color-mix(in srgb,var(--row-accent) 14%,var(--panel)) 55%,
+    color-mix(in srgb,var(--row-accent) 7%,var(--panel)));
+}
+:is(body[data-theme="aurora"],body[data-theme="midnight"],body[data-theme="gold"],
+body[data-theme="sunset"],body[data-theme="mintwave"],body[data-theme="twilight"],
+body[data-theme="rose"],body[data-theme^="living-"]) .cast-table thead th{
+  background:var(--panel);
+}
+.actor-registration-filter{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.actor-registration-filter label{font-size:11px;color:var(--muted)}
+.actor-registration-filter select{min-width:200px;max-width:290px;padding:8px 12px;
+  border-radius:8px;background:var(--panel);color:var(--text);border:1px solid var(--line);font-size:12px}

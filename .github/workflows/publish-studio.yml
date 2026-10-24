@@ -43,6 +43,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Viewer manager JavaScript syntax failed' }
           node ./tools/check-viewer-manager.mjs
           if($LASTEXITCODE -ne 0){ throw 'Viewer manager checks failed' }
+          node ./tools/check-registration-browser.mjs
+          if($LASTEXITCODE -ne 0){ throw 'Actor registration/picker regression failed' }
           node --check ./package/web/visual-selects.js
           if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
           node ./tools/check-task-priorities.mjs

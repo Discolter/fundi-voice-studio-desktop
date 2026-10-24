@@ -1,4 +1,5 @@
 // Fundi Voice desktop file browser. Calls authenticated loopback APIs only.
+export const STUDIO_PROJECTS_FOLDER = String.raw`C:\Users\Mayak\Desktop\FundiVoice\Текущие проекты`;
 export async function openFileBrowser(api,options={}) {
   const mode=options.mode==='folder'?'folder':'file';
   const title=options.title||(mode==='folder'?'Куда сохранить запись?':'Выбрать аудиофайл');
@@ -126,7 +127,7 @@ export async function openFileBrowser(api,options={}) {
         'Совпадений нет. Попробуй другое название.':'В этой папке подходящих файлов нет.'));
     };
     const saveLast=()=>{try{if(current)localStorage.setItem('fundi-local-file-browser-'+mode,current);}catch{}};
-    async function load(path,query){
+    async function load(path,query,firstAttempt=false){
       if(closed)return;
       const request=++seq;
       loading=true;accept.disabled=true;list.replaceChildren();
@@ -137,6 +138,7 @@ export async function openFileBrowser(api,options={}) {
         renderItems(result);
       }catch(error){
         if(closed||request!==seq)return;
+        if(firstAttempt){await load(options.startPath||last||'', '', false);return;}
         showError(error?.message||'Не удалось открыть эту папку.');
       }finally{if(request===seq)loading=false;}
     }
@@ -158,6 +160,6 @@ export async function openFileBrowser(api,options={}) {
       if(!picked)return;saveLast();finish({path:picked});
     };
     dialog.showModal();
-    load(options.startPath||last,'').catch(showError);
+    load(STUDIO_PROJECTS_FOLDER,'',true).catch(showError);
   });
 }
