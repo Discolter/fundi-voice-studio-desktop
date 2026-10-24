@@ -7,6 +7,23 @@ export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В �
 export const TASK_PRIORITIES = [['urgent','Срочно'],['high','Высокий'],['normal','Обычный'],['low','Низкий']];
 export const taskPriority = value => TASK_PRIORITIES.some(([key])=>key===value)?value:'normal';
 export const taskPriorityName = value => TASK_PRIORITIES.find(([key])=>key===taskPriority(value))[1];
+export const TASK_ORDERS = [
+  ['priority','По приоритету'], ['linesAsc','Сначала меньше реплик'],
+  ['linesDesc','Сначала больше реплик'], ['dueAsc','Ближайший дедлайн'],
+  ['dueDesc','Поздний дедлайн'], ['actor','По актёру (А–Я)'],
+  ['project','По проекту (А–Я)'], ['character','По персонажу (А–Я)']
+];
+export const TASK_LINE_FILTERS = [
+  ['all','Все объёмы'], ['small','0–20 реплик'], ['medium','21–100 реплик'],
+  ['large','Более 100 реплик'], ['unknown','Реплики не указаны']
+];
+export const TASK_STATUS_FILTERS = [
+  ['all','Все задачи'], ['open','В работе'], ['done','Выполненные'],
+  ['overdue','Просроченные'], ['noDue','Без дедлайна']
+];
+export const validTaskOrder = order => TASK_ORDERS.some(([key])=>key===order)?order:'priority';
+export const validTaskLineFilter = value => TASK_LINE_FILTERS.some(([key])=>key===value)?value:'all';
+export const validTaskStatusFilter = value => TASK_STATUS_FILTERS.some(([key])=>key===value)?value:'all';
 export const DEBT_STAGES = ['waiting','retake'];
 // Associate the last applied cloud review with the stored status. A director's manual
 // selection is authoritative until a NEW review/submission arrives from the server.
@@ -309,12 +326,50 @@ export function taskAssignment(state,ep,t) {
 }
 // Common task projection: original episode records only; no duplicate rows or migrations.
 // includeArchived is enabled by the Studio personal dashboard to include every project.
-export function taskRows(state,{mine=false,query='',includeArchived=false,priority='all',order='due'}={}) {
+export function taskRows(state,{mine=false,query='',includeArchived=false,priority='all',order='due',status='all',lines='all',actorId='all',projectId='all'}={}) {
   const q=query.trim().toLocaleLowerCase('ru');
+  const safeOrder=order==='due'?'dueAsc':validTaskOrder(order);
+  const safeStatus=validTaskStatusFilter(status),safeLines=validTaskLineFilter(lines);
+  const priorityRank=t=>TASK_PRIORITIES.findIndex(([key])=>key===taskPriority(t.priority));
+  const nullLast=(av,bv,desc=false)=>{
+    if(av===null&&bv===null)return 0;
+    if(av===null)return 1;
+    if(bv===null)return -1;
+    return (av-bv)*(desc?-1:1);
+  };
+  const dated=(a,b,descending=false)=>{
+    const ad=a.t.due||null,bd=b.t.due||null;
+    if(!ad&&!bd)return 0;
+    if(!ad)return 1;
+    if(!bd)return -1;
+    return (descending?bd.localeCompare(ad):ad.localeCompare(bd));
+  };
   return state.projects.filter(p=>includeArchived||!p.archived)
     .flatMap(p=>p.episodes.flatMap(ep=>ep.tasks.map(t=>({p,ep,t}))))
-    .filter(({p,ep,t})=>{const linked=taskAssignment(state,ep,t);return (!mine||t.mine)&&(priority==='all'||taskPriority(t.priority)===priority)&&`${p.title} ${episodeLabel(p,ep)} ${t.title} ${linked.actorName} ${linked.actor?.telegram||''} ${linked.character}`.toLocaleLowerCase('ru').includes(q);})
-    .sort((a,b)=>Number(a.t.done)-Number(b.t.done)||(order==='priority'?TASK_PRIORITIES.findIndex(([key])=>key===taskPriority(a.t.priority))-TASK_PRIORITIES.findIndex(([key])=>key===taskPriority(b.t.priority)):0)||Number(a.p.archived)-Number(b.p.archived)||(a.t.due||'9999').localeCompare(b.t.due||'9999')||a.t.title.localeCompare(b.t.title,'ru'));
+    .filter(({p,ep,t})=>{
+      const linked=taskAssignment(state,ep,t),n=linked.lineCount;
+      const matchesLines=safeLines==='all'||(safeLines==='unknown'?n===null:
+        n!==null&&(safeLines==='small'?n<=20:safeLines==='medium'?n>20&&n<=100:n>100));
+      const matchesStatus=safeStatus==='all'||(safeStatus==='open'?!t.done:
+        safeStatus==='done'?!!t.done:safeStatus==='overdue'?!t.done&&!!t.due&&t.due<today():!t.due);
+      const matchesActor=actorId==='all'||(actorId==='unassigned'?!linked.actorId:linked.actorId===actorId);
+      return (!mine||t.mine)&&(priority==='all'||taskPriority(t.priority)===priority)&&matchesLines&&matchesStatus&&
+        matchesActor&&(projectId==='all'||p.id===projectId)&&
+        `${p.title} ${episodeLabel(p,ep)} ${t.title} ${linked.actorName} ${linked.actor?.telegram||''} ${linked.character}`.toLocaleLowerCase('ru').includes(q);
+    })
+    .sort((a,b)=>{
+      const done=Number(a.t.done)-Number(b.t.done);
+      if(done)return done; // Completed tasks remain at the bottom for every sort.
+      let result=0;
+      if(safeOrder==='priority')result=priorityRank(a.t)-priorityRank(b.t);
+      else if(safeOrder==='linesAsc'||safeOrder==='linesDesc')
+        result=nullLast(taskAssignment(state,a.ep,a.t).lineCount,taskAssignment(state,b.ep,b.t).lineCount,safeOrder==='linesDesc');
+      else if(safeOrder==='dueAsc'||safeOrder==='dueDesc')result=dated(a,b,safeOrder==='dueDesc');
+      else if(safeOrder==='actor')result=(taskAssignment(state,a.ep,a.t).actorName||'яяяяяя').localeCompare(taskAssignment(state,b.ep,b.t).actorName||'яяяяяя','ru');
+      else if(safeOrder==='project')result=a.p.title.localeCompare(b.p.title,'ru');
+      else if(safeOrder==='character')result=(taskAssignment(state,a.ep,a.t).character||'яяяяяя').localeCompare(taskAssignment(state,b.ep,b.t).character||'яяяяяя','ru');
+      return result||Number(a.p.archived)-Number(b.p.archived)||dated(a,b)||a.t.title.localeCompare(b.t.title,'ru')||a.t.id.localeCompare(b.t.id,'ru');
+    });
 }
 export function roleRows(state,{mine=false,query=''}={}) {
   return state.projects.filter(p=>!p.archived).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,r})=>(!mine||r.mine)&&(`${p.title} ${r.character} ${r.actor}`.toLowerCase().includes(query.toLowerCase())));
