@@ -34,10 +34,10 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
   };
   function kind(select) {
     if(select.id === 'task-priority-filter' || select.classList.contains('task-priority-select') || select.name === 'priority' && select.options.length === 4) return 'priority';
-    if(select.id === 'role-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
+    if(select.id === 'role-actor-filter' || select.id === 'task-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
     if(select.id === 'role-character-filter') return 'character';
-    if(select.id === 'role-order' || select.id === 'sort-select') return 'sort';
-    if(select.id === 'role-filter' || select.id === 'debt-status-filter' ||
+    if(select.id === 'role-order' || select.id === 'sort-select' || select.id === 'task-order-filter') return 'sort';
+    if(select.id === 'role-filter' || select.id === 'debt-status-filter' || select.id === 'task-status-filter' ||
       select.classList.contains('role-status') || select.classList.contains('episode-stage') ||
       ['status','stage'].includes(select.name)) return 'status';
     return 'normal';
