@@ -11,6 +11,12 @@ assert.match(root,/site-manager\.js/);
 assert.match(host,/\/site-manager\.js/);
 assert.match(host,/\/site-manager\.css/);
 assert.match(html,/site-manager\.css/);
+assert.ok(host.includes("connect-src 'self' https://xsbeatjomlcegxmqnapw.supabase.co;"));
+assert.ok(host.includes("img-src 'self' data: https://xsbeatjomlcegxmqnapw.supabase.co;"));
+const managerJS=fs.readFileSync(new URL('../package/web/site-manager.js',import.meta.url),'utf8');
+assert.ok(managerJS.includes("...(session?.access_token?{Authorization:'Bearer '+session.access_token}:{}),"));
+assert.ok(!managerJS.includes("Authorization:'Bearer '+(session?.access_token||config.key)"));
+
 
 const store=new Map(),events={};
 globalThis.localStorage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)};
