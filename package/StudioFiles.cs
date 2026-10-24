@@ -176,7 +176,12 @@ namespace FundiVoice {
             transfers.Start("download",name,size,JsonData.S(item,"roleId"),delegate(TransferJob job){
                 job.SetFileId(fileId);job.Check();
                 var response=FileRequest("/v1/studio/files/download","POST",new{fileId=fileId});
-                job.Check();R2Transfer.Download(JsonData.S(response,"downloadUrl"),destination,name,size,job);
+                var downloadPath=JsonData.S(response,"downloadPath");
+                if(JsonData.S(response,"fileName")!=name)
+                    throw new CloudFault(502,"download_name_mismatch","Сервер прислал другое имя записи. Обнови список файлов.");
+                string server;
+                lock(gate)server=JsonData.S(connection,"server");
+                job.Check();R2Transfer.DownloadFromCloud(server,downloadPath,destination,name,size,job);
                 // Only a verified, fully saved file can trigger the actor alert.
                 try{QueueDownloadNotification(fileId);}catch{/* Audio is saved; notification retries are best-effort. */}
             });
