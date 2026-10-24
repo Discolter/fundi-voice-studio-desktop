@@ -63,6 +63,19 @@ namespace FundiVoice {
             RefreshSourceLinks();
             return Status();
         }
+        // Task snapshots are owner-only, separate from actor feeds and roster revisions.
+        public object TasksNow(){
+            string server,token;
+            lock(gate){if(!Connected())throw new CloudFault(409,"not_connected","Сначала подключи Fundi Voice Cloud.");
+                server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");}
+            return CloudHttp.Request(server,"/v1/studio/tasks","GET",null,token);
+        }
+        public object SaveTasks(Dictionary<string,object> body){
+            string server,token;
+            lock(gate){if(!Connected())throw new CloudFault(409,"not_connected","Сначала подключи Fundi Voice Cloud.");
+                server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");}
+            return CloudHttp.Request(server,"/v1/studio/tasks","POST",body,token);
+        }
         public object SourceLinksNow(){RefreshSourceLinks();return Status();}
         public object NewSetupCode(bool renew){
             lock(gate){
