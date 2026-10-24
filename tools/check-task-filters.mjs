@@ -76,7 +76,7 @@ console.log('PASS: 6 Studio filters, all sorts, live workload, zero-vs-unknown, 
 assert.ok(app.includes('task-workload-low'),'Desktop uses green for 0–50 lines');
 assert.ok(app.includes('task-workload-medium'),'Desktop uses yellow for 51–100 lines');
 assert.ok(app.includes('task-workload-high'),'Desktop uses red for 101+ lines');
-assert.ok(css.includes('body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-high'),'Light mode contrast maintained');
+assert.ok(style.includes('body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-high'),'Light mode contrast maintained');
 
 assert.ok(app.includes("linked.lineCount<=50?'task-workload-low'"),'50 counts green');
 assert.ok(app.includes("linked.lineCount<=100?'task-workload-medium'"),'51–100 counts yellow');
