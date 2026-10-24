@@ -1,4 +1,18 @@
-/* Studio 1.8.6 — priority-aware personal assignments, full-width row tint. */
+/* Studio 1.8.18 — workload-aware personal assignment filters. */
+.my-task-toolbar{display:flex;flex-direction:column;align-items:stretch;gap:12px}
+.my-task-toolbar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;flex-wrap:wrap}
+.my-task-toolbar-head h2{margin:0}
+.my-task-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;width:100%}
+.my-task-filter{min-width:0}
+.my-task-filter>label{display:block;margin:0 0 5px;color:var(--muted);font-size:11px;font-weight:600}
+.my-task-filter>.fv-select,.my-task-filter>select{width:100%;max-width:none}
+.my-task-filter .fv-select-trigger{min-height:42px}
+.my-task-filter .fv-select-trigger .fv-option-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.my-task-filter-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;width:100%;min-height:26px}
+.my-task-filter-footer .btn{min-height:30px}
+@media(max-width:1050px){.my-task-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.my-task-filters{grid-template-columns:1fr}.my-task-toolbar-head .btn{max-width:100%}}
+
 .my-priority-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;min-width:0}
 .my-priority-label{color:var(--muted);font-size:11px}
 .my-priority-toolbar .fv-priority-filter{width:200px;max-width:100%}

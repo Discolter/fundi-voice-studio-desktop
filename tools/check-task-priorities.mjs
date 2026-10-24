@@ -49,11 +49,11 @@ const app=src('package/web/app.js'),css=src('package/web/task-priorities.css'),p
 for(const required of [
   "id=\"role-character-filter\"",
   "characterKey:ui.roleCharacter||'all'",
-  "id=\"task-priority-filter\"",
+  "filterControl('task-priority-filter'",
   "class=\"task-priority-select\"",
   "priority:taskPriority(data.priority)",
   "priority:ui.taskPriority||'all'",
-  "order:'priority'",
+  "order:ui.taskOrder",
   "priority-${e(taskPriority(t.priority))}"
 ]) assert.ok(app.includes(required),'Missing Studio UI wiring: '+required);
 for(const selector of ['tbody tr.task-priority-row','priority-urgent','priority-high','priority-normal','priority-low','.fv-dropdown-priority'])
