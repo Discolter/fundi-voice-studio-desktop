@@ -4,7 +4,13 @@
 .my-priority-toolbar .fv-priority-filter{width:200px;max-width:100%}
 .my-priority-toolbar .fv-priority-filter .fv-select-trigger{min-height:40px}
 .task-table-wrap{margin-top:4px}
-.tasks-priority-table{min-width:610px}
+.tasks-priority-table{min-width:960px}
+.tasks-priority-table .task-actor-cell,.tasks-priority-table .task-character-cell{font-size:12px;font-weight:600;min-width:105px}
+.tasks-priority-table .task-character-cell{min-width:130px}
+.tasks-priority-table .task-line-count{display:inline-block;white-space:nowrap;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+#modal .task-assignment-help{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.35}
+#modal .task-assignment-form{min-width:0}
+
 .tasks-priority-table th:nth-last-child(3){min-width:147px}
 .tasks-priority-table td{position:relative}
 .tasks-priority-table tbody tr.task-priority-row{
