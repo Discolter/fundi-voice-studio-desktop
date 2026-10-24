@@ -10,9 +10,18 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     review:'search', accepted:'check', note:'chat'
   };
   const sortIcons = {original:'list',workload:'users',actor:'users',
-    recent:'clock',due:'calendar',name:'list'};
+    recent:'clock',due:'calendar',name:'list',priority:'bell',linesAsc:'sort',
+    linesDesc:'sort',dueAsc:'calendar',dueDesc:'calendar',project:'folder',character:'star'};
   const priorityIcons = {all:'grid',urgent:'bell',high:'arrow',normal:'list',low:'clock'};
   const priorityDetails = {all:'Все поручения',urgent:'Сделать как можно скорее',high:'Высокая срочность',normal:'Стандартный приоритет',low:'Можно выполнить позже'};
+  const taskSortDetails = {priority:'Срочные поручения выше',linesAsc:'Лёгкие задачи первыми',linesDesc:'Объёмные задачи первыми',
+    dueAsc:'Что сдавать раньше',dueDesc:'Поздние сроки первыми',actor:'По имени актёра',project:'По названию проекта',character:'По имени персонажа'};
+  const taskLineDetails = {all:'Любое количество реплик',small:'Небольшие роли — 0–20',medium:'Средний объём — 21–100',
+    large:'Крупные роли — 101 и больше',unknown:'Количество ещё не указано'};
+  const taskStatusDetails = {all:'Все поручения',open:'Ещё нужно выполнить',done:'Уже выполнены',
+    overdue:'Срок уже прошёл',noDue:'Без установленной даты'};
+  const taskLineIcons = {all:'grid',small:'check',medium:'clock',large:'bell',unknown:'help'};
+  const taskStatusIcons = {all:'grid',open:'clock',done:'check',overdue:'bell',noDue:'calendar'};
   const detailText = {
     waiting:'Ожидаем запись актёра',recording:'Актёр работает над ролью',
     received:'Запись отправлена в студию',processing:'Идёт обработка аудио',
@@ -36,6 +45,8 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     if(select.id === 'task-priority-filter' || select.classList.contains('task-priority-select') || select.name === 'priority' && select.options.length === 4) return 'priority';
     if(select.id === 'role-actor-filter' || select.id === 'task-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
     if(select.id === 'role-character-filter') return 'character';
+    if(select.id === 'task-lines-filter') return 'lines';
+    if(select.id === 'task-project-filter') return 'project';
     if(select.id === 'role-order' || select.id === 'sort-select' || select.id === 'task-order-filter') return 'sort';
     if(select.id === 'role-filter' || select.id === 'debt-status-filter' || select.id === 'task-status-filter' ||
       select.classList.contains('role-status') || select.classList.contains('episode-stage') ||
@@ -74,7 +85,12 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
       const count=label.match(/\((\d+)\)$/)?.[1] || '';
       return {label:name,subtitle:value==='all'?'Показать роли всех персонажей':'Фильтр по персонажу',count,actor:null,value};
     }
-    return {label,subtitle:type==='priority'?priorityDetails[value] || '':detailText[value] || '',count:'',actor:null,value};
+    return {label,subtitle:type==='priority'?priorityDetails[value]||'':
+      type==='lines'?taskLineDetails[value]||'':
+      type==='project'?(value==='all'?'Показать поручения всех проектов':'Поручения выбранного проекта'):
+      type==='sort'?taskSortDetails[value]||detailText[value]||'':
+      type==='status'?taskStatusDetails[value]||detailText[value]||'':
+      detailText[value]||'',count:'',actor:null,value};
   }
   function artFor(detail, type) {
     const art = element('span','fv-option-art');
@@ -89,14 +105,24 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
       art.classList.add('fv-priority-art');
       art.dataset.priority = detail.value;
       art.innerHTML = icon(priorityIcons[detail.value] || 'list');
-    } else if(type === 'status' || roleStages.has(detail.value)) {
+    } else if(type === 'lines') {
+       art.classList.add('fv-workload-art');
+       art.dataset.workload = detail.value;
+       art.innerHTML = icon(taskLineIcons[detail.value] || 'list');
+     } else if(type === 'project') {
+       art.classList.add('fv-project-art');
+       art.innerHTML = icon(detail.value === 'all' ? 'grid' : 'folder');
+     } else if(type === 'status' || roleStages.has(detail.value)) {
       art.classList.add('fv-status-art');
       art.dataset.status = detail.value;
-      art.innerHTML = icon(stageIcons[detail.value] || 'check');
+      art.innerHTML = icon(selectTaskStatusIcon(detail.value, type));
     } else {
       art.innerHTML = icon(type === 'sort' ? (sortIcons[detail.value] || 'list') : 'file');
     }
     return art;
+  }
+  function selectTaskStatusIcon(value,type){
+    return type==='status'?(taskStatusIcons[value]||stageIcons[value]||'check'):(stageIcons[value]||'check');
   }
   function choiceContent(option, type, condensed=false) {
     const d = detailsFor(option,type);
@@ -104,7 +130,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     content.append(artFor(d,type));
     const words = element('span','fv-option-words');
     words.append(element('strong','fv-option-name',d.label));
-    if(!condensed && (type === 'actor' || type === 'character' || type === 'status' || type === 'sort' || type === 'priority') && d.subtitle)
+    if(!condensed && (type === 'actor' || type === 'character' || type === 'status' || type === 'sort' || type === 'priority' || type === 'lines' || type === 'project') && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
     if(condensed && type === 'actor' && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
@@ -135,6 +161,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     if(select.id === 'role-order') wrapper.classList.add('fv-role-order');
     if(select.classList.contains('task-priority-select')) wrapper.classList.add('fv-task-priority');
     if(select.id === 'task-priority-filter') wrapper.classList.add('fv-priority-filter');
+    if(select.id.startsWith('task-') && select.id.endsWith('-filter')) wrapper.classList.add('fv-task-filter');
     const button = element('button','fv-select-trigger');
     button.type = 'button';
     button.setAttribute('aria-haspopup','dialog');
