@@ -11,7 +11,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
   };
   const sortIcons = {original:'list',workload:'users',actor:'users',
     recent:'clock',due:'calendar',name:'list',priority:'bell',linesAsc:'sort',
-    linesDesc:'sort',dueAsc:'calendar',dueDesc:'calendar',project:'folder',character:'star'};
+    linesDesc:'arrow',dueAsc:'calendar',dueDesc:'calendar',project:'folder',character:'star'};
   const priorityIcons = {all:'grid',urgent:'bell',high:'arrow',normal:'list',low:'clock'};
   const priorityDetails = {all:'Все поручения',urgent:'Сделать как можно скорее',high:'Высокая срочность',normal:'Стандартный приоритет',low:'Можно выполнить позже'};
   const taskSortDetails = {priority:'Срочные поручения выше',linesAsc:'Лёгкие задачи первыми',linesDesc:'Объёмные задачи первыми',
