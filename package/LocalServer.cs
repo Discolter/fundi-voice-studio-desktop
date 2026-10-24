@@ -293,6 +293,8 @@ namespace FundiVoice {
                     else if(route=="cloud/messages/clear")result=Cloud.ClearMessages();
                     else if(route=="cloud/messages/dismiss-failed")result=Cloud.DismissFailures();
                     else if(route=="cloud/tasks/read")result=Cloud.TasksNow();
+                    else if(route=="cloud/tasks/baseline")result=Cloud.TasksBaseline();
+                    else if(route=="cloud/tasks/baseline/save")result=Cloud.SaveTasksBaseline(dataBody);
                     else if(route=="cloud/tasks/write")result=Cloud.SaveTasks(dataBody);
                     else if(route=="cloud/source-links")result=Cloud.SourceLinksNow();
                     else if(route=="cloud/source-links/set")result=Cloud.EditSourceLink(S(dataBody,"projectId"),S(dataBody,"episodeId"),S(dataBody,"url"));
