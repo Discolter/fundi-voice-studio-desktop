@@ -53,7 +53,7 @@ for(const required of [
   "class=\"task-priority-select\"",
   "priority:taskPriority(data.priority)",
   "priority:ui.taskPriority||'all'",
-  "order:'priority'",
+  "order:ui.taskOrder",
   "priority-${e(taskPriority(t.priority))}"
 ]) assert.ok(app.includes(required),'Missing Studio UI wiring: '+required);
 for(const selector of ['tbody tr.task-priority-row','priority-urgent','priority-high','priority-normal','priority-low','.fv-dropdown-priority'])
