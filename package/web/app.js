@@ -2,7 +2,7 @@ import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
 import {installVisualSelects} from './visual-selects.js';
-import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,TASK_PRIORITIES,taskPriority,taskPriorityName,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorOptions,episodeRoleCharacterOptions,episodeUnassignedActors,filterEpisodeRoles,removeActor,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
+import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorOptions,episodeRoleCharacterOptions,episodeUnassignedActors,filterEpisodeRoles,removeActor,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
@@ -22,8 +22,14 @@ const ACTOR_DRAG_TYPE='application/x-fundi-voice-actor';
 let state, native=false, token='', info={}, saving=false, saveError='', saveTimer, saveChain=Promise.resolve(),modalSubmit=null,scanResults=[];
 let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:'',actors:[]},cloudWizard=null;
 let refreshing=false,manualRefreshAt=0;
-let ui={page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],debtActor:'',debtStatus:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',taskPriority:'all'};
-try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];}catch{}
+let ui={page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],debtActor:'',debtStatus:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
+try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
+  ui.taskOrder=validTaskOrder(saved.taskOrder);
+  ui.taskStatus=validTaskStatusFilter(saved.taskStatus);
+  ui.taskLines=validTaskLineFilter(saved.taskLines);
+  ui.taskActor=typeof saved.taskActor==='string'&&saved.taskActor.length<=80?saved.taskActor:'all';
+  ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
+}catch{}
 const app=document.querySelector('#app'),modal=document.querySelector('#modal');
 const activeProjects=()=>state.projects.filter(p=>!p.archived);
 const getProject=id=>state.projects.find(p=>p.id===(id||ui.project));
@@ -58,7 +64,7 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded}));}catch{}}
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject}));}catch{}}
 function navigate(page){ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(page==='vacations'&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles'){const p=getProject(id);if(!p)return;ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);}
 
@@ -109,9 +115,19 @@ function groupedMyRoles(roles){
 }
 function renderMyTasks(){
   const roles=myRoleRows(state,{query:ui.query});
-  const tasks=taskRows(state,{query:ui.query,includeArchived:true,priority:ui.taskPriority||'all',order:'priority'});
   const allRoles=myRoleRows(state),allTasks=taskRows(state,{includeArchived:true});
+  const taskProjects=[...new Map(allTasks.map(({p})=>[p.id,p])).values()].sort((a,b)=>a.title.localeCompare(b.title,'ru'));
+  const taskActors=[...new Map(allTasks.map(({ep,t})=>{
+    const linked=taskAssignment(state,ep,t);
+    return linked.actorId?[linked.actorId,{id:linked.actorId,name:linked.actorName||'Актёр без профиля'}]:null;
+  }).filter(Boolean)).values()].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  if(ui.taskProject!=='all'&&!taskProjects.some(p=>p.id===ui.taskProject))ui.taskProject='all';
+  if(ui.taskActor!=='all'&&ui.taskActor!=='unassigned'&&!taskActors.some(a=>a.id===ui.taskActor))ui.taskActor='all';
+  const hasUnassigned=allTasks.some(({ep,t})=>!taskAssignment(state,ep,t).actorId);
+  const tasks=taskRows(state,{query:ui.query,includeArchived:true,priority:ui.taskPriority||'all',
+    order:ui.taskOrder,status:ui.taskStatus,lines:ui.taskLines,actorId:ui.taskActor,projectId:ui.taskProject});
   const activeTasks=allTasks.filter(({t})=>!t.done).length;
+  const filtered=ui.taskPriority!=='all'||ui.taskStatus!=='all'||ui.taskLines!=='all'||ui.taskActor!=='all'||ui.taskProject!=='all';
   const handle=state.settings.myTelegram||'';
   let html=heading('Мои задачи',handle?`Мои роли и поручения · @${handle}`:'Мои роли и поручения',`<button class="btn ghost small" data-nav="settings">${icon('settings')}Настроить профиль</button>`);
   html+=`<div class="my-overview"><div class="my-overview-item"><span>${icon('mic')} Назначено ролей</span><strong>${allRoles.length}</strong></div><div class="my-overview-item"><span>${icon('tasks')} Задач в работе</span><strong>${activeTasks}</strong></div><div class="my-overview-item"><span>${icon('grid')} Проектов с ролями</span><strong>${new Set(allRoles.map(x=>x.p.id)).size}</strong></div></div>`;
@@ -121,11 +137,21 @@ function renderMyTasks(){
   }else{
     html+=groupedMyRoles(roles);
   }
-  html+=`<div class="panel-head my-section-head my-priority-toolbar"><h2>Мои поручения <span class="my-section-count">${tasks.length}</span></h2><div class="my-priority-actions"><label class="my-priority-label" for="task-priority-filter">Приоритет</label><select id="task-priority-filter" aria-label="Фильтр поручений по приоритету">${options([['all','Все приоритеты'],...TASK_PRIORITIES],ui.taskPriority||'all')}</select><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div></div>`;
-  html+='<div class="my-priority-table">'+(tasksTable(tasks,true)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||ui.taskPriority!=='all'?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.taskPriority!=='all'?'По этому приоритету поручений нет. Выбери «Все приоритеты».':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
+  const projects=[['all','Все проекты'],...taskProjects.map(p=>[p.id,p.title])];
+  const actors=[['all','Все актёры'],...(hasUnassigned?[['unassigned','Без актёра']]:[]),...taskActors.map(a=>[a.id,a.name])];
+  const filterControl=(id,label,choices,value)=>`<div class="my-task-filter"><label for="${id}">${label}</label><select id="${id}" aria-label="${label} поручений">${options(choices,value)}</select></div>`;
+  html+=`<div class="panel-head my-section-head my-task-toolbar"><div class="my-task-toolbar-head"><h2>Мои поручения <span class="my-section-count">${tasks.length}</span></h2><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div>
+    <div class="my-task-filters">
+      ${filterControl('task-priority-filter','Приоритет',[['all','Все приоритеты'],...TASK_PRIORITIES],ui.taskPriority)}
+      ${filterControl('task-order-filter','Сортировка',TASK_ORDERS,ui.taskOrder)}
+      ${filterControl('task-lines-filter','Количество реплик',TASK_LINE_FILTERS,ui.taskLines)}
+      ${filterControl('task-status-filter','Состояние',TASK_STATUS_FILTERS,ui.taskStatus)}
+      ${filterControl('task-project-filter','Проект',projects,ui.taskProject)}
+      ${filterControl('task-actor-filter','Актёр',actors,ui.taskActor)}
+    </div><div class="my-task-filter-footer"><span class="small muted">Показано ${tasks.length} из ${allTasks.length} поручений${ui.taskOrder==='linesAsc'||ui.taskOrder==='linesDesc'?' · Без количества реплик — в конце списка':''}</span>${filtered||ui.taskOrder!=='priority'?`<button class="btn ghost small" data-action="reset-task-filters">${icon('refresh')}Сбросить фильтры</button>`:''}</div></div>`;
+  html+='<div class="my-priority-table">'+(tasksTable(tasks,true)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||filtered?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.query||filtered?'Попробуй изменить параметры фильтров или сбросить их.':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
   return html;
 }
-
 function renderDebts(){
   const total=debtRows(state),allActors=new Map();
   for(const item of total){
@@ -973,6 +999,7 @@ async function action(a,d,el){
     case 'role-folder':{const r=ep.roles.find(r=>r.id===d.item);if(r.folder)await openPath(r.folder);else roleForm(p.id,ep.id,r.id);break;}
     case 'role-subs':{const r=ep.roles.find(r=>r.id===d.item);if(r.subtitle)await openPath(r.subtitle);else roleForm(p.id,ep.id,r.id);break;}
     case 'choose-debt-actor':ui.debtActor=d.key||'';render();break;
+    case 'reset-task-filters':ui.taskPriority='all';ui.taskOrder='priority';ui.taskStatus='all';ui.taskLines='all';ui.taskActor='all';ui.taskProject='all';saveUI();render();break;
     case 'new-task':taskForm(p?.id,ep?.id);break;
     case 'edit-task':taskForm(p.id,ep.id,d.item);break;
     case 'toggle-task':{const t=ep.tasks.find(t=>t.id===d.item);t.done=!t.done;touch(p);render();break;}
@@ -1066,7 +1093,12 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
   if(el.id==='role-order'){ui.roleOrder=el.value;render();}
   if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleId'].includes(el.name)){updateTaskAssignmentPickers(el.name);return;}
-  if(el.id==='task-priority-filter'){ui.taskPriority=el.value;render();}
+  if(el.id==='task-priority-filter'){ui.taskPriority=el.value;saveUI();render();}
+  if(el.id==='task-order-filter'){ui.taskOrder=validTaskOrder(el.value);saveUI();render();}
+  if(el.id==='task-lines-filter'){ui.taskLines=validTaskLineFilter(el.value);saveUI();render();}
+  if(el.id==='task-status-filter'){ui.taskStatus=validTaskStatusFilter(el.value);saveUI();render();}
+  if(el.id==='task-project-filter'){ui.taskProject=el.value;saveUI();render();}
+  if(el.id==='task-actor-filter'){ui.taskActor=el.value;saveUI();render();}
   if(el.classList.contains('task-priority-select')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep),t=ep?.tasks.find(x=>x.id===el.dataset.item);if(!t)return;t.priority=taskPriority(el.value);touch(p);render();}
   if(el.id==='debt-status-filter'){ui.debtStatus=el.value;render();}
   if(el.classList.contains('in-project')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);ep.roles.find(r=>r.id===el.dataset.item).inProject=el.checked;touch(p);render();}
