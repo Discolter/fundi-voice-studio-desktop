@@ -75,3 +75,16 @@
  .fv-dropdown{max-width:calc(100vw - 16px)}
  .scan-item .fv-select{width:135px}
 }
+
+/* Consistent illustrated Studio assignment filter options. */
+.fv-workload-art[data-workload=all],.fv-workload-art[data-workload=unknown],
+.fv-project-art{color:#a4bafa;background:#8da8f11a;border-color:#8da8f142}
+.fv-workload-art[data-workload=small]{color:#66dfa4;background:#32a36d23;border-color:#4abb813d}
+.fv-workload-art[data-workload=medium]{color:#f3c668;background:#cf9b3a23;border-color:#d7aa5140}
+.fv-workload-art[data-workload=large]{color:#ff8795;background:#d65a6c20;border-color:#e6798940}
+.fv-status-art[data-status=open]{color:#92bfff;background:#6997e722;border-color:#6997e74d}
+.fv-status-art[data-status=overdue]{color:#ff8893;background:#ec69731e;border-color:#ec697344}
+.fv-status-art[data-status=noDue]{color:#9fa8bf;background:#a2adc21a;border-color:#a2adc242}
+.fv-type-sort .fv-option-art{color:#a8c3ff;background:#749eea1a;border-color:#749eea41}
+.fv-task-filter .fv-option-name{font-weight:650}
+.fv-dropdown-lines .fv-option-subtitle,.fv-dropdown-project .fv-option-subtitle{max-width:100%;white-space:normal}
