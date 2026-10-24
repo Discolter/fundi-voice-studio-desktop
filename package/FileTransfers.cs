@@ -70,9 +70,12 @@ namespace FundiVoice.Desktop {
             return uri;
         }
         static HttpWebRequest Create(string url,string method){
-            // Let Windows negotiate current TLS versions (TLS 1.2 / 1.3) and verify the certificate.
+            return CreateVerified(Address(url),method);
+        }
+        static HttpWebRequest CreateVerified(Uri target,string method){
+            // Let Windows negotiate current TLS versions and verify the certificate.
             ServicePointManager.SecurityProtocol=SecurityProtocolType.SystemDefault;
-            var request=(HttpWebRequest)WebRequest.Create(Address(url));
+            var request=(HttpWebRequest)WebRequest.Create(target);
             request.Method=method;request.AllowAutoRedirect=false;request.KeepAlive=false;
             // Timeout covers the WHOLE synchronous request, including the streamed body.
             // Keep an independent inactivity bound so a dead connection remains cancellable.
@@ -117,6 +120,16 @@ namespace FundiVoice.Desktop {
         }
         public static void Download(string url,string folder,string name,long expected,TransferJob job){
             Receive(Create(url,"GET"),folder,name,expected,job);
+        }
+        public static void DownloadFromCloud(string server,string path,string folder,string name,long expected,TransferJob job){
+            // Never accept arbitrary URLs, redirects or user-controlled destination hosts.
+            if(!Regex.IsMatch(path??"", @"\A/v1/studio/files/content\?fileId=[a-f0-9-]{36}&expires=[0-9]{10}&signature=[a-f0-9]{64}\z"))
+                throw new CloudFault(502,"invalid_download_path","Сервер вернул неверную ссылку на скачивание.");
+            var origin=CloudHttp.Server(server);
+            var target=new Uri(origin+path,UriKind.Absolute);
+            if(target.GetLeftPart(UriPartial.Authority)!=origin)
+                throw new CloudFault(502,"invalid_download_host","Ссылка скачивания ведёт на посторонний сервер.");
+            Receive(CreateVerified(target,"GET"),folder,name,expected,job);
         }
         internal static void Receive(HttpWebRequest request,string folder,string name,long expected,TransferJob job){
             if(expected<1||expected>MaximumBytes)throw new CloudFault(502,"invalid_file_size","Сервер вернул неверный размер записи.");
