@@ -221,7 +221,7 @@ export function normalizeState(raw) {
       for(const key of ['resources','tasks','roles']) if(ep[key] && (!Array.isArray(ep[key]) || ep[key].length>2000)) throw new Error('Слишком много записей в серии.');
       return {id:id(ep.id),number:num(ep.number),title:str(ep.title,120),stage:STAGES.some(s=>s[0]===ep.stage)?ep.stage:'unset',due:dateValue(ep.due),notes:str(ep.notes,12000),paths:Object.fromEntries(PATHS.map(([key])=>[key,str(ep.paths?.[key],2000)])),
         resources:(ep.resources||[]).map(r=>({id:id(r.id),kind:KINDS.some(k=>k[0]===r.kind)?r.kind:'source',label:str(r.label,200)||'Материал',path:str(r.path,2000),folder:!!r.folder})),
-        tasks:(ep.tasks||[]).map(t=>({id:id(t.id),title:str(t.title,500),done:!!t.done,mine:!!t.mine,due:dateValue(t.due),priority:taskPriority(t.priority)})).filter(t=>t.title.trim()),
+        tasks:(ep.tasks||[]).map(t=>({id:id(t.id),title:str(t.title,500),done:!!t.done,mine:!!t.mine,due:dateValue(t.due),priority:taskPriority(t.priority),actorId:actorIdMap.get(t.actorId)||str(t.actorId,80),roleId:str(t.roleId,80)})).filter(t=>t.title.trim()),
         roles:(ep.roles||[]).map(normalizeRole).filter(r=>r.character.trim())};
     })};
   }
@@ -298,13 +298,22 @@ export function actorPublicFeed(state, actorId, {preview=false}={}) {
   roles.sort((a,b)=>(a.due||'9999-99-99').localeCompare(b.due||'9999-99-99')||a.projectTitle.localeCompare(b.projectTitle,'ru')||a.character.localeCompare(b.character,'ru'));
   return {version:1,actorId:actor.id,roles};
 }
+// Optional task links point to the existing actor and role from this episode.
+// Workload is read from the role itself, so changes to line counts update all tasks.
+export function taskAssignment(state,ep,t) {
+  const role=(ep?.roles||[]).find(r=>r.id===t.roleId)||null;
+  const actorId=role?.actorId||t.actorId||'';
+  const actor=(state.actors||[]).find(a=>a.id===actorId)||null;
+  const actorName=actor?.name||role?.actor||'';
+  return {role,actor,actorId,actorName,character:role?.character||'',lineCount:Number.isInteger(role?.lineCount)&&role.lineCount>=0?role.lineCount:null};
+}
 // Common task projection: original episode records only; no duplicate rows or migrations.
 // includeArchived is enabled by the Studio personal dashboard to include every project.
 export function taskRows(state,{mine=false,query='',includeArchived=false,priority='all',order='due'}={}) {
   const q=query.trim().toLocaleLowerCase('ru');
   return state.projects.filter(p=>includeArchived||!p.archived)
     .flatMap(p=>p.episodes.flatMap(ep=>ep.tasks.map(t=>({p,ep,t}))))
-    .filter(({p,ep,t})=>(!mine||t.mine)&&(priority==='all'||taskPriority(t.priority)===priority)&&`${p.title} ${episodeLabel(p,ep)} ${t.title}`.toLocaleLowerCase('ru').includes(q))
+    .filter(({p,ep,t})=>{const linked=taskAssignment(state,ep,t);return (!mine||t.mine)&&(priority==='all'||taskPriority(t.priority)===priority)&&`${p.title} ${episodeLabel(p,ep)} ${t.title} ${linked.actorName} ${linked.actor?.telegram||''} ${linked.character}`.toLocaleLowerCase('ru').includes(q);})
     .sort((a,b)=>Number(a.t.done)-Number(b.t.done)||(order==='priority'?TASK_PRIORITIES.findIndex(([key])=>key===taskPriority(a.t.priority))-TASK_PRIORITIES.findIndex(([key])=>key===taskPriority(b.t.priority)):0)||Number(a.p.archived)-Number(b.p.archived)||(a.t.due||'9999').localeCompare(b.t.due||'9999')||a.t.title.localeCompare(b.t.title,'ru'));
 }
 export function roleRows(state,{mine=false,query=''}={}) {
