@@ -25,12 +25,13 @@ let state, native=false, token='', info={}, saving=false, saveError='', saveTime
 let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:'',actors:[]},cloudWizard=null;
 let refreshing=false,manualRefreshAt=0;
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='';
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],debtActor:'',debtStatus:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
   ui.taskStatus=validTaskStatusFilter(saved.taskStatus);
   ui.taskLines=validTaskLineFilter(saved.taskLines);
   ui.taskActor=typeof saved.taskActor==='string'&&saved.taskActor.length<=80?saved.taskActor:'all';
+  ui.actorRegistrationFilter=['all','yes','no'].includes(saved.actorRegistrationFilter)?saved.actorRegistrationFilter:'all';
   ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
 }catch{}
 const app=document.querySelector('#app'),modal=document.querySelector('#modal');
@@ -100,7 +101,7 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject}));}catch{}}
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,actorRegistrationFilter:ui.actorRegistrationFilter}));}catch{}}
 function navigate(page){ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(page==='vacations'&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles'){const p=getProject(id);if(!p)return;ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);}
 
@@ -401,11 +402,18 @@ function renderActorPortal(){
   const enabled=actors.filter(a=>a.actorAccess===true).length;
   const eligibleRoles=actors.filter(a=>a.actorAccess===true).reduce((n,a)=>n+(actorPublicFeed(state,a.id)?.roles.length||0),0);
   const q=ui.query.trim().toLocaleLowerCase('ru');
-  const filtered=actors.filter(a=>`${a.name} ${a.telegram}`.toLocaleLowerCase('ru').includes(q));
+  const filtered=actors.filter(a=>{
+    if(!`${a.name} ${a.telegram}`.toLocaleLowerCase('ru').includes(q))return false;
+    if(ui.actorRegistrationFilter==='all')return true;
+    const account=(cloud.actors||[]).find(x=>x.actorId===a.id);
+    const reg=actorRegistrationInfo(account,{connected:native&&cloud.connected,error:cloud.error});
+    return reg.state===ui.actorRegistrationFilter;
+  });
   let html=heading('Доступ актёров','Fundi Voice Actor',native&&cloud.connected?'<button class="btn primary" data-action="studio-files">Записи актёров</button>':'');
   html+=renderCloudConnection();
   html+=`<div class="actor-cloud-stats"><div class="actor-cloud-stat"><span>Актёров в базе</span><strong>${actors.length}</strong></div><div class="actor-cloud-stat"><span>Разрешён доступ</span><strong>${enabled}</strong></div><div class="actor-cloud-stat"><span>Ролей для публикации</span><strong>${eligibleRoles}</strong></div></div>`;
-  html+=`<div class="panel-head"><h2>Кому разрешить доступ</h2><span class="muted small">По умолчанию у всех выключено</span></div>`;
+  html+=`<div class="panel-head"><h2>Кому разрешить доступ</h2><div class="actor-registration-filter"><label for="actor-registration-filter">Регистрация</label><select id="actor-registration-filter" aria-label="Фильтр по регистрации Actor" ${!native||!cloud.connected||cloud.error?'disabled':''}><option value="all" ${ui.actorRegistrationFilter==='all'?'selected':''}>Все актёры</option><option value="yes" ${ui.actorRegistrationFilter==='yes'?'selected':''}>Зарегистрированные</option><option value="no" ${ui.actorRegistrationFilter==='no'?'selected':''}>Не зарегистрированные</option></select><span class="muted small">Показано: ${filtered.length} из ${actors.length}</span></div></div>`;
+  if(!native||!cloud.connected||cloud.error)html+='<p class="muted small">Для точного статуса регистрации подключи Studio к облаку и обнови список.</p>';
   html+=`<div class="actor-cloud-grid">${filtered.map(a=>{
     const feed=actorPublicFeed(state,a.id,{preview:true});
     const account=(cloud.actors||[]).find(x=>x.actorId===a.id);
@@ -1130,6 +1138,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='episode-select'){ui.episode=el.value;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';render();}
   if(el.id==='cast-scope'){const p=getProject(el.dataset.id);modal.querySelector('#cast-draft').value=castText(state,p,el.value);}
   if(el.classList.contains('episode-stage')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);ep.stage=el.value;touch(p);}
+  if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
   if(el.id==='role-filter'){ui.roleFilter=el.value;render();}
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
