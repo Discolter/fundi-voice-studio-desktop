@@ -10,7 +10,7 @@ const ep=(id,roles)=>({id,number:'1',roles:roles.map(([character,status])=>({
 const data=seedState();
 data.projects=[
  project('anime-one',[
-    ep('first',[['A','done'],['B','done']]),
+    ep('first',[['A_unique','done'],['B','done']]),
     ep('second',[['C_unique','done'],['D','waiting']]),
     ep('third',[['E','received']])
  ]),
@@ -31,7 +31,7 @@ assert.equal(isMyRoleAccepted(visible[0].r),true);
 const search=myRoleRows(data,{query:'C_unique'});
 assert.deepEqual(unfinishedMyRoleEpisodes(all,search).map(({r})=>r.character),['C_unique'],
  'Search results must check the full episode, not only matching accepted role');
-assert.deepEqual(unfinishedMyRoleEpisodes(all,myRoleRows(data,{query:'A'})),[],
+assert.deepEqual(unfinishedMyRoleEpisodes(all,myRoleRows(data,{query:'A_unique'})),[],
  'Fully accepted episodes never reappear through search');
 data.projects[0].episodes[1].roles[1].status='done';
 assert.equal(unfinishedMyRoleEpisodes(myRoleRows(data)).some(({ep})=>ep.id==='second'),false,
