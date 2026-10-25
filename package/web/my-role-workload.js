@@ -1,4 +1,5 @@
 // Read-only workload summary for a person's own roles.
+export const isMyRoleAccepted=role=>role?.status==='done';
 // Never treat an unentered character line count as zero.
 export function myRoleLineCount(value){
   return Number.isInteger(value)&&value>=0?value:null;
