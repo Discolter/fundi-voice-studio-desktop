@@ -4,7 +4,7 @@ import {createSiteManager} from './site-manager.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
 import {installVisualSelects} from './visual-selects.js';
-import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot} from './task-cloud-sync.js';
+import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog} from './task-cloud-sync.js';
 import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorOptions,episodeRoleCharacterOptions,episodeUnassignedActors,filterEpisodeRoles,removeActor,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
@@ -75,15 +75,19 @@ async function syncStudioTasks(visible=false){
     const local=buildTaskSnapshot(state),prior=baselineData?.known?baselineData.snapshot:null;
     const merged=mergeTaskSnapshots(local,prior,remote.snapshot);
     if(merged.conflicts.length)throw Error('Есть конфликт в '+merged.conflicts.length+' задачах: изменения Windows и сайта сделаны одновременно. Проверь данные перед повторной синхронизацией.');
-    const catalog=mergeTaskCatalog(local,remote.snapshot);
+    const roleMerge=mergeRoleStages(local,prior,remote.snapshot);
+    if(roleMerge.conflicts.length)throw Error('Конфликт этапов в '+roleMerge.conflicts.length+' ролях. В Windows и на сайте изменили одну роль одновременно; данные не перезаписаны.');
+    const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot),roleMerge.stages);
     const snapshot={...catalog,tasks:merged.tasks};
     const different=JSON.stringify(snapshot)!==JSON.stringify(remote.snapshot);
     if(different)await api('cloud/tasks/write',{baseVersion:remote.version,snapshot});
-    const modified=applyTaskSnapshot(state,merged.tasks);
+    const tasksModified=applyTaskSnapshot(state,merged.tasks);
+    const stagesModified=applyRoleStages(state,roleMerge.stages);
+    const modified=tasksModified||stagesModified;
     await api('cloud/tasks/baseline/save',{known:true,snapshot});
     taskSyncError='';
     if(modified){persist();if(!modal.open)render();}
-    if(visible)toast('Поручения синхронизированы с веб-студией.');
+    if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
   }catch(error){
     if(visible||error.message!==taskSyncError){
@@ -507,9 +511,9 @@ async function refreshAllStudio(button){
   refreshing=true;if(button)button.disabled=true;
   try{
     if(saving)await flushSave();
+    if(!await syncStudioTasks(true))throw Error('Сначала устрани ошибку синхронизации ролей. Публикация старого списка остановлена.');
     await api('cloud/sync',{replace:false});
     await refreshCloud(true);
-    await syncStudioTasks(true);
     manualRefreshAt=Date.now();render();
     toast('Новые записи, уведомления, статусы и отпуска проверены.');
   }catch(err){toast('Не удалось обновить данные: '+err.message,true);}
