@@ -85,6 +85,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Vacation activity disclosure regression failed' }
           node ./tools/check-my-role-workload.mjs
           if($LASTEXITCODE -ne 0){ throw 'My role workload summary regression failed' }
+          node ./tools/check-my-role-acceptance.mjs
+          if($LASTEXITCODE -ne 0){ throw 'My role accepted-status visualization regression failed' }
           node ./tools/check-studio-managed-vacations.mjs
           if($LASTEXITCODE -ne 0){ throw 'Studio vacation management regression failed' }
           node ./tools/check-episode-unassigned.mjs
