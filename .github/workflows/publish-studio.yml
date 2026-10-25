@@ -38,6 +38,7 @@ jobs:
           node --check ./package/web/file-browser.js
           if($LASTEXITCODE -ne 0){ throw 'Desktop browser JavaScript syntax failed' }
           node --check ./package/web/app.js
+          node ./tools/check-role-age.mjs
           if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
           node --check ./package/web/site-manager.js
           if($LASTEXITCODE -ne 0){ throw 'Viewer manager JavaScript syntax failed' }
