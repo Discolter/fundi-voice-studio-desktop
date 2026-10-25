@@ -85,6 +85,7 @@ async function syncStudioTasks(visible=false){
     const stagesModified=applyRoleStages(state,roleMerge.stages);
     const modified=tasksModified||stagesModified;
     await api('cloud/tasks/baseline/save',{known:true,snapshot});
+    await api('cloud/roles/sync-ready',{});
     taskSyncError='';
     if(modified){persist();if(!modal.open)render();}
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
@@ -1088,7 +1089,7 @@ async function action(a,d,el){
     case 'cloud-setup':await cloudSetup();break;
     case 'cloud-copy-setup':await copyText(cloudWizard.code);toast('Код скопирован');break;
     case 'cloud-renew-setup':{const result=await api('cloud/setup-code',{renew:true});cloudWizard.code=result.code;await cloudSetup(1);break;}
-    case 'cloud-sync':await flushSave();await api('cloud/sync',{replace:false});await refreshCloud(true);toast(cloud.pending?'Синхронизация продолжается':'Изменения отправлены');break;
+    case 'cloud-sync':if(!await syncStudioTasks())throw Error('Не удалось согласовать этапы ролей с сайтом. Старые данные не отправлены.');await flushSave();await api('cloud/sync',{replace:false});await refreshCloud(true);toast(cloud.pending?'Синхронизация продолжается':'Изменения отправлены');break;
     case 'cloud-invite':el.disabled=true;try{await cloudInvite(d.actor);}finally{if(el.isConnected)el.disabled=false;}break;
     case 'cloud-replace':confirmAction('Опубликовать данные этой Studio?','Списки ролей и разрешения на сервере будут заменены текущими данными этой программы.','Опубликовать',async()=>{await flushSave();await api('cloud/sync',{replace:true});await refreshCloud(true);toast('Назначения опубликованы');});break;
     case 'delete-actor':{const a=state.actors.find(a=>a.id===d.actor);if(!a)break;confirmAction('Удалить актёра?',`<strong>${e(a.name)}</strong>. Имя в ролях сохранится. Файлы демок останутся на диске.`,'Удалить',()=>{removeActor(state,a.id);if(ui.actorFilter===a.id)ui.actorFilter='';persist();});break;}
@@ -1179,7 +1180,10 @@ async function boot(){
       const params=new URLSearchParams(location.hash.slice(1));token=params.get('key')||sessionStorage.getItem('fundi-key')||'';
       if(token){sessionStorage.setItem('fundi-key',token);history.replaceState(null,'',location.pathname);native=true;try{info=await api('info');const data=await api('state');if(data.state)state=normalizeState(data.state);else state=seedState();}catch(err){saveError=err.message;}}
     }
-    await refreshCloud();render();ensureActorPreviews().catch(()=>{});if(native){
+    await refreshCloud();
+    const startupReconciled=!native||!cloud.connected||await syncStudioTasks();
+    if(!startupReconciled)toast('Проверка веб-изменений не удалась. Публикация ролей остановлена до успешной синхронизации.',true);
+    render();ensureActorPreviews().catch(()=>{});if(native){
       scheduleTaskCloudSync();setInterval(()=>syncStudioTasks().catch(()=>{}),45000);
       startUpdateNotice({api,label:'Studio',beforeRestart:async()=>{
         if(cloud.transfer?.state==='running'){toast('Дождись завершения передачи файлов перед обновлением.',true);return false;}
@@ -1188,7 +1192,7 @@ async function boot(){
         return true;
       }});
       setInterval(()=>refreshCloud(true),1500);
-    }if(!saveError){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
+    }if(!saveError&&startupReconciled){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
   }catch(err){app.innerHTML=`<div class="boot"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><p>Не удалось загрузить данные студии.</p><p class="small muted">${e(err.message)}</p><div class="btn-row"><button class="btn ghost" id="download-broken">Скачать сохранённые данные</button><button class="btn primary" id="recover-start">Открыть пустую студию</button></div><p class="small muted">Перед новым стартом сохрани текущие данные.</p></div>`;document.querySelector('#download-broken').onclick=()=>{const blob=new Blob([localStorage.getItem(STORAGE)||'{}'],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Fundi-Voice-recovery.json';a.click();};document.querySelector('#recover-start').onclick=()=>{state=seedState();saveError='';render();persist();};}
 }
 installVisualSelects({getActors:()=>state?.actors||[],getVacation:vacationFor,actorAvatar:actorPickAvatar,icon});
