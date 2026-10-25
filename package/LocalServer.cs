@@ -292,6 +292,7 @@ namespace FundiVoice {
                     else if(route=="cloud/messages/delete")result=Cloud.DeleteMessage(FundiVoice.Desktop.JsonData.N(dataBody,"id"));
                     else if(route=="cloud/messages/clear")result=Cloud.ClearMessages();
                     else if(route=="cloud/messages/dismiss-failed")result=Cloud.DismissFailures();
+                    else if(route=="cloud/roles/sync-ready")result=Cloud.FinishRoleSync();
                     else if(route=="cloud/tasks/read")result=Cloud.TasksNow();
                     else if(route=="cloud/tasks/baseline")result=Cloud.TasksBaseline();
                     else if(route=="cloud/tasks/baseline/save")result=Cloud.SaveTasksBaseline(dataBody);
