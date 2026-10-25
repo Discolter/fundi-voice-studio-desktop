@@ -464,3 +464,31 @@ body[data-theme=light] .my-role-summary-total.workload-high,body[data-theme=silv
 .studio-vacation-changes[open] .studio-vacation-changes-summary{margin-bottom:12px}
 .studio-vacation-changes:not([open])>:not(summary){display:none}
 @media(max-width:580px){.studio-vacation-changes-summary{padding:11px}.studio-vacation-changes-summary h2{font-size:14px}.studio-vacation-changes-hint{font-size:10px}}
+
+/* Role completion is independent of workload color: mark the whole role chip green,
+   keep its numeric count in the original 0–50 / 51–100 / 101+ palette. */
+.my-role-inline-role.my-role-accepted{
+  color:#7beab0;
+  border-color:rgba(71,194,124,.65);
+  background:rgba(25,133,71,.18);
+  box-shadow:inset 3px 0 0 #4dc886;
+}
+.my-role-inline-role.my-role-accepted .my-role-inline-name{font-weight:750}
+.my-role-accepted-mark{display:inline-flex;align-items:center;justify-content:center;flex:0 0 15px;height:15px;color:#7beab0}
+.my-role-accepted-mark svg{width:13px;height:13px;stroke-width:2.6}
+.my-role-card.my-role-accepted-card{
+  border-color:rgba(71,194,124,.60);
+  box-shadow:inset 3px 0 0 #4dc886;
+  background:color-mix(in srgb,#198547 8%,var(--surface));
+}
+body[data-theme=light] .my-role-inline-role.my-role-accepted,
+body[data-theme=silver] .my-role-inline-role.my-role-accepted{
+  color:#116d40;background:#e1f8eb;border-color:#7bc99d;box-shadow:inset 3px 0 0 #209858;
+}
+body[data-theme=light] .my-role-accepted-mark,
+body[data-theme=silver] .my-role-accepted-mark{color:#116d40}
+body[data-theme=light] .my-role-card.my-role-accepted-card,
+body[data-theme=silver] .my-role-card.my-role-accepted-card{
+  border-color:#7bc99d;
+  background:color-mix(in srgb,#2fbd72 8%,var(--surface));
+}
