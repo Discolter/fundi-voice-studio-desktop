@@ -16,6 +16,7 @@ namespace FundiVoice {
         public Action<Dictionary<string,object>> Notify;
         string error="";
         bool conflict=false,busy=false,requestConflict=false;
+        object[] hiddenRoles=new object[0];
         bool roleSyncReady=false; // Never publish a stale startup roster before web edits are reconciled.
         DateTime nextTry=DateTime.MinValue,lastStatus=DateTime.MinValue;
         object[] accounts=new object[0];
@@ -34,7 +35,7 @@ namespace FundiVoice {
         public object Status(){
             lock(gate)return new{connected=Connected(),server=JsonData.S(connection,"server"),lastSync=JsonData.S(connection,"lastSync"),
                 pending=pending.Count>0,busy=busy,error=error,conflict=conflict,revision=JsonData.N(connection,"revision"),actors=accounts,
-                reviewApiAvailable=reviewApiAvailable,reviews=reviews,mailbox=mailbox.View(),
+                reviewApiAvailable=reviewApiAvailable,reviews=reviews,hiddenRoles=hiddenRoles,mailbox=mailbox.View(),
                 fileApiAvailable=fileApiAvailable,files=recordingFiles,usedBytes=usedBytes,quotaBytes=quotaBytes,fileError=fileError,unreadFiles=unreadFiles,transfer=transfers.View(),
                 vacations=vacationRows,vacationEvents=vacationEvents,vacationUnread=vacationUnread,
                 vacationApiAvailable=vacationApiAvailable,vacationError=vacationError,sourceLinks=sourceLinks};
@@ -204,7 +205,7 @@ namespace FundiVoice {
                     if(mailbox.Drain(send,true)>0)remote=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
                     notification=mailbox.Fetch(send,true);
                 }
-                lock(gate){accounts=JsonData.A(remote,"actors");reviews=JsonData.A(remote,"reviews");reviewApiAvailable=JsonData.B(remote,"reviewApiAvailable");lastStatus=DateTime.UtcNow;error="";requestConflict=false;nextTry=DateTime.MinValue;}
+                lock(gate){accounts=JsonData.A(remote,"actors");reviews=JsonData.A(remote,"reviews");hiddenRoles=JsonData.A(remote,"hiddenRoles");reviewApiAvailable=JsonData.B(remote,"reviewApiAvailable");lastStatus=DateTime.UtcNow;error="";requestConflict=false;nextTry=DateTime.MinValue;}
                 RefreshFiles(false);
                 RefreshVacations(force);
                 try{RefreshSourceLinks();}catch(CloudFault){}
@@ -215,6 +216,27 @@ namespace FundiVoice {
             }
             catch{lock(gate){error="Не удалось завершить синхронизацию. Локальные данные сохранены.";nextTry=DateTime.UtcNow.AddSeconds(30);}}
             finally{lock(gate)busy=false;Monitor.Exit(syncGate);}
+        }
+        // Personal Actor cabinet visibility. No roster queue, status change, or file
+        // deletion: a director-only command changes a separate Cloud preference.
+        public object SetActorRoleVisibility(string actorId,string roleId,bool hidden){
+            lock(syncGate){
+                string server,token;
+                lock(gate){
+                    if(!Connected())throw new CloudFault(409,"not_connected","Подключи Studio к Cloud.");
+                    server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");
+                }
+                CloudHttp.Request(server,"/v1/studio/actor-roles/visibility","POST",
+                    new{actorId=actorId,roleId=roleId,hidden=hidden},token);
+                var fresh=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
+                lock(gate){
+                    hiddenRoles=JsonData.A(fresh,"hiddenRoles");
+                    accounts=JsonData.A(fresh,"actors");
+                    reviews=JsonData.A(fresh,"reviews");
+                    lastStatus=DateTime.UtcNow;
+                }
+                return Status();
+            }
         }
         public object Invite(string actorId){
             lock(syncGate){
