@@ -31,5 +31,15 @@ assert.match(managerJS,/viewer_episode_rating_stats/);
 assert.match(managerJS,/viewer_project_rating_stats/);
 assert.match(managerJS,/Оценки зрителей/);
 
+assert.match(root,/site-notifications/);
+assert.match(managerJS,/viewer_admin_user_directory/);
+assert.match(managerJS,/viewer_notifications/);
+assert.match(managerJS,/function notificationsTab\(\)/);
+assert.match(managerJS,/function usersTab\(\)/);
+assert.match(managerJS,/mailto:/);
+assert.match(managerJS,/Уведомления/);
+assert.match(managerJS,/Email виден только администратору/);
+assert.ok(!managerJS.includes('/auth/v1/admin/users'),'must never use Supabase service_role from Studio');
+
 assert.ok(typeof events.click==='function'&&typeof events.submit==='function');
 console.log('PASS: Viewer manager module, Studio modes, routes and local host assets.');
