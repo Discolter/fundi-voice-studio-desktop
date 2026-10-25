@@ -29,7 +29,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='';
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
   ui.taskStatus=validTaskStatusFilter(saved.taskStatus);
@@ -37,6 +37,7 @@ try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.la
   ui.taskActor=typeof saved.taskActor==='string'&&saved.taskActor.length<=80?saved.taskActor:'all';
   ui.actorRegistrationFilter=['all','yes','no'].includes(saved.actorRegistrationFilter)?saved.actorRegistrationFilter:'all';
   ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
+  ui.debtProject=typeof saved.debtProject==='string'&&saved.debtProject.length<=80?saved.debtProject:'all';
 }catch{}
 const app=document.querySelector('#app'),modal=document.querySelector('#modal');
 const activeProjects=()=>state.projects.filter(p=>!p.archived);
@@ -111,7 +112,7 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,actorRegistrationFilter:ui.actorRegistrationFilter}));}catch{}}
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter}));}catch{}}
 function navigate(page){if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(page==='vacations'&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles'){selectedTasks.clear();const p=getProject(id);if(!p)return;ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);}
 
@@ -206,7 +207,10 @@ function renderMyTasks(){
   return html;
 }
 function renderDebts(){
-  const total=debtRows(state),allActors=new Map();
+  const allProjects=activeProjects().slice().sort((a,b)=>a.title.localeCompare(b.title,'ru')||String(a.season||'').localeCompare(String(b.season||''),'ru'));
+  if(ui.debtProject!=='all'&&!allProjects.some(p=>p.id===ui.debtProject)){ui.debtProject='all';saveUI();}
+  const projectId=ui.debtProject==='all'?'':ui.debtProject;
+  const total=debtRows(state,{projectId}),allActors=new Map();
   for(const item of total){
     const entry=allActors.get(item.actorKey);
     if(entry)entry.count++;
@@ -220,17 +224,23 @@ function renderDebts(){
   const actorDisplay=(item)=>`<span class="debt-picker-identity"><strong>${e(item.actor?.telegram?'@'+item.actor.telegram:item.name)}</strong>${item.actor?.telegram?`<small>${e(item.name)}</small>`:'<small>Telegram не указан</small>'}</span>`;
   // Сброс фильтра, если актёр больше не имеет долгов.
   if(ui.debtActor&&!allActors.has(ui.debtActor))ui.debtActor='';
-  const rows=debtRows(state,{actorKey:ui.debtActor,status:ui.debtStatus,query:ui.query});
+  const rows=debtRows(state,{projectId,actorKey:ui.debtActor,status:ui.debtStatus,query:ui.query});
   const retakes=total.filter(({r})=>r.status==='retake').length;
-  let html=heading('Долги','Ожидающие записи и перезаписи по всем активным проектам');
+  const currentProject=allProjects.find(p=>p.id===projectId);
+  const totalProjectDebts=new Map(debtRows(state).reduce((acc,{p})=>(acc.set(p.id,(acc.get(p.id)||0)+1),acc),new Map()));
+  const projectOptions=[['all','Все аниме'],...allProjects.map(p=>{
+    const count=totalProjectDebts.get(p.id)||0;
+    return [p.id,p.title+(p.season?' · Сезон '+p.season:'')+' ('+count+')'];
+  })];
+  let html=heading('Долги',currentProject?'Долги по аниме: '+currentProject.title+(currentProject.season?' · Сезон '+currentProject.season:''):'Ожидающие записи и перезаписи по всем активным проектам');
   html+=`<div class="debts-overview"><div class="debts-stat"><span>Всего долгов</span><strong>${total.length}</strong></div><div class="debts-stat"><span>Жду запись</span><strong>${total.length-retakes}</strong></div><div class="debts-stat"><span>На перезапись</span><strong>${retakes}</strong></div><div class="debts-stat"><span>Актёров с долгами</span><strong>${allActors.size}</strong></div></div>`;
   const selected=allActors.get(ui.debtActor);
   const selectedSummary=selected
     ?`${filterAvatar(selected.actor,selected.name)}${actorDisplay(selected)}`
     :`<span class="debt-picker-avatar debt-picker-all">${icon('users')}</span><span class="debt-picker-identity"><strong>Все актёры</strong><small>${allActors.size} с долгами</small></span>`;
   const actorMenu=`<details class="debt-actor-picker" id="debt-actor-picker"><summary aria-label="Выбрать актёра для фильтра долгов">${selectedSummary}${icon('chevron','debt-picker-chevron')}</summary><div class="debt-actor-menu" role="group" aria-label="Актёры с долгами"><button type="button" class="debt-picker-option ${!ui.debtActor?'selected':''}" data-action="choose-debt-actor" data-key=""><span class="debt-picker-avatar debt-picker-all">${icon('users')}</span><span class="debt-picker-identity"><strong>Все актёры</strong><small>Показать все долги</small></span><span class="debt-picker-count">${total.length}</span></button>${actorOptions.map(([key,item])=>`<button type="button" class="debt-picker-option ${ui.debtActor===key?'selected':''}" data-action="choose-debt-actor" data-key="${e(key)}" title="${e((item.actor?.telegram?'@'+item.actor.telegram+' · ':'')+item.name)}">${filterAvatar(item.actor,item.name)}${actorDisplay(item)}<span class="debt-picker-count">${item.count}</span></button>`).join('')}</div></details>`;
-  html+=`<div class="debts-filters"><label class="debts-field">Актёр ${actorMenu}</label><label class="debts-field">Состояние <select id="debt-status-filter" aria-label="Фильтр состояния">${options([['all','Все долги'],...ROLE_STAGES.filter(([key])=>DEBT_STAGES.includes(key))],ui.debtStatus)}</select></label><span class="debts-result">Показано: <strong>${rows.length}</strong></span></div>`;
-  if(!rows.length) return html+`<div class="my-empty debts-empty">${icon('check')}<strong>${total.length?'По заданным фильтрам долгов нет':'Долгов пока нет'}</strong><p>${total.length?'Выбери другого актёра, статус или очисти поиск.':'Когда у назначенного актёра появится статус «Жду запись» или «На перезапись», его роль появится здесь автоматически.'}</p></div>`;
+  html+=`<div class="debts-filters"><label class="debts-field">Аниме <select id="debt-project-filter" aria-label="Фильтр долгов по аниме">${options(projectOptions,ui.debtProject)}</select></label><label class="debts-field">Актёр ${actorMenu}</label><label class="debts-field">Состояние <select id="debt-status-filter" aria-label="Фильтр состояния">${options([['all','Все долги'],...ROLE_STAGES.filter(([key])=>DEBT_STAGES.includes(key))],ui.debtStatus)}</select></label><span class="debts-result">Показано: <strong>${rows.length}</strong>${ui.debtProject!=='all'||ui.debtActor||ui.debtStatus!=='all'||ui.query?` <button type="button" class="btn ghost small" data-action="reset-debt-filters">Сбросить фильтры</button>`:''}</span></div>`;
+  if(!rows.length)return html+`<div class="my-empty debts-empty">${icon('check')}<strong>${total.length?'По выбранным фильтрам долгов нет':currentProject?'В этом аниме долгов пока нет':'Долгов пока нет'}</strong><p>${total.length?'Попробуй другого актёра, состояние или очисти поиск.':currentProject?'В выбранном аниме пока нет назначенных ролей, ожидающих записи или перезаписи.':'Когда у назначенного актёра появится статус «Жду запись» или «На перезапись», роль появится здесь автоматически.'}</p></div>`;
   html+=`<div class="debts-list">${rows.map(({p,ep,r,actor,actorLabel})=>`<article class="debt-card role-row status-${e(r.status)}"><div class="debt-card-actor">${actor?actorAvatar(actor,true):`<span class="debt-no-avatar">${e(actorLabel.slice(0,1).toUpperCase())}</span>`}<span class="debt-actor-meta"><strong>${e(actorLabel)}</strong>${actor?.telegram?`<small>@${e(actor.telegram)}</small>`:''}</span></div><div class="debt-card-role"><strong>${e(r.character)}</strong><span class="debt-project-line">${e(p.title)} · ${e(episodeLabel(p,ep))}</span>${r.notes?`<span class="debt-note" title="${e(r.notes)}">${e(r.notes)}</span>`:''}</div><div class="debt-card-actions"><span class="debt-status">${e(roleStageName(r.status))}</span><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div>`;
   return html;
 }
@@ -1063,6 +1073,7 @@ async function action(a,d,el){
     case 'role-folder':{const r=ep.roles.find(r=>r.id===d.item);if(r.folder)await openPath(r.folder);else roleForm(p.id,ep.id,r.id);break;}
     case 'role-subs':{const r=ep.roles.find(r=>r.id===d.item);if(r.subtitle)await openPath(r.subtitle);else roleForm(p.id,ep.id,r.id);break;}
     case 'choose-debt-actor':ui.debtActor=d.key||'';render();break;
+    case 'reset-debt-filters':ui.debtProject='all';ui.debtActor='';ui.debtStatus='all';ui.query='';saveUI();render();break;
     case 'clear-task-selection':selectedTasks.clear();render();break;
     case 'delete-selected-tasks':{
       if(!selectedTasks.size)break;
@@ -1190,6 +1201,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='task-project-filter'){ui.taskProject=el.value;saveUI();render();}
   if(el.id==='task-actor-filter'){ui.taskActor=el.value;saveUI();render();}
   if(el.classList.contains('task-priority-select')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep),t=ep?.tasks.find(x=>x.id===el.dataset.item);if(!t)return;t.priority=taskPriority(el.value);touch(p);render();}
+  if(el.id==='debt-project-filter'){ui.debtProject=el.value;ui.debtActor='';saveUI();render();}
   if(el.id==='debt-status-filter'){ui.debtStatus=el.value;render();}
 
   if(el.id==='motion-toggle'){state.settings.motion=el.checked;persist();render();}
