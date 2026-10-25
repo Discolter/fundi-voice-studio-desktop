@@ -12,7 +12,7 @@ export function buildTaskSnapshot(state){
   return {
     tasks:(state.projects||[]).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.tasks||[]).map(t=>taskRecord(p,ep,t)))),
     projects:(state.projects||[]).map(p=>({
-      id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,
+      id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,createdAt:p.createdAt||'',
       episodes:(p.episodes||[]).map(ep=>({
         id:ep.id,number:String(ep.number||''),title:ep.title||'',
         roles:(ep.roles||[]).map(r=>({id:r.id,character:r.character,actorId:r.actorId||'',actor:r.actor||'',
