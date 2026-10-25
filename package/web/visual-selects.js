@@ -88,7 +88,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     return {label,subtitle:type==='priority'?priorityDetails[value]||'':
       type==='lines'?taskLineDetails[value]||'':
       type==='project'?(value==='all'?'Показать все проекты':'Фильтр по выбранному аниме'): 
-      type==='sort'?taskSortDetails[value]||detailText[value]||'':
+      type==='sort'?(option.parentElement?.id==='my-role-order'?({original:'Аниме по названию',linesAsc:'Сначала аниме с меньшей общей суммой реплик',linesDesc:'Сначала аниме с большей общей суммой реплик'}[value]||''):(taskSortDetails[value]||detailText[value]||'')):
       type==='status'?taskStatusDetails[value]||detailText[value]||'':
       detailText[value]||'',count:'',actor:null,value};
   }
