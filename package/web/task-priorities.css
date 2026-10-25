@@ -110,3 +110,16 @@ body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-medi
 body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-medium{color:#855800;background:#fff4ca;border-color:#e9c970}
 body[data-theme=light] .tasks-priority-table .task-line-count.task-workload-high,
 body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-high{color:#a62a39;background:#ffe5e9;border-color:#eca1ad}
+
+/* Bulk cleanup of "Мои задачи": selection is distinct from task completion. */
+.my-task-bulk-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line,#2d3c54);background:var(--surface2,#19243a)}
+.my-task-select-all{display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap;font-size:12px;font-weight:650}
+.my-task-select-all input,.tasks-priority-table .task-bulk-checkbox{width:18px;height:18px;cursor:pointer;accent-color:var(--lime,#80b1ff);flex:none}
+.my-task-bulk-count{font-size:12px;color:var(--muted);margin-right:auto}
+.my-task-bulk-count strong{color:var(--text,#f2f6ff)}
+.my-task-bulk-bar .btn{white-space:nowrap}
+.my-task-bulk-bar .btn:disabled{opacity:.4;cursor:not-allowed}
+.tasks-priority-table .task-bulk-cell{width:52px;min-width:52px;text-align:center;padding-left:10px;padding-right:10px}
+.tasks-priority-table tbody tr.task-bulk-selected{outline:2px solid color-mix(in srgb,var(--lime,#80b1ff) 68%,transparent);outline-offset:-2px}
+.tasks-priority-table tbody tr.task-bulk-selected td.task-bulk-cell{background:color-mix(in srgb,var(--lime,#80b1ff) 11%,transparent)}
+@media(max-width:650px){.my-task-bulk-bar{gap:8px}.my-task-bulk-count{width:100%;order:-1;margin:0}}
