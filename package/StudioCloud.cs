@@ -16,6 +16,7 @@ namespace FundiVoice {
         public Action<Dictionary<string,object>> Notify;
         string error="";
         bool conflict=false,busy=false;
+        bool roleSyncReady=false; // Never publish a stale startup roster before web edits are reconciled.
         DateTime nextTry=DateTime.MinValue,lastStatus=DateTime.MinValue;
         object[] accounts=new object[0];
         object[] sourceLinks=new object[0];
@@ -64,6 +65,11 @@ namespace FundiVoice {
             return Status();
         }
         // Task snapshots are owner-only, separate from actor feeds and roster revisions.
+        public object FinishRoleSync(){
+            lock(gate){roleSyncReady=true;nextTry=DateTime.MinValue;}
+            ThreadPool.QueueUserWorkItem(delegate{try{Sync(false);}catch{}});
+            return new {ready=true};
+        }
         public object TasksBaseline(){
             string path=Path.Combine(root,"cloud.tasks.baseline.json");
             try {return File.Exists(path)?(object)JsonData.Read(path):new {known=false};}
@@ -155,7 +161,7 @@ namespace FundiVoice {
                         }
                     }
                 }
-                if(requestId!=""){
+                if(requestId!=""&&roleSyncReady){
                     var response=CloudHttp.Request(server,"/v1/studio/roster","PUT",
                         new{baseRevision=revision,requestId=requestId,actors=actors},token);
                     lock(gate){

@@ -12,11 +12,12 @@ export function buildTaskSnapshot(state){
   return {
     tasks:(state.projects||[]).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.tasks||[]).map(t=>taskRecord(p,ep,t)))),
     projects:(state.projects||[]).map(p=>({
-      id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,
+      id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,createdAt:p.createdAt||'',
       episodes:(p.episodes||[]).map(ep=>({
         id:ep.id,number:String(ep.number||''),title:ep.title||'',
         roles:(ep.roles||[]).map(r=>({id:r.id,character:r.character,actorId:r.actorId||'',actor:r.actor||'',
-          lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null}))
+          lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null,
+          status:r.status||'waiting',createdAt:r.createdAt||''}))
       }))
     })),
     actors:(state.actors||[]).map(a=>({id:a.id,name:a.name}))
@@ -63,4 +64,39 @@ export function applyTaskSnapshot(state,tasks){
     if(!same(ep.tasks,next)){ep.tasks=next;changed=true;}
   }
   return changed;
+}
+
+// Field-level, three-way synchronization for statuses only.
+// Names, assignments, paths and existing local project data are never overwritten.
+// Legacy remote catalogs lack status and therefore cannot reset Windows statuses.
+export function mergeRoleStages(local,baseline,remote){
+  const map=snapshot=>new Map((snapshot?.projects||[]).flatMap(p=>(p.episodes||[])
+    .flatMap(ep=>(ep.roles||[]).map(r=>[p.id+':'+ep.id+':'+r.id,r.status||'']))));
+  const ours=map(local),base=map(baseline),theirs=map(remote),stages=[],conflicts=[];
+  for(const [id,localStage] of ours){
+    const remoteStage=theirs.get(id)||'',prior=base.get(id)||'';
+    let next=localStage;
+    if(!remoteStage||remoteStage===localStage){/* local is already current */}
+    else if(!baseline){ next=localStage; /* legacy first sync retains the Windows source */ }
+    else if(localStage===prior)next=remoteStage;
+    else if(remoteStage===prior)next=localStage;
+    else {conflicts.push(id);continue;}
+    stages.push({id,status:next});
+  }
+  return {stages,conflicts};
+}
+export function applyRoleStages(state,stages){
+  const values=new Map(stages.map(r=>[r.id,r.status]));let changed=false;
+  for(const p of state.projects||[])for(const ep of p.episodes||[])for(const role of ep.roles||[]){
+    const status=values.get(p.id+':'+ep.id+':'+role.id);
+    if(status&&role.status!==status){role.status=status;changed=true;}
+  }
+  return changed;
+}
+export function addRoleStagesToCatalog(catalog,stages){
+  const values=new Map(stages.map(r=>[r.id,r.status]));
+  return {...catalog,projects:(catalog.projects||[]).map(p=>({...p,
+    episodes:(p.episodes||[]).map(ep=>({...ep,roles:(ep.roles||[]).map(r=>({
+      ...r,status:values.get(p.id+':'+ep.id+':'+r.id)||r.status||''
+    }))}))}))};
 }
