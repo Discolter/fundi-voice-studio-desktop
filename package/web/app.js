@@ -1,6 +1,6 @@
 import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js';
 import {ageBadge} from './age.js';
-import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAccepted,MY_ROLE_ORDERS,validMyRoleOrder,sortMyRoleGroups} from './my-role-workload.js';
+import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAccepted,unfinishedMyRoleEpisodes,MY_ROLE_ORDERS,validMyRoleOrder,sortMyRoleGroups} from './my-role-workload.js';
 import {createSiteManager} from './site-manager.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
@@ -50,7 +50,12 @@ const badge=ep=>`<span class="stage-badge" data-stage="${e(ep.stage)}">${e(stage
 const dueLabel=due=>!due?'Без дедлайна':new Date(due+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
 const dueClass=(due,done)=>due&&due<today()&&!done?'due-over':'';
 const roleRows=(s,options)=>storedRoleRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
-const myRoleRows=(s,options)=>storedMyRoleRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
+const myRoleRows=(s,options)=>{
+  const source=s===state?withRoleReviews(s,cloud.reviews||[]):s;
+  // Compute completed episodes from ALL personal roles, not the filtered search
+  // subset, otherwise searching for an accepted character could hide a partial episode.
+  return unfinishedMyRoleEpisodes(storedMyRoleRows(source),storedMyRoleRows(source,options));
+};
 const debtRows=(s,options)=>storedDebtRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
 const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length});
 const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['actors','users','Актёры'],['actorportal','shield','Доступ актёров']];
@@ -198,9 +203,9 @@ function renderMyTasks(){
   const handle=state.settings.myTelegram||'';
   let html=heading('Мои задачи',handle?`Мои роли и поручения · @${handle}`:'Мои роли и поручения',`<button class="btn ghost small" data-nav="settings">${icon('settings')}Настроить профиль</button>`);
   html+=`<div class="my-overview"><div class="my-overview-item"><span>${icon('mic')} Назначено ролей</span><strong>${allRoles.length}</strong></div><div class="my-overview-item"><span>${icon('tasks')} Задач в работе</span><strong>${activeTasks}</strong></div><div class="my-overview-item"><span>${icon('grid')} Проектов с ролями</span><strong>${new Set(allRoles.map(x=>x.p.id)).size}</strong></div></div>`;
-  html+=`<div class="panel-head my-section-head"><h2>Мои роли <span class="my-section-count">${roles.length}</span></h2><span class="small muted">Назначения @${e(handle||'не указан')} и отметки «Моя роль»</span></div>`;
+  html+=`<div class="panel-head my-section-head"><h2>Мои роли <span class="my-section-count">${roles.length}</span></h2><span class="small muted">Назначения @${e(handle||'не указан')} · полностью принятые серии скрыты</span></div>`;
   if(!roles.length){
-    html+=`<div class="my-empty">${icon('mic')}<strong>${ui.query?'Роли не найдены':'Пока нет назначенных ролей'}</strong><p>${ui.query?'Попробуй другой запрос.':'Укажи @Discolter в карточке актёра и назначь его на персонажей. Роли также появятся здесь, если отметить их как «Моя роль».'}</p><button class="btn ghost small" data-nav="actors">${icon('users')}Открыть актёров</button></div>`;
+    html+=`<div class="my-empty">${icon('mic')}<strong>${ui.query?'Роли не найдены':'Нет незавершённых ролей'}</strong><p>${ui.query?'Попробуй другой запрос.':'Полностью принятые серии автоматически скрыты. Остальные роли появятся здесь при назначении.'}</p><button class="btn ghost small" data-nav="actors">${icon('users')}Открыть актёров</button></div>`;
   }else{
     html+=`<div class="my-role-sort-toolbar"><label for="my-role-order">Сортировка моих ролей</label><select id="my-role-order" aria-label="Сортировать аниме по общей сумме реплик">${options(MY_ROLE_ORDERS,ui.myRoleOrder)}</select><span class="small muted">${ui.myRoleOrder==='original'?'Порядок по названию': 'Сумма реплик во всех моих ролях аниме · неполные данные в конце'}</span></div>`;
     html+=groupedMyRoles(roles);
