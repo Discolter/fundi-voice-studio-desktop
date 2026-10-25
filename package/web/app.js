@@ -85,9 +85,10 @@ async function syncStudioTasks(visible=false){
     const stagesModified=applyRoleStages(state,roleMerge.stages);
     const modified=tasksModified||stagesModified;
     await api('cloud/tasks/baseline/save',{known:true,snapshot});
+    if(modified){persist();await flushSave();if(!modal.open)render();}
+    // Only unlock pending roster publication after the reconciled disk state is saved.
     await api('cloud/roles/sync-ready',{});
     taskSyncError='';
-    if(modified){persist();if(!modal.open)render();}
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
   }catch(error){
