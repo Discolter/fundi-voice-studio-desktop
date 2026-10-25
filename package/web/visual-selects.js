@@ -47,7 +47,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     if(select.id === 'role-character-filter') return 'character';
     if(select.id === 'task-lines-filter') return 'lines';
     if(select.id === 'task-project-filter' || select.id === 'debt-project-filter') return 'project';
-    if(select.id === 'role-order' || select.id === 'sort-select' || select.id === 'task-order-filter') return 'sort';
+    if(select.id === 'role-order' || select.id === 'sort-select' || select.id === 'task-order-filter' || select.id === 'my-role-order') return 'sort';
     if(select.id === 'role-filter' || select.id === 'debt-status-filter' || select.id === 'task-status-filter' ||
       select.classList.contains('role-status') || select.classList.contains('episode-stage') ||
       ['status','stage'].includes(select.name)) return 'status';
@@ -88,7 +88,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     return {label,subtitle:type==='priority'?priorityDetails[value]||'':
       type==='lines'?taskLineDetails[value]||'':
       type==='project'?(value==='all'?'Показать все проекты':'Фильтр по выбранному аниме'): 
-      type==='sort'?taskSortDetails[value]||detailText[value]||'':
+      type==='sort'?(option.parentElement?.id==='my-role-order'?({original:'Аниме по названию',linesAsc:'Сначала аниме с меньшей общей суммой реплик',linesDesc:'Сначала аниме с большей общей суммой реплик'}[value]||''):(taskSortDetails[value]||detailText[value]||'')):
       type==='status'?taskStatusDetails[value]||detailText[value]||'':
       detailText[value]||'',count:'',actor:null,value};
   }
