@@ -1,6 +1,6 @@
 import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js';
 import {ageBadge} from './age.js';
-import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,MY_ROLE_ORDERS,validMyRoleOrder,sortMyRoleGroups} from './my-role-workload.js';
+import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAccepted,MY_ROLE_ORDERS,validMyRoleOrder,sortMyRoleGroups} from './my-role-workload.js';
 import {createSiteManager} from './site-manager.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
@@ -159,7 +159,7 @@ function myRoleSummaryHTML(p,items){
     `<span class="my-role-summary-episode"><span class="my-role-episode-heading">${e(episodeLabel(p,ep))} · ${unknown?'известно '+total+' репл.':total+' репл.'}${unknown?' · '+unknown+' без числа':''}</span>
     <span class="my-role-inline-list">${items.map(({r})=>{
       const n=myRoleLineCount(r.lineCount);
-      return `<span class="my-role-inline-role" title="${e(r.character+' · '+(n===null?'Количество реплик не указано':n+' реплик'))}"><span class="my-role-inline-name">${e(r.character)}</span><span class="my-role-lines-pill workload-${myRoleWorkloadColor(n)}">${n===null?'—':n}</span></span>`;
+      return `<span class="my-role-inline-role ${isMyRoleAccepted(r)?'my-role-accepted':''}" title="${e(r.character+' · '+(n===null?'Количество реплик не указано':n+' реплик')+(isMyRoleAccepted(r)?' · Принято':''))}"><span class="my-role-inline-name">${e(r.character)}</span>${isMyRoleAccepted(r)?`<span class="my-role-accepted-mark" title="Принято" aria-label="Роль принята">${icon('check')}</span>`:''}<span class="my-role-lines-pill workload-${myRoleWorkloadColor(n)}">${n===null?'—':n}</span></span>`;
     }).join('')}</span></span>`).join('')}</span>`;
 }
 
@@ -175,7 +175,7 @@ function groupedMyRoles(roles){
     const isOpen=myRolesExpanded!==null&&myRolesExpanded.has(p.id);
     return `<details class="my-role-project-group" data-my-role-group="${e(p.id)}" ${isOpen?'open':''}>
       <summary class="my-role-group-summary">${projectArt(p)}<span class="my-role-group-caption"><strong>${e(p.title)}</strong><small>${items.length} ${items.length===1?'роль':'ролей'}${p.archived?' · Архив':''} · Нажми, чтобы ${isOpen?'свернуть':'развернуть'}</small>${myRoleSummaryHTML(p,items)}</span><span class="my-role-summary-total workload-${summary.unknown?'unknown':myRoleWorkloadColor(summary.total)}" title="${summary.unknown?'Сумма неполная: некоторые роли без количества реплик':'Всего реплик во всех моих ролях этого аниме'}">${summary.unknown?'Известно: ':'Всего: '}${summary.total} <small>репл.</small>${summary.unknown?'<small> + ?</small>':''}</span><span class="my-role-group-count">${items.length}</span>${icon('chevron')}</summary>
-      <div class="my-role-group-body"><div class="my-roles-grid">${items.map(({p,ep,r})=>`<article class="my-role-card ${p.archived?'my-role-archived':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3>${e(r.character)}</h3>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count">${r.lineCount} репл.</span>`:''}<button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${ageBadge(r.createdAt)} ${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div></div>
+      <div class="my-role-group-body"><div class="my-roles-grid">${items.map(({p,ep,r})=>`<article class="my-role-card ${p.archived?'my-role-archived':''} ${isMyRoleAccepted(r)?'my-role-accepted-card':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3>${e(r.character)}</h3>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count">${r.lineCount} репл.</span>`:''}<button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${ageBadge(r.createdAt)} ${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div></div>
     </details>`;
   }).join('')}</div>`;
 }
