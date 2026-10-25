@@ -25,5 +25,9 @@ globalThis.document={addEventListener:(type,fn)=>events[type]=fn};
 const manager=createSiteManager({toast:()=>{},escapeHTML:x=>String(x),rerender:()=>{}});
 assert.match(manager.render('releases'),/Подключение сайта/);
 assert.match(manager.render('users'),/viewer_admins/);
+assert.match(manager.render('ratings'),/Оценки зрителей/);
+assert.match(manager.render('ratings'),/Пока никто не оценил/);
+assert.match(root,/site-ratings/);
+
 assert.ok(typeof events.click==='function'&&typeof events.submit==='function');
 console.log('PASS: Viewer manager module, Studio modes, routes and local host assets.');
