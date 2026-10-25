@@ -15,7 +15,7 @@ namespace FundiVoice {
         bool reviewApiAvailable=false;
         public Action<Dictionary<string,object>> Notify;
         string error="";
-        bool conflict=false,busy=false;
+        bool conflict=false,busy=false,requestConflict=false;
         bool roleSyncReady=false; // Never publish a stale startup roster before web edits are reconciled.
         DateTime nextTry=DateTime.MinValue,lastStatus=DateTime.MinValue;
         object[] accounts=new object[0];
@@ -64,11 +64,38 @@ namespace FundiVoice {
             RefreshSourceLinks();
             return Status();
         }
-        // Task snapshots are owner-only, separate from actor feeds and roster revisions.
-        public object FinishRoleSync(){
-            lock(gate){roleSyncReady=true;nextTry=DateTime.MinValue;}
+        // Owner web and local role stages must be reconciled before rebasing the roster
+        // revision. Merely refreshing the revision after a 409 would overwrite actor
+        // recording status changes. A matching task-snapshot version is required.
+        public object FinishRoleSync(long expectedSnapshotVersion){
+            if(expectedSnapshotVersion<0)throw new CloudFault(400,"invalid_snapshot_version","Неверная версия списка ролей.");
+            long serverRevision;
+            lock(syncGate){
+                string server,token;
+                lock(gate){
+                    if(!Connected())throw new CloudFault(409,"not_connected","Сначала подключи Studio к облаку.");
+                    if(requestConflict)throw new CloudFault(409,"request_conflict","Конфликт идентификатора публикации. Проверь список ролей перед повторной отправкой.");
+                    server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");
+                }
+                // Read the roster revision first. If an actor changes recording status
+                // after that, the optimistic revision on PUT will reject stale content.
+                var remoteStatus=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
+                serverRevision=JsonData.N(remoteStatus,"revision");
+                var latestSnapshot=CloudHttp.Request(server,"/v1/studio/tasks","GET",null,token);
+                if(JsonData.N(latestSnapshot,"version")!=expectedSnapshotVersion)
+                    throw new CloudFault(409,"task_version_conflict",
+                        "Пока синхронизировали Studio, роли изменились в облаке. Нажми «Обновить», чтобы согласовать новые статусы.");
+                lock(gate){
+                    connection["revision"]=serverRevision;
+                    PrivateFile.Save(connectionFile,connection);
+                    roleSyncReady=true;
+                    conflict=false;
+                    error="";
+                    nextTry=DateTime.MinValue;
+                }
+            }
             ThreadPool.QueueUserWorkItem(delegate{try{Sync(false);}catch{}});
-            return new {ready=true};
+            return new {ready=true,revision=serverRevision};
         }
         public object TasksBaseline(){
             string path=Path.Combine(root,"cloud.tasks.baseline.json");
@@ -114,7 +141,7 @@ namespace FundiVoice {
                     pairingCode=JsonData.S(setup,"pairingCode"),deviceId=JsonData.S(setup,"deviceId"),deviceToken=JsonData.S(setup,"deviceToken")},null);
                 var remote=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,JsonData.S(setup,"deviceToken"));
                 lock(gate){
-                    conflict=JsonData.N(remote,"revision")>0;
+                    conflict=JsonData.N(remote,"revision")>0;requestConflict=false;
                     connection=new Dictionary<string,object>{{"server",server},{"token",JsonData.S(setup,"deviceToken")},
                         {"revision",0L},{"lastSync",""},{"publishedDigest",""}};
                     PrivateFile.Save(connectionFile,connection);accounts=JsonData.A(remote,"actors");
@@ -153,7 +180,7 @@ namespace FundiVoice {
                     var current=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
                     revision=JsonData.N(current,"revision");
                     lock(gate){
-                        connection["revision"]=revision;conflict=false;
+                        connection["revision"]=revision;conflict=false;requestConflict=false;
                         if(pending.Count>0){
                             pending["requestId"]=Guid.NewGuid().ToString("D");requestId=JsonData.S(pending,"requestId");
                             actors=JsonData.A(pending,"actors");digest=JsonData.S(pending,"digest");
@@ -177,14 +204,14 @@ namespace FundiVoice {
                     if(mailbox.Drain(send,true)>0)remote=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
                     notification=mailbox.Fetch(send,true);
                 }
-                lock(gate){accounts=JsonData.A(remote,"actors");reviews=JsonData.A(remote,"reviews");reviewApiAvailable=JsonData.B(remote,"reviewApiAvailable");lastStatus=DateTime.UtcNow;error="";nextTry=DateTime.MinValue;}
+                lock(gate){accounts=JsonData.A(remote,"actors");reviews=JsonData.A(remote,"reviews");reviewApiAvailable=JsonData.B(remote,"reviewApiAvailable");lastStatus=DateTime.UtcNow;error="";requestConflict=false;nextTry=DateTime.MinValue;}
                 RefreshFiles(false);
                 RefreshVacations(force);
                 try{RefreshSourceLinks();}catch(CloudFault){}
                 if(notification!=null&&Notify!=null)Notify(notification);
             }
             catch(CloudFault problem){
-                lock(gate){error=problem.Message;conflict=problem.Code=="revision_conflict"||problem.Code=="request_conflict";nextTry=DateTime.UtcNow.AddSeconds(30);}
+                lock(gate){error=problem.Message;conflict=problem.Code=="revision_conflict"||problem.Code=="request_conflict";requestConflict=problem.Code=="request_conflict";nextTry=DateTime.UtcNow.AddSeconds(30);}
             }
             catch{lock(gate){error="Не удалось завершить синхронизацию. Локальные данные сохранены.";nextTry=DateTime.UtcNow.AddSeconds(30);}}
             finally{lock(gate)busy=false;Monitor.Exit(syncGate);}
@@ -218,7 +245,7 @@ namespace FundiVoice {
         public object DeleteMessage(long id){mailbox.DeleteNotifications(new long[]{id});ThreadPool.QueueUserWorkItem(delegate{Sync(false);});return Status();}
         public object ClearMessages(){mailbox.DeleteAllNotifications();ThreadPool.QueueUserWorkItem(delegate{Sync(false);});return Status();}
         public object DismissFailures(){mailbox.DismissFailures();return Status();}
-        public object Disconnect(){lock(syncGate)lock(gate){if(transfers.Busy)throw new CloudFault(409,"transfer_busy","Дождись завершения скачивания или отмени его.");recordingFiles=new object[0];fileApiAvailable=false;fileError="";usedBytes=0;connection=new Dictionary<string,object>();File.Delete(connectionFile);error="";conflict=false;accounts=new object[0];reviews=new object[0];reviewApiAvailable=false;vacationRows=new object[0];vacationEvents=new object[0];vacationUnread=0;vacationApiAvailable=false;vacationError="";sourceLinks=new object[0];return Status();}}
+        public object Disconnect(){lock(syncGate)lock(gate){if(transfers.Busy)throw new CloudFault(409,"transfer_busy","Дождись завершения скачивания или отмени его.");recordingFiles=new object[0];fileApiAvailable=false;fileError="";usedBytes=0;connection=new Dictionary<string,object>();File.Delete(connectionFile);error="";conflict=false;requestConflict=false;roleSyncReady=false;accounts=new object[0];reviews=new object[0];reviewApiAvailable=false;vacationRows=new object[0];vacationEvents=new object[0];vacationUnread=0;vacationApiAvailable=false;vacationError="";sourceLinks=new object[0];return Status();}}
         public void Dispose(){if(timer!=null)timer.Dispose();transfers.Dispose();}
     }
 }
