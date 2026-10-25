@@ -17,6 +17,8 @@ ICONS.debts='M12 3 2 21h20L12 3ZM12 9v5M12 18h.01';
 ICONS.shield='M12 2 20 6v6c0 5-4 8-8 10C8 20 4 17 4 12V6l8-4ZM9 12l2 2 4-4';
 ICONS.bell='M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4';
 ICONS.chat='M3 3h18v14H9l-6 4Z';
+ICONS.eye='M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6';
+ICONS['eye-off']='M3 3l18 18M10.6 5.2A10.5 10.5 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.5 4.3M6.8 6.8C3.5 8.8 2 12 2 12s4 7 10 7c1.7 0 3.2-.5 4.5-1.3M10 10a3 3 0 0 0 4 4';
 ICONS.refresh='M3 11a9 9 0 0 1 15-6l3 3M21 3v5h-5M21 13a9 9 0 0 1-15 6l-3-3M3 21v-5h5';
 ICONS.vacation='M12 3a9 9 0 1 0 9 9M12 3v9l5 3M8 21h8';
 const icon=(name,cls='')=>`<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]||ICONS.file}"/></svg>`;
@@ -371,7 +373,20 @@ function updateActorPicker(picker,id){
   if(picker.dataset.pickerScope==='row')render();
 }
 
-function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}"><td><span class="character-name">${e(r.character)}</span>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
+function actorCabinetVisibilityButton(p,ep,r){
+ const actor=actorForRole(state,r);
+ if(!actor?.id)return '';
+ const hidden=(cloud.hiddenRoles||[]).some(x=>x.actorId===actor.id&&x.roleId===r.id);
+ if(r.status!=='done'&&!hidden)return '';
+ const label=hidden?'Вернуть актёру':'Скрыть у актёра';
+ const title=hidden?'Вернуть роль в кабинет актёра. Назначение в Studio не меняется.':'Скрыть принятую роль только из кабинета актёра. В Studio она останется.';
+ return `<button type="button" class="icon-btn actor-cabinet-visibility ${hidden?'is-hidden':''}"
+  data-action="actor-cabinet-visibility" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}"
+  data-actor="${e(actor.id)}" data-hidden="${hidden?'false':'true'}"
+  title="${e(title)}" aria-label="${label}: ${e(r.character)}"
+  ${!native||!cloud.connected?'disabled':''}>${icon(hidden?'restore':'eye-off')}</button>${hidden?'<small class="role-actor-hidden-label">Скрыта у актёра</small>':''}`;
+}
+function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}"><td><span class="character-name">${e(r.character)}</span>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
 
 function episodeTasks(p,ep){return `<div class="panel-head"><h2>Задачи</h2><button class="btn primary small" data-action="new-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Добавить</button></div>${tasksTable(ep.tasks.filter(t=>state.settings.mode!=='actor'||t.mine).map(t=>({p,ep,t})))||empty('Нет задач','new-task','Добавить задачу',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;}
 function tasksTable(rows,global=false){
@@ -1113,6 +1128,16 @@ async function action(a,d,el){
     case 'delete-task':{const t=ep.tasks.find(t=>t.id===d.item);confirmAction('Удалить задачу?',e(t.title),'Удалить',()=>{ep.tasks=ep.tasks.filter(x=>x.id!==d.item);touch(p);});break;}
     case 'new-role':roleForm(p.id,ep.id);break;
     case 'edit-role':roleForm(p.id,ep.id,d.item);break;
+    case 'actor-cabinet-visibility':{
+      if(!cloud.connected)throw Error('Подключи Studio к Fundi Voice Cloud.');
+      const r=ep?.roles.find(x=>x.id===d.item);
+      if(!r||r.actorId!==d.actor)throw Error('Назначение изменилось. Обнови таблицу ролей.');
+      const hidden=d.hidden==='true';
+      if(hidden&&roleReviewStage(r,reviewForRole(r))!=='done')throw Error('Скрыть можно только принятую роль.');
+      cloud=await api('cloud/roles/visibility',{actorId:d.actor,roleId:d.item,hidden});
+      render();toast(hidden?'Принятая роль скрыта из кабинета актёра. В таблице Studio она сохранена.':'Роль снова показана в кабинете актёра.');
+      break;
+    }
     case 'delete-role':{const r=ep.roles.find(r=>r.id===d.item);confirmAction('Удалить роль?',`<strong>${e(r.character)}</strong> будет убран из состава этой серии.`,'Удалить роль',()=>{ep.roles=ep.roles.filter(x=>x.id!==d.item);touch(p);});break;}
     case 'layout-grid':ui.layout='grid';saveUI();render();break;
     case 'layout-table':ui.layout='table';saveUI();render();break;
