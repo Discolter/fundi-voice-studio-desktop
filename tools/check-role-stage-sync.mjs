@@ -21,7 +21,7 @@ const legacy=structuredClone(remote);delete legacy.projects[0].episodes[0].roles
 assert.equal(mergeRoleStages(before,null,legacy).stages[0].status,'waiting');
 const boot=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');
 const host=readFileSync(new URL('../package/StudioCloud.cs',import.meta.url),'utf8');
-assert.ok(boot.includes("await api('cloud/roles/sync-ready',{})"));
+assert.ok(boot.includes("await api('cloud/roles/sync-ready',{snapshotVersion})"));
 assert.ok(host.includes('requestId!=""&&roleSyncReady'));
 const startup=boot.slice(boot.indexOf('async function boot(){'));
 assert.ok(startup.includes('render();ensureActorPreviews().catch(()=>{});'),

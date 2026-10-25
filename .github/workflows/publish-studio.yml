@@ -40,6 +40,8 @@ jobs:
           node --check ./package/web/app.js
           node ./tools/check-role-age.mjs
           node ./tools/check-role-stage-sync.mjs
+          node ./tools/check-cloud-revision-recovery.mjs
+          if($LASTEXITCODE -ne 0){ throw 'Cloud revision rebase safety check failed' }
           node ./tools/check-role-lifecycle.mjs
           if($LASTEXITCODE -ne 0){ throw 'Studio role lifecycle regression failed' }
           node ./tools/check-studio-module-delivery.mjs
