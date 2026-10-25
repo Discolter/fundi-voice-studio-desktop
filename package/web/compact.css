@@ -492,3 +492,10 @@ body[data-theme=silver] .my-role-card.my-role-accepted-card{
   border-color:#7bc99d;
   background:color-mix(in srgb,#2fbd72 8%,var(--surface));
 }
+
+/* Owner-only cabinet visibility does not change role status or erase the role. */
+.cast-table .actor-cabinet-visibility{display:inline-flex;align-items:center;justify-content:center;position:relative;border:1px solid rgba(112,164,226,.35);border-radius:8px;min-width:30px;min-height:30px}
+.cast-table .actor-cabinet-visibility.is-hidden{color:#8bdbb4;border-color:rgba(48,174,104,.68);background:rgba(40,166,95,.14)}
+.cast-table .actor-cabinet-visibility:disabled{opacity:.45;cursor:not-allowed}
+.role-actor-hidden-label{display:inline-flex;align-items:center;white-space:nowrap;color:#8bdbb4;font-size:10px;padding:0 5px}
+body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-actor-hidden-label{color:#126c3d}
