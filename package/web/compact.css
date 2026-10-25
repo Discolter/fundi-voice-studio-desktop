@@ -450,3 +450,17 @@ body[data-theme=light] .my-role-summary-total.workload-high,body[data-theme=silv
   .my-role-group-summary>.my-role-group-count{margin-left:auto}
   .my-role-sort-toolbar>.fv-select,.my-role-sort-toolbar>select{flex:1 1 100%;max-width:none}
 }
+
+/* Vacation activity is optional context: show a compact disclosure until requested. */
+.studio-vacation-changes{margin:17px 0 26px}
+.studio-vacation-changes-summary{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--panel,var(--surface));border:1px solid var(--line);border-radius:11px;cursor:pointer;list-style:none;transition:border-color .15s,background .15s}
+.studio-vacation-changes-summary::-webkit-details-marker{display:none}
+.studio-vacation-changes-summary:hover{background:var(--surface2);border-color:var(--lime)}
+.studio-vacation-changes-summary:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.studio-vacation-changes-summary h2{display:flex;align-items:center;gap:9px;min-width:0;margin:0;font-size:16px}
+.studio-vacation-changes-hint{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.studio-vacation-changes-summary>.icon{width:17px;height:17px;flex:0 0 17px;color:var(--muted);transition:transform .18s}
+.studio-vacation-changes[open] .studio-vacation-changes-summary>.icon{transform:rotate(90deg)}
+.studio-vacation-changes[open] .studio-vacation-changes-summary{margin-bottom:12px}
+.studio-vacation-changes:not([open])>:not(summary){display:none}
+@media(max-width:580px){.studio-vacation-changes-summary{padding:11px}.studio-vacation-changes-summary h2{font-size:14px}.studio-vacation-changes-hint{font-size:10px}}
