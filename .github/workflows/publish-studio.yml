@@ -39,6 +39,7 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Desktop browser JavaScript syntax failed' }
           node --check ./package/web/app.js
           node ./tools/check-role-age.mjs
+          node ./tools/check-role-stage-sync.mjs
           if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
           node --check ./package/web/site-manager.js
           if($LASTEXITCODE -ne 0){ throw 'Viewer manager JavaScript syntax failed' }
