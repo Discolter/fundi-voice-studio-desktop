@@ -5,7 +5,7 @@ export function createSiteManager({toast, escapeHTML, rerender}) {
   const esc = escapeHTML;
   const CFG = 'fundivoice-viewer-admin-config-v1';
   const TOKEN = 'fundivoice-viewer-admin-session-v1';
-  const state = {tab:'releases',releases:[],episodes:[],news:[],users:[],selectedRelease:'',selectedEpisode:0,selectedNews:'',loading:false,loaded:false,error:'',configOpen:false};
+  const state = {tab:'releases',releases:[],episodes:[],news:[],users:[],ratingEpisodes:[],ratingProjects:[],ratingsError:'',selectedRelease:'',selectedEpisode:0,selectedNews:'',loading:false,loaded:false,error:'',configOpen:false};
   let config = {};
   let session = null;
   try {config = JSON.parse(localStorage.getItem(CFG)||'{}');} catch {}
@@ -98,7 +98,15 @@ export function createSiteManager({toast, escapeHTML, rerender}) {
         table('viewer_news','&order=created_at.desc'),
         table('viewer_profiles','&order=created_at.desc&limit=100')
       ]);
-      state.releases=releases||[];state.episodes=episodes||[];state.news=news||[];state.users=users||[];state.loaded=true;
+      state.releases=releases||[];state.episodes=episodes||[];state.news=news||[];state.users=users||[];
+      const [epStats,projectStats]=await Promise.allSettled([
+        request('/rest/v1/rpc/viewer_episode_rating_stats','POST',{}),
+        request('/rest/v1/rpc/viewer_project_rating_stats','POST',{})
+      ]);
+      state.ratingEpisodes=epStats.status==='fulfilled'?(epStats.value||[]):[];
+      state.ratingProjects=projectStats.status==='fulfilled'?(projectStats.value||[]):[];
+      state.ratingsError=epStats.status==='rejected'||projectStats.status==='rejected'?'Статистика пока недоступна. Выполни SQL-миграцию профилей и оценок в отдельном Supabase Viewer.':'';
+      state.loaded=true;
     }catch(err){state.error=err.message||String(err);toast('Сайт: '+state.error,true);}
     finally{state.loading=false;rerender();}
   }
@@ -185,6 +193,22 @@ export function createSiteManager({toast, escapeHTML, rerender}) {
       '<div class="sm-user-table"><div class="sm-user-row sm-user-header"><span>Зритель</span><span>ID</span><span>Зарегистрирован</span></div>'+
       state.users.map(x=>'<div class="sm-user-row"><strong>'+esc(x.display_name)+'</strong><code>'+esc(String(x.user_id).slice(0,8))+'…</code><span>'+date(x.created_at)+'</span></div>').join('')+'</div>';
   }
+  function ratingsTab(){
+    const rated=state.ratingProjects.filter(p=>Number(p.rating_count)>0).sort((a,b)=>Number(b.average_stars)-Number(a.average_stars)||Number(b.rating_count)-Number(a.rating_count));
+    const totalVotes=state.ratingProjects.reduce((sum,p)=>sum+Number(p.rating_count||0),0);
+    const globalAvg=totalVotes?state.ratingProjects.reduce((sum,p)=>sum+Number(p.average_stars||0)*Number(p.rating_count||0),0)/totalVotes:null;
+    const summary='<div class="sm-rating-summary"><div><small>Оценок зрителей</small><strong>'+totalVotes+'</strong></div><div><small>Оценены проекты</small><strong>'+rated.length+'</strong></div><div><small>Средняя оценка</small><strong>'+(globalAvg===null?'—':globalAvg.toFixed(2)+' / 10')+'</strong></div></div>';
+    const card=p=>{
+      const r=state.releases.find(x=>x.id===p.release_id);
+      const episodes=state.ratingEpisodes.filter(x=>x.release_id===p.release_id).sort((a,b)=>a.episode_number-b.episode_number);
+      return '<section class="sm-rating-project"><div class="sm-rating-project-head"><div><h3>'+esc(r?.title||p.release_id)+'</h3><small>'+esc(r?.season||'')+' · '+Number(p.episode_count)+' опубликованных серий</small></div><div class="sm-rating-average"><strong>★ '+Number(p.average_stars).toFixed(2)+'</strong><small>'+Number(p.rating_count)+' оценок</small></div></div><div class="sm-rating-episodes">'+
+        episodes.map(e=>'<div class="sm-rating-episode"><span>Серия '+Number(e.episode_number)+'</span><span class="sm-rating-stars">★ '+(Number(e.rating_count)>0?Number(e.average_stars).toFixed(2):'—')+'</span><small>'+Number(e.rating_count)+' оценок</small></div>').join('')+'</div></section>';
+    };
+    return '<div class="sm-toolbar"><h2>Оценки зрителей</h2><span class="sm-counter">Шкала: 1–10 звёзд · одна оценка от зрителя на серию</span></div>'+
+      (state.ratingsError?'<div class="sm-error">'+esc(state.ratingsError)+'</div>':'')+summary+
+      '<p class="sm-note">Средняя оценка аниме учитывает все голоса за опубликованные серии. При изменении оценки зрителем статистика пересчитывается в Supabase.</p>'+
+      (rated.length?'<div class="sm-rating-list">'+rated.map(card).join('')+'</div>':'<div class="sm-empty">Пока никто не оценил опубликованные серии.</div>');
+  }
   function render(tab){
     if(tab)state.tab=tab;
     const top='<div class="sm-top"><div><h1>Управление сайтом</h1><p>Релизы, новости и зрители · отдельная база FundiVoice Viewer</p></div><div class="sm-top-actions">'+
@@ -194,7 +218,7 @@ export function createSiteManager({toast, escapeHTML, rerender}) {
     if(state.error&&!state.loaded)return '<div class="sm-root">'+top+'<div class="sm-error">'+esc(state.error)+'</div>'+authForm()+'</div>';
     return '<div class="sm-root">'+top+(state.error?'<div class="sm-error">'+esc(state.error)+'</div>':'')+
       (state.tab==='releases'?'<div class="sm-columns"><section class="sm-list">'+releaseList()+'</section><section>'+releaseForm()+'</section></div>':
-        state.tab==='news'?newsTab():usersTab())+'</div>';
+        state.tab==='news'?newsTab():state.tab==='ratings'?ratingsTab():usersTab())+'</div>';
   }
   function switchTab(tab){state.tab=tab;rerender();if(session&&!state.loaded&&!state.loading)refresh();}
   function start(){if(session&&!state.loaded&&!state.loading)refresh();}
