@@ -46,3 +46,12 @@ export function sortMyRoleGroups(groups,order){
       return delta||a.index-b.index;
     });
 }
+
+// Hide an episode from "Мои роли" only once every personal character in that
+// episode has been accepted. Keep the underlying assignments untouched.
+export function unfinishedMyRoleEpisodes(allRows,matchingRows=allRows){
+  const open=new Set();
+  const key=({p,ep})=>JSON.stringify([p.id,ep.id]);
+  for(const row of allRows)if(row.r.status!=='done')open.add(key(row));
+  return matchingRows.filter(row=>open.has(key(row)));
+}
