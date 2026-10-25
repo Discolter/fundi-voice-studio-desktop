@@ -83,14 +83,15 @@ async function syncStudioTasks(visible=false){
     const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot),roleMerge.stages);
     const snapshot={...catalog,tasks:merged.tasks};
     const different=JSON.stringify(snapshot)!==JSON.stringify(remote.snapshot);
-    if(different)await api('cloud/tasks/write',{baseVersion:remote.version,snapshot});
+    const published=different?await api('cloud/tasks/write',{baseVersion:remote.version,snapshot}):null;
+    const snapshotVersion=published?.version??remote.version;
     const tasksModified=applyTaskSnapshot(state,merged.tasks);
     const stagesModified=applyRoleStages(state,roleMerge.stages);
     const modified=tasksModified||stagesModified;
     await api('cloud/tasks/baseline/save',{known:true,snapshot});
-    if(modified){persist();await flushSave();if(!modal.open)render();}
+    if(modified){persist();await flushSave();if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);if(!modal.open)render();}
     // Only unlock pending roster publication after the reconciled disk state is saved.
-    await api('cloud/roles/sync-ready',{});
+    await api('cloud/roles/sync-ready',{snapshotVersion});
     taskSyncError='';
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
