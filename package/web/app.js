@@ -506,6 +506,7 @@ async function studioVacationEnd(actorId){
   cloud=await api('cloud/vacations/manage',{action:'end',actorId});
   render();toast(current.status==='planned'?'Запланированный отпуск отменён':'Актёр возвращён к работе');
 }
+let vacationChangesExpanded=false;
 function renderVacations(){
   const rows=cloud.vacations||[],events=cloud.vacationEvents||[];
   const active=rows.filter(v=>v.status==='active'),planned=rows.filter(v=>v.status==='planned');
@@ -519,7 +520,7 @@ function renderVacations(){
   const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
   html+=section('Сейчас в отпуске',active)+section('Предстоящие отпуска',planned);
   const types={planned:'Отпуск запланирован',started:'Отпуск начался',updated:'Отпуск обновлён',cancelled:'Отпуск отменён',returned:'Отпуск завершён'};
-  html+=`<section class="studio-vacation-section"><h2>Изменения<span>${cloud.vacationUnread||0} новых</span></h2>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</section>`;
+  html+=`<details class="studio-vacation-section studio-vacation-changes" ${vacationChangesExpanded?'open':''}><summary class="studio-vacation-changes-summary"><h2>Изменения <span>${cloud.vacationUnread||0} новых</span></h2><span class="studio-vacation-changes-hint">${vacationChangesExpanded?'Скрыть':'Показать'}${events.length?' · '+events.length+' событий':''}</span>${icon('chevron')}</summary>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</details>`;
   html+=section('История отпусков',rows.filter(v=>!['active','planned'].includes(v.status)).slice(0,50));
   html+='<p class="muted small">Причины видны только руководителю и самому актёру. Отпуск может назначить руководитель даже без регистрации актёра. После входа в Actor актёр увидит отпуск и сможет его изменить или завершить. Назначенные ранее роли не исчезают; актёров в отпуске нельзя выбрать для новых ролей.</p>';
   return html;
@@ -1149,6 +1150,8 @@ async function action(a,d,el){
   }
 }
 document.addEventListener('click',event=>{
+  const changesSummary=event.target.closest('.studio-vacation-changes > summary');
+  if(changesSummary)vacationChangesExpanded=!changesSummary.parentElement.open;
   const mySummary=event.target.closest('.my-role-project-group > summary');
   if(mySummary){if(myRolesExpanded===null)myRolesExpanded=new Set([...document.querySelectorAll('.my-role-project-group[open]')].map(group=>group.dataset.myRoleGroup));const id=mySummary.parentElement.dataset.myRoleGroup;if(myRolesExpanded.has(id))myRolesExpanded.delete(id);else myRolesExpanded.add(id);}
   if(!event.target.closest('.actor-picker'))closeActorPickers();
