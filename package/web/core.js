@@ -3,7 +3,7 @@ export const STAGES = [
   ['unset', 'Этап не указан'], ['prep', 'Подготовка'], ['record', 'Запись'],
   ['edit', 'Монтаж'], ['mix', 'Сведение'], ['review', 'Проверка'], ['done', 'Готово']
 ];
-export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['processed','Обработано'],['retake','На перезапись'],['done','Принято']];
+export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['done','Принято']];
 export const TASK_PRIORITIES = [['urgent','Срочно'],['high','Высокий'],['normal','Обычный'],['low','Низкий']];
 export const taskPriority = value => TASK_PRIORITIES.some(([key])=>key===value)?value:'normal';
 export const taskPriorityName = value => TASK_PRIORITIES.find(([key])=>key===taskPriority(value))[1];
@@ -80,7 +80,7 @@ export const today = () => { const d = new Date(); return `${d.getFullYear()}-${
 export const validDate = v => {if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const d=new Date(v+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===v;};
 export const dateValue = v => validDate(v) ? v : '';
 export const stageName = id => STAGES.find(s=>s[0]===id)?.[1] || STAGES[0][1];
-export const roleStageName = id => ROLE_STAGES.find(s=>s[0]===id)?.[1] || ROLE_STAGES[0][1];
+export const roleStageName = id => ROLE_STAGES.find(s=>s[0]===(id==='processed'?'processing':id))?.[1] || ROLE_STAGES[0][1];
 export const kindName = id => KINDS.find(s=>s[0]===id)?.[1] || 'Материал';
 export function diskFolderName(value){let name=String(value||'').replace(/[<>:"/\\|?*\u0000-\u001f]/g,' ').replace(/\s+/g,' ').trim().replace(/[ .]+$/,'').slice(0,90).replace(/[ .]+$/,'');if(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name))name='_'+name;return name;}
 export const projectFolderName = (title,season='') => diskFolderName(title+(season?' '+season:''));
@@ -228,7 +228,7 @@ export function normalizeState(raw) {
       if(matches.length===1)linked=matches[0];
       else if(matches.length===0&&raw.actors===undefined){linked=newActor({id:id(''),name});actors.push(linked);}
     }
-    return {id:id(r.id),character:str(r.character,200),lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0&&r.lineCount<=1000000?r.lineCount:null,actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),createdAt:str(r.createdAt,50),reviewSeen:str(r.reviewSeen,260)};
+    return {id:id(r.id),character:str(r.character,200),lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0&&r.lineCount<=1000000?r.lineCount:null,actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:r.status==='processed'?'processing':'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),createdAt:str(r.createdAt,50),reviewSeen:str(r.reviewSeen,260)};
   }
   function normalizeProject(p) {
     if (!p || typeof p !== 'object' || !str(p.title,160).trim()) throw new Error('У проекта должно быть название.');
