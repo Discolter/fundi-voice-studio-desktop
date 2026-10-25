@@ -61,3 +61,23 @@
 .sm-rating-episode{display:grid;grid-template-columns:1fr 90px 90px;align-items:center;gap:12px;border-top:1px solid var(--line);padding:10px 5px;font-size:12px}
 .sm-rating-stars{color:#e7ac46;font-weight:800}
 @media(max-width:700px){.sm-rating-summary{grid-template-columns:1fr}.sm-rating-episode{grid-template-columns:1fr auto}.sm-rating-episode small{grid-column:1/-1}}
+
+
+/* Private Viewer users directory and global notification CMS */
+.sm-user-row{grid-template-columns:minmax(200px,1.25fr) minmax(190px,1.2fr) 120px;align-items:center;min-width:600px}
+.sm-user-info{display:flex;align-items:center;gap:11px;min-width:0}
+.sm-user-info>div:last-child{display:grid;gap:4px;min-width:0}
+.sm-user-info strong{font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.sm-user-info small{color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.sm-user-avatar{width:42px;height:42px;min-width:42px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--surface-2,#253755);overflow:hidden;font-size:17px;font-weight:800}
+.sm-user-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+.sm-user-mail{display:grid;gap:7px;min-width:0;font-size:12px}
+.sm-user-email{overflow-wrap:anywhere}
+.sm-user-contact{font-size:11px;font-weight:750;color:var(--accent,#6c9fff);text-decoration:none}
+.sm-user-contact:hover{text-decoration:underline}
+.sm-muted{color:var(--muted)}
+.sm-user-search{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+.sm-user-search .sm-input{flex:1 1 240px;max-width:480px}
+.sm-user-search button{font-size:12px}
+.sm-user-header{font-size:11px}
+@media(max-width:750px){.sm-user-row{min-width:610px}}
