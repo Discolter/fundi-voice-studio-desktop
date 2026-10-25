@@ -7,7 +7,7 @@ const start=app.indexOf('let vacationChangesExpanded=false;');
 const end=app.indexOf('function renderCloudConnection(){',start);
 assert.ok(start>=0&&end>start,'Vacation disclosure state and view must exist');
 const section=app.slice(start,end);
-const first=section.indexOf('studio-vacation-changes');
+const first=section.indexOf('html+=`<details class="studio-vacation-section studio-vacation-changes"');
 const details=section.slice(first);
 assert.match(details,/<details class="studio-vacation-section studio-vacation-changes"/,
   'Vacation changes must use accessible native disclosure');
