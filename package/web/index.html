@@ -24,6 +24,17 @@
   <div id="file-transfer-slot"></div>
   <div id="toasts" role="status" aria-live="polite"></div>
   <input id="import-file" type="file" accept=".json,application/json" hidden>
+  <script>
+    // A failed ES module import otherwise leaves the initial splash visible forever.
+    setTimeout(function(){
+      var loading=document.querySelector('#app > .boot');
+      if(!loading)return;
+      var error=document.createElement('p');
+      error.className='small muted';
+      error.textContent='Не удалось запустить интерфейс. Проверь обновление Studio и перезапусти приложение.';
+      loading.appendChild(error);
+    },10000);
+  </script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
