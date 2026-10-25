@@ -11,16 +11,16 @@ const data=seedState();
 data.projects=[
  project('anime-one',[
     ep('first',[['A','done'],['B','done']]),
-    ep('second',[['C','done'],['D','waiting']]),
+    ep('second',[['C_unique','done'],['D','waiting']]),
     ep('third',[['E','received']])
  ]),
  project('anime-two',[ep('only',[['F','done']])]),
  project('anime-three',[ep('other',[['G','waiting']])])
 ];
 const all=myRoleRows(data), visible=unfinishedMyRoleEpisodes(all);
-assert.deepEqual(visible.map(({r})=>r.character),['C','D','E','G'],
+assert.deepEqual(visible.map(({r})=>r.character),['C_unique','D','E','G'],
  'All roles of completed episodes should be absent; partially accepted episodes stay visible');
-assert.equal(visible.find(({r})=>r.character==='C').r.status,'done',
+assert.equal(visible.find(({r})=>r.character==='C_unique').r.status,'done',
  'Accepted role in a partially complete episode remains visible and green');
 assert.equal(visible.some(({p})=>p.id==='anime-two'),false,
  'Project disappears from My Roles only if all its episodes are complete');
@@ -28,8 +28,8 @@ assert.equal(all.length,7,'Canonical personal assignment list must not be mutate
 assert.equal(data.projects[0].episodes[0].roles.length,2,'Studio roles table stays untouched');
 assert.equal(data.projects[1].episodes[0].roles[0].status,'done','Accepted role remains accepted');
 assert.equal(isMyRoleAccepted(visible[0].r),true);
-const search=myRoleRows(data,{query:'C'});
-assert.deepEqual(unfinishedMyRoleEpisodes(all,search).map(({r})=>r.character),['C'],
+const search=myRoleRows(data,{query:'C_unique'});
+assert.deepEqual(unfinishedMyRoleEpisodes(all,search).map(({r})=>r.character),['C_unique'],
  'Search results must check the full episode, not only matching accepted role');
 assert.deepEqual(unfinishedMyRoleEpisodes(all,myRoleRows(data,{query:'A'})),[],
  'Fully accepted episodes never reappear through search');
