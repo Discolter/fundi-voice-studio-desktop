@@ -1,5 +1,6 @@
 import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js';
 import {ageBadge} from './age.js';
+import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,MY_ROLE_ORDERS,validMyRoleOrder,sortMyRoleGroups} from './my-role-workload.js';
 import {createSiteManager} from './site-manager.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
@@ -29,9 +30,10 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='';
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
+  ui.myRoleOrder=validMyRoleOrder(saved.myRoleOrder);
   ui.taskStatus=validTaskStatusFilter(saved.taskStatus);
   ui.taskLines=validTaskLineFilter(saved.taskLines);
   ui.taskActor=typeof saved.taskActor==='string'&&saved.taskActor.length<=80?saved.taskActor:'all';
@@ -113,7 +115,7 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter}));}catch{}}
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter}));}catch{}}
 function navigate(page){if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(page==='vacations'&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles'){selectedTasks.clear();const p=getProject(id);if(!p)return;ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);}
 
@@ -151,6 +153,16 @@ function renderCard(p){
   return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,ep))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button></div><div class="card-stage">${badge(ep)}${ageBadge(p.createdAt)}${ep.roles.length?`<span class="progress-text">${ep.roles.filter(r=>r.status==='done').length}/${ep.roles.length} принято</span>`:''}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div><div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
 }
 // Collapsible project strips, retaining all existing role cards and their project actions.
+function myRoleSummaryHTML(p,items){
+  const summary=summarizeMyRoleEpisodes(items);
+  return `<span class="my-role-summary-episodes">${summary.episodes.map(({ep,items,total,unknown})=>
+    `<span class="my-role-summary-episode"><span class="my-role-episode-heading">${e(episodeLabel(p,ep))} · ${unknown?'известно '+total+' репл.':total+' репл.'}${unknown?' · '+unknown+' без числа':''}</span>
+    <span class="my-role-inline-list">${items.map(({r})=>{
+      const n=myRoleLineCount(r.lineCount);
+      return `<span class="my-role-inline-role" title="${e(r.character+' · '+(n===null?'Количество реплик не указано':n+' реплик'))}"><span class="my-role-inline-name">${e(r.character)}</span><span class="my-role-lines-pill workload-${myRoleWorkloadColor(n)}">${n===null?'—':n}</span></span>`;
+    }).join('')}</span></span>`).join('')}</span>`;
+}
+
 let myRolesExpanded=null;
 function groupedMyRoles(roles){
   const groups=new Map();
@@ -158,10 +170,11 @@ function groupedMyRoles(roles){
     if(!groups.has(entry.p.id))groups.set(entry.p.id,{p:entry.p,items:[]});
     groups.get(entry.p.id).items.push(entry);
   }
-  return `<div class="my-role-project-groups">${[...groups.values()].map(({p,items},index)=>{
-    const isOpen=myRolesExpanded===null?index===0:myRolesExpanded.has(p.id);
+  return `<div class="my-role-project-groups">${sortMyRoleGroups([...groups.values()],ui.myRoleOrder).map(({p,items},index)=>{
+    const summary=summarizeMyRoleEpisodes(items);
+    const isOpen=myRolesExpanded!==null&&myRolesExpanded.has(p.id);
     return `<details class="my-role-project-group" data-my-role-group="${e(p.id)}" ${isOpen?'open':''}>
-      <summary class="my-role-group-summary">${projectArt(p)}<span class="my-role-group-caption"><strong>${e(p.title)}</strong><small>${items.length} ${items.length===1?'роль':'ролей'}${p.archived?' · Архив':''} · Нажми, чтобы ${isOpen?'свернуть':'развернуть'}</small></span><span class="my-role-group-count">${items.length}</span>${icon('chevron')}</summary>
+      <summary class="my-role-group-summary">${projectArt(p)}<span class="my-role-group-caption"><strong>${e(p.title)}</strong><small>${items.length} ${items.length===1?'роль':'ролей'}${p.archived?' · Архив':''} · Нажми, чтобы ${isOpen?'свернуть':'развернуть'}</small>${myRoleSummaryHTML(p,items)}</span><span class="my-role-summary-total workload-${summary.unknown?'unknown':myRoleWorkloadColor(summary.total)}" title="${summary.unknown?'Сумма неполная: некоторые роли без количества реплик':'Всего реплик во всех моих ролях этого аниме'}">${summary.unknown?'Известно: ':'Всего: '}${summary.total} <small>репл.</small>${summary.unknown?'<small> + ?</small>':''}</span><span class="my-role-group-count">${items.length}</span>${icon('chevron')}</summary>
       <div class="my-role-group-body"><div class="my-roles-grid">${items.map(({p,ep,r})=>`<article class="my-role-card ${p.archived?'my-role-archived':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3>${e(r.character)}</h3>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count">${r.lineCount} репл.</span>`:''}<button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${ageBadge(r.createdAt)} ${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button></div></article>`).join('')}</div></div>
     </details>`;
   }).join('')}</div>`;
@@ -189,6 +202,7 @@ function renderMyTasks(){
   if(!roles.length){
     html+=`<div class="my-empty">${icon('mic')}<strong>${ui.query?'Роли не найдены':'Пока нет назначенных ролей'}</strong><p>${ui.query?'Попробуй другой запрос.':'Укажи @Discolter в карточке актёра и назначь его на персонажей. Роли также появятся здесь, если отметить их как «Моя роль».'}</p><button class="btn ghost small" data-nav="actors">${icon('users')}Открыть актёров</button></div>`;
   }else{
+    html+=`<div class="my-role-sort-toolbar"><label for="my-role-order">Сортировка моих ролей</label><select id="my-role-order" aria-label="Сортировать аниме по общей сумме реплик">${options(MY_ROLE_ORDERS,ui.myRoleOrder)}</select><span class="small muted">${ui.myRoleOrder==='original'?'Порядок по названию': 'Сумма реплик во всех моих ролях аниме · неполные данные в конце'}</span></div>`;
     html+=groupedMyRoles(roles);
   }
   const projects=[['all','Все проекты'],...taskProjects.map(p=>[p.id,p.title])];
@@ -1196,6 +1210,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='role-order'){ui.roleOrder=el.value;render();}
   if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleId'].includes(el.name)){updateTaskAssignmentPickers(el.name);return;}
   if(el.id==='task-priority-filter'){ui.taskPriority=el.value;saveUI();render();}
+  if(el.id==='my-role-order'){ui.myRoleOrder=validMyRoleOrder(el.value);saveUI();render();}
   if(el.id==='task-order-filter'){ui.taskOrder=validTaskOrder(el.value);saveUI();render();}
   if(el.id==='task-lines-filter'){ui.taskLines=validTaskLineFilter(el.value);saveUI();render();}
   if(el.id==='task-status-filter'){ui.taskStatus=validTaskStatusFilter(el.value);saveUI();render();}
