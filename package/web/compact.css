@@ -387,3 +387,14 @@ body[data-theme="rose"],body[data-theme^="living-"]) .cast-table thead th{
 .actor-registration-filter label{font-size:11px;color:var(--muted)}
 .actor-registration-filter select{min-width:200px;max-width:290px;padding:8px 12px;
   border-radius:8px;background:var(--panel);color:var(--text);border:1px solid var(--line);font-size:12px}
+
+/* Creation-age clock: green 0-14 days, yellow 15-30, red 31+. Not a deadline. */
+.fv-age{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;padding:3px 8px;border-radius:9px;font-size:11px;font-weight:700;line-height:1.55;white-space:nowrap;font-variant-numeric:tabular-nums;background:rgba(140,150,170,.12);color:var(--muted,#a5b3c7)}
+.fv-age-green{color:#55d79b;background:rgba(28,163,105,.15)}
+.fv-age-yellow{color:#ffcf65;background:rgba(215,150,22,.16)}
+.fv-age-red{color:#ff818d;background:rgba(224,74,91,.16)}
+.fv-age-unknown{color:var(--muted,#99a4b5)}
+body[data-theme="light"] .fv-age-green{color:#116d43;background:#e0f7ea}
+body[data-theme="light"] .fv-age-yellow{color:#8a5900;background:#fff2c8}
+body[data-theme="light"] .fv-age-red{color:#a92e43;background:#ffe5e9}
+.fv-project-age{margin-top:8px}
