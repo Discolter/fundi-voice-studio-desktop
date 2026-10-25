@@ -5,7 +5,7 @@ const app=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');
 const valid=ROLE_STAGES.map(s=>s[0]);
 assert.deepEqual(valid,['waiting','recording','received','processing','retake','done']);
 assert.equal(roleStageName('processed'),'Обрабатываю','Old processed entries must still display as processing');
-const legacy={projects:[{id:'old',title:'Серия',episodes:[{id:'ep',roles:[{id:'r',character:'Герой',status:'processed',inProject:true}],tasks:[]}]}]};
+const legacy={schema:1,projects:[{id:'old',title:'Серия',episodes:[{id:'ep',roles:[{id:'r',character:'Герой',status:'processed',inProject:true}],tasks:[]}]}]};
 const restored=normalizeState(legacy);
 assert.equal(restored.projects[0].episodes[0].roles[0].status,'processing');
 assert.equal(restored.projects[0].episodes[0].roles[0].inProject,true,'Legacy data must not be destroyed during UI cleanup');
