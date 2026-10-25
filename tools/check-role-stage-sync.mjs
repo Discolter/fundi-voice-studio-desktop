@@ -23,4 +23,16 @@ const boot=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8')
 const host=readFileSync(new URL('../package/StudioCloud.cs',import.meta.url),'utf8');
 assert.ok(boot.includes("await api('cloud/roles/sync-ready',{})"));
 assert.ok(host.includes('requestId!=""&&roleSyncReady'));
+const startup=boot.slice(boot.indexOf('async function boot(){'));
+assert.ok(startup.includes('render();ensureActorPreviews().catch(()=>{});'),
+  'Desktop startup must render locally loaded projects before waiting for Cloud');
+assert.ok(startup.includes('void finishStartupCloud().catch('),
+  'Cloud reconciliation must run without blocking the startup screen');
+assert.ok(!startup.includes('await refreshCloud()')&&!startup.includes('await syncStudioTasks()'),
+  'The initial UI must not await remote operations');
+const background=boot.slice(boot.indexOf('async function finishStartupCloud(){'),boot.indexOf('async function boot(){'));
+assert.ok(background.includes('await refreshCloud()'));
+assert.ok(background.includes('await syncStudioTasks()'));
+assert.ok(background.indexOf('await syncStudioTasks()')<background.indexOf('if(!saveError){persist();'),
+  'Do not publish or save boot state before website role edits are reconciled');
 console.log('Two-way role status merge and startup conflict guard passed');
