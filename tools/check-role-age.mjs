@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {ageInfo,ageBadge} from '../package/web/age.js';
+assert.equal(ageInfo('',new Date('2026-10-25T00:00:00Z')),null);
+assert.equal(ageInfo('nonsense'),null);
+assert.equal(ageInfo('2026-10-11T11:00:00Z',new Date('2026-10-25T00:00:00Z')).level,'green');
+assert.equal(ageInfo('2026-10-10T11:00:00Z',new Date('2026-10-25T00:00:00Z')).level,'yellow');
+assert.equal(ageInfo('2026-09-24T11:00:00Z',new Date('2026-10-25T00:00:00Z')).level,'red');
+assert.equal(ageInfo('2026-09-10T11:00:00Z',new Date('2026-10-25T00:00:00Z')).label,'1 мес. 15 дн.');
+assert.equal(ageInfo('2026-01-31T11:00:00Z',new Date('2026-03-01T00:00:00Z')).label,'1 мес. 1 дн.');
+assert.match(ageBadge(null),/дата неизвестна/);
+assert.match(ageBadge('2026-10-10T11:00:00Z',true),/fv-age-date/);
+
+import {seedState,newProject,newActor,normalizeState,actorPublicFeed} from '../package/web/core.js';
+const state=seedState(),actor=newActor({name:'Test',actorAccess:true}),project=newProject({title:'Demo'});
+project.episodes[0].roles.push({id:'r1',character:'Hero',actorId:actor.id,actor:actor.name,status:'waiting',createdAt:'2026-10-10T10:00:00.000Z'});
+state.actors.push(actor);state.projects.push(project);
+const loaded=normalizeState(JSON.parse(JSON.stringify(state)));
+assert.equal(loaded.projects[0].episodes[0].roles[0].createdAt,'2026-10-10T10:00:00.000Z');
+const feed=actorPublicFeed(loaded,loaded.actors[0].id,{preview:true});
+assert.equal(feed.roles[0].createdAt,'2026-10-10T10:00:00.000Z');
+assert.equal(feed.roles[0].projectCreatedAt,project.createdAt);
+const legacy=seedState(),oldProject=newProject({title:'Old'});
+oldProject.episodes[0].roles.push({id:'legacy',character:'Guest',status:'waiting'});
+legacy.projects.push(oldProject);
+assert.equal(normalizeState(legacy).projects[0].episodes[0].roles[0].createdAt,'');
+console.log('Studio age of roles and projects checks passed');
