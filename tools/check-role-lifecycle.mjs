@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {normalizeState,ROLE_STAGES,roleStageName} from '../package/web/core.js';
+const app=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');
+const valid=ROLE_STAGES.map(s=>s[0]);
+assert.deepEqual(valid,['waiting','recording','received','processing','retake','done']);
+assert.equal(roleStageName('processed'),'Обрабатываю','Old processed entries must still display as processing');
+const legacy={projects:[{id:'old',title:'Серия',episodes:[{id:'ep',roles:[{id:'r',character:'Герой',status:'processed',inProject:true}],tasks:[]}]}]};
+const restored=normalizeState(legacy);
+assert.equal(restored.projects[0].episodes[0].roles[0].status,'processing');
+assert.equal(restored.projects[0].episodes[0].roles[0].inProject,true,'Legacy data must not be destroyed during UI cleanup');
+assert.doesNotMatch(app,/<th>В REAPER<\/th>/);
+assert.doesNotMatch(app,/data\.inProject/);
+assert.doesNotMatch(app,/\bin-project\b/);
+assert.doesNotMatch(app,/Ещё не в REAPER/);
+assert.doesNotMatch(app,/\/\$\{ep\.roles\.length\} в REAPER/);
+assert.match(app,/\}\}\/\$\{ep\.roles\.length\} принято/);
+console.log('PASS: role lifecycle and REAPER tracking UI simplified without losing old roles');
