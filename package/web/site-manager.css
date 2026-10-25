@@ -44,3 +44,20 @@
 @media(max-width:620px){.sm-form{grid-template-columns:1fr}.site-mode-switch{margin-left:3px}.site-mode-switch button{padding:5px 8px;font-size:11px}}
 
 .site-topbar-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sm-toolbar-label{font-size:12px;color:var(--muted)}
+
+
+/* Viewer ratings dashboard inside Studio */
+.sm-rating-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0 12px}
+.sm-rating-summary>div{border-radius:12px;border:1px solid var(--line);background:var(--panel,var(--surface));padding:16px;display:grid;gap:7px}
+.sm-rating-summary small{font-size:11px;color:var(--muted)}.sm-rating-summary strong{font-size:23px}
+.sm-rating-list{display:grid;gap:13px}
+.sm-rating-project{border:1px solid var(--line);background:var(--panel,var(--surface));padding:17px;border-radius:14px}
+.sm-rating-project-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sm-rating-project-head h3{font-size:18px;margin:0 0 7px}
+.sm-rating-project-head small{color:var(--muted);font-size:11px}
+.sm-rating-average{display:grid;gap:5px;text-align:right}
+.sm-rating-average strong{font-size:22px;color:#e7ac46}
+.sm-rating-episodes{display:grid;gap:4px;margin-top:14px}
+.sm-rating-episode{display:grid;grid-template-columns:1fr 90px 90px;align-items:center;gap:12px;border-top:1px solid var(--line);padding:10px 5px;font-size:12px}
+.sm-rating-stars{color:#e7ac46;font-weight:800}
+@media(max-width:700px){.sm-rating-summary{grid-template-columns:1fr}.sm-rating-episode{grid-template-columns:1fr auto}.sm-rating-episode small{grid-column:1/-1}}
