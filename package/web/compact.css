@@ -400,3 +400,15 @@ body[data-theme="light"] .fv-age-red{color:#a92e43;background:#ffe5e9}
 .fv-project-age{margin-top:8px}
 
 .fv-age-date{display:inline-block;margin-left:5px;font-size:10px;font-weight:500;opacity:.8;border-left:1px solid currentColor;padding-left:7px;letter-spacing:0}
+
+/* Anime-level debt filter, visually consistent with the actor and status pickers. */
+.debts-field:has(#debt-project-filter){min-width:245px}
+.debts-field:has(#debt-project-filter) .fv-select{width:285px;max-width:100%}
+.debts-field:has(#debt-project-filter) .fv-select-trigger{min-height:49px}
+.debts-field:has(#debt-project-filter) .fv-option-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.debts-result .btn{margin-left:12px;vertical-align:middle}
+@media(max-width:760px){
+  .debts-field:has(#debt-project-filter){min-width:175px}
+  .debts-field:has(#debt-project-filter) .fv-select{width:100%}
+  .debts-result .btn{margin-left:7px}
+}

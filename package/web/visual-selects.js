@@ -46,7 +46,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     if(select.id === 'role-actor-filter' || select.id === 'task-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
     if(select.id === 'role-character-filter') return 'character';
     if(select.id === 'task-lines-filter') return 'lines';
-    if(select.id === 'task-project-filter') return 'project';
+    if(select.id === 'task-project-filter' || select.id === 'debt-project-filter') return 'project';
     if(select.id === 'role-order' || select.id === 'sort-select' || select.id === 'task-order-filter') return 'sort';
     if(select.id === 'role-filter' || select.id === 'debt-status-filter' || select.id === 'task-status-filter' ||
       select.classList.contains('role-status') || select.classList.contains('episode-stage') ||
@@ -87,7 +87,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     }
     return {label,subtitle:type==='priority'?priorityDetails[value]||'':
       type==='lines'?taskLineDetails[value]||'':
-      type==='project'?(value==='all'?'Показать поручения всех проектов':'Поручения выбранного проекта'):
+      type==='project'?(value==='all'?'Показать все проекты':'Фильтр по выбранному аниме'): 
       type==='sort'?taskSortDetails[value]||detailText[value]||'':
       type==='status'?taskStatusDetails[value]||detailText[value]||'':
       detailText[value]||'',count:'',actor:null,value};
@@ -247,13 +247,13 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
         }
         if(!matches) list.append(element('p','fv-no-matches','Ничего не найдено'));
       }
-      if((type === 'actor' || type === 'character') && selectOptions.length > 5) {
+      if((type === 'actor' || type === 'character' || type === 'project') && selectOptions.length > 5) {
         const searchBox = element('div','fv-dropdown-search');
         searchBox.innerHTML = icon('search');
         searchField = element('input','fv-search-input');
         searchField.type = 'search';
-        searchField.placeholder = type==='actor'?'Поиск по нику или @username':'Поиск персонажа';
-        searchField.setAttribute('aria-label',type==='actor'?'Поиск актёра':'Поиск персонажа');
+        searchField.placeholder = type==='actor'?'Поиск по нику или @username':type==='project'?'Поиск аниме':'Поиск персонажа';
+        searchField.setAttribute('aria-label',type==='actor'?'Поиск актёра':type==='project'?'Поиск аниме':'Поиск персонажа');
         searchField.addEventListener('input',()=>drawItems(searchField.value));
         searchBox.append(searchField);
         menu.insertBefore(searchBox,list);

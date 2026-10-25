@@ -280,9 +280,9 @@ export function myRoleRows(state,{query=''}={}) {
 // Невыполненные назначения: только роли с указанным актёром в активных проектах.
 // Статусы «Жду запись» и «На перезапись» пересчитываются из текущих ролей,
 // поэтому никакой дублирующей базы долгов или миграции workspace.json нет.
-export function debtRows(state,{actorKey='',status='all',query=''}={}) {
+export function debtRows(state,{actorKey='',status='all',projectId='',query=''}={}) {
   const q=query.trim().toLocaleLowerCase('ru');
-  return state.projects.filter(p=>!p.archived)
+  return state.projects.filter(p=>!p.archived&&(!projectId||projectId==='all'||p.id===projectId))
     .flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>{
       const actor=actorForRole(state,r),name=(actor?.name||r.actor||'').trim();
       return {p,ep,r,actor,actorLabel:name,actorKey:actor?'id:'+actor.id:'name:'+name.toLocaleLowerCase('ru')};
