@@ -17,7 +17,7 @@ export function buildTaskSnapshot(state){
         id:ep.id,number:String(ep.number||''),title:ep.title||'',
         roles:(ep.roles||[]).map(r=>({id:r.id,character:r.character,actorId:r.actorId||'',actor:r.actor||'',
           lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null,
-          status:r.status||'waiting'}))
+          status:r.status||'waiting',createdAt:r.createdAt||''}))
       }))
     })),
     actors:(state.actors||[]).map(a=>({id:a.id,name:a.name}))
