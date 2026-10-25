@@ -1175,16 +1175,28 @@ document.querySelector('#import-file').addEventListener('change',async event=>{c
 window.addEventListener('beforeunload',event=>{if(native&&saving){event.preventDefault();event.returnValue='';}});
 window.addEventListener('storage',event=>{if(!native&&event.key===STORAGE&&event.newValue){try{state=normalizeState(JSON.parse(event.newValue));if(!modal.open)render();else toast('Данные обновлены в другой вкладке. Закрой форму, чтобы увидеть изменения.');}catch{}}});
 
+// Opening the local workspace must never wait for a sleeping or unreachable Cloud server.
+// StudioCloud keeps roster publication locked until syncStudioTasks confirms reconciliation.
+async function finishStartupCloud(){
+  await refreshCloud();
+  if(!modal.open)render();
+  const startupReconciled=!native||!cloud.connected||await syncStudioTasks();
+  if(!startupReconciled){
+    toast('Проверка веб-изменений не удалась. Локальная студия доступна, но публикация ролей остановлена до успешной синхронизации.',true);
+    return;
+  }
+  if(!saveError){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
+}
 async function boot(){
   try{let raw=null;try{raw=localStorage.getItem(STORAGE);}catch{}state=raw?normalizeState(JSON.parse(raw)):seedState();
     if(location.hostname==='127.0.0.1'){
       const params=new URLSearchParams(location.hash.slice(1));token=params.get('key')||sessionStorage.getItem('fundi-key')||'';
       if(token){sessionStorage.setItem('fundi-key',token);history.replaceState(null,'',location.pathname);native=true;try{info=await api('info');const data=await api('state');if(data.state)state=normalizeState(data.state);else state=seedState();}catch(err){saveError=err.message;}}
     }
-    await refreshCloud();
-    const startupReconciled=!native||!cloud.connected||await syncStudioTasks();
-    if(!startupReconciled)toast('Проверка веб-изменений не удалась. Публикация ролей остановлена до успешной синхронизации.',true);
-    render();ensureActorPreviews().catch(()=>{});if(native){
+    render();ensureActorPreviews().catch(()=>{});
+    // Cloud fetches and web role reconciliation continue independently of the startup screen.
+    void finishStartupCloud().catch(err=>toast('Не удалось проверить облачную синхронизацию: '+err.message,true));
+    if(native){
       scheduleTaskCloudSync();setInterval(()=>syncStudioTasks().catch(()=>{}),45000);
       startUpdateNotice({api,label:'Studio',beforeRestart:async()=>{
         if(cloud.transfer?.state==='running'){toast('Дождись завершения передачи файлов перед обновлением.',true);return false;}
@@ -1193,7 +1205,7 @@ async function boot(){
         return true;
       }});
       setInterval(()=>refreshCloud(true),1500);
-    }if(!saveError&&startupReconciled){persist();if(!state.settings.onboardingSeen){state.settings.onboardingSeen=true;persist();guide(0);}}
+    }
   }catch(err){app.innerHTML=`<div class="boot"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><p>Не удалось загрузить данные студии.</p><p class="small muted">${e(err.message)}</p><div class="btn-row"><button class="btn ghost" id="download-broken">Скачать сохранённые данные</button><button class="btn primary" id="recover-start">Открыть пустую студию</button></div><p class="small muted">Перед новым стартом сохрани текущие данные.</p></div>`;document.querySelector('#download-broken').onclick=()=>{const blob=new Blob([localStorage.getItem(STORAGE)||'{}'],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Fundi-Voice-recovery.json';a.click();};document.querySelector('#recover-start').onclick=()=>{state=seedState();saveError='';render();persist();};}
 }
 installVisualSelects({getActors:()=>state?.actors||[],getVacation:vacationFor,actorAvatar:actorPickAvatar,icon});
