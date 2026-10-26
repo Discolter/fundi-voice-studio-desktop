@@ -429,7 +429,13 @@ namespace FundiVoice {
                 if (String.IsNullOrEmpty(reaperExe))
                     throw new ArgumentException("REAPER не найден. Укажи путь к reaper.exe в файле LocalServer.cs, переменная customReaperExe.");
 
-                Process.Start(new ProcessStartInfo(reaperExe, "\"" + path + "\"") { UseShellExecute = false });
+                try { ReaperLaunch.Open(reaperExe, path); }
+                catch (System.ComponentModel.Win32Exception ex) {
+                    throw new ArgumentException("Не удалось запустить REAPER без прав администратора. Проверь настройки совместимости REAPER и запусти Studio обычным способом. " + ex.Message);
+                }
+                catch (InvalidOperationException ex) {
+                    throw new ArgumentException("Не удалось запустить REAPER без прав администратора. " + ex.Message);
+                }
                 return;
             }
 
