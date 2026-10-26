@@ -303,6 +303,8 @@ function acceptedEpisodeRolesForActors(p,ep){
   // Studio assignments, statuses, local files or published roster snapshots.
   const merged=withRoleReviews({projects:[p]},cloud.reviews||[]).projects[0].episodes.find(item=>item.id===ep.id);
   const hidden=new Set((cloud.hiddenRoles||[]).map(x=>x.actorId+'|'+x.roleId));
+  const active=new Set((cloud.actors||[]).filter(x=>x.enabled).map(x=>x.actorId));
+  const actorListKnown=cloud.connected&&(cloud.actors||[]).length>0;
   const seen=new Set();
   return (merged?.roles||[]).flatMap(r=>{
     const actor=actorForRole(state,r);
