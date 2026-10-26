@@ -238,6 +238,30 @@ namespace FundiVoice {
                 return Status();
             }
         }
+        public object HideAcceptedEpisodeRoles(Dictionary<string,object> body){
+            lock(syncGate){
+                string server,token;
+                lock(gate){
+                    if(!Connected())throw new CloudFault(409,"not_connected","Подключи Studio к Cloud.");
+                    server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");
+                }
+                var projectId=JsonData.S(body,"projectId");
+                var episodeId=JsonData.S(body,"episodeId");
+                var roles=JsonData.A(body,"roles");
+                if(roles.Length==0||roles.Length>2000)
+                    throw new CloudFault(400,"invalid_episode_roles","В серии нет доступных для скрытия принятых ролей.");
+                CloudHttp.Request(server,"/v1/studio/actor-roles/hide-episode","POST",
+                    new{projectId=projectId,episodeId=episodeId,roles=roles},token);
+                var fresh=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
+                lock(gate){
+                    hiddenRoles=JsonData.A(fresh,"hiddenRoles");
+                    accounts=JsonData.A(fresh,"actors");
+                    reviews=JsonData.A(fresh,"reviews");
+                    lastStatus=DateTime.UtcNow;
+                }
+                return Status();
+            }
+        }
         public object Invite(string actorId){
             lock(syncGate){
                 SyncNow(false);
