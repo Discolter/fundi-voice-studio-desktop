@@ -308,7 +308,7 @@ function acceptedEpisodeRolesForActors(p,ep){
   const seen=new Set();
   return (merged?.roles||[]).flatMap(r=>{
     const actor=actorForRole(state,r);
-    if(r.status!=='done'||!actor?.id||hidden.has(actor.id+'|'+r.id)||seen.has(r.id))return [];
+    if(r.status!=='done'||!actor?.id||(actorListKnown&&!active.has(actor.id))||hidden.has(actor.id+'|'+r.id)||seen.has(r.id))return [];
     seen.add(r.id);
     return [{actorId:actor.id,roleId:r.id}];
   });
