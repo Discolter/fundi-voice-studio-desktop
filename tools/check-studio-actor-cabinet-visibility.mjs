@@ -27,4 +27,18 @@ assert.match(css,/\.cast-table \.actor-cabinet-visibility/);
 assert.match(css,/\.role-actor-hidden-label/);
 assert.doesNotMatch(fn,/touch\(p\)|persist\(\)|delete-role|ep\.roles=/,
   'The actor cabinet action must never alter the local Studio table');
+
+const bulk=app.slice(app.indexOf('function acceptedEpisodeRolesForActors('),app.indexOf('function episodeRoles('));
+for(const key of ['withRoleReviews({projects:[p]},cloud.reviews||[])', "r.status!=='done'",'cloud.hiddenRoles||[]','actorForRole(state,r)','actorId:actor.id,roleId:r.id'])
+ assert.ok(bulk.includes(key),'Episode archive eligibility missing: '+key);
+const bulkUI=app.slice(app.indexOf('function episodeRoles('),app.indexOf('const actorLabel='));
+for(const key of ['acceptedEpisodeRolesForActors(p,ep)','hideable.length','data-action="hide-accepted-episode"','Скрыть принятые роли','!native||!cloud.connected'])
+ assert.ok(bulkUI.includes(key),'Episode archive button missing: '+key);
+const bulkAction=app.slice(app.indexOf("case 'hide-accepted-episode':"),app.indexOf("case 'actor-cabinet-visibility':"));
+for(const key of ["cloud=await api('cloud/roles/hide-accepted-episode'",'projectId:p.id,episodeId:ep.id,roles','toast('])
+ assert.ok(bulkAction.includes(key),'Bulk archive action missing: '+key);
+assert.doesNotMatch(bulkAction,/touch\(p\)|persist\(\)|delete-role|ep\.roles=/,'Archiving must not alter the director roster');
+assert.ok(host.includes('route=="cloud/roles/hide-accepted-episode"'));
+assert.ok(cloud.includes('public object HideAcceptedEpisodeRoles('));
+assert.ok(cloud.includes('/v1/studio/actor-roles/hide-episode'));
 console.log('PASS: owner controls actor-only accepted role visibility without modifying Studio roster');

@@ -289,6 +289,7 @@ namespace FundiVoice {
                     else if(route=="cloud/invite")result=Cloud.Invite(S(dataBody,"actorId"));
                     else if(route=="cloud/feedback")result=Cloud.Feedback(dataBody);
                     else if(route=="cloud/roles/visibility")result=Cloud.SetActorRoleVisibility(S(dataBody,"actorId"),S(dataBody,"roleId"),FundiVoice.Desktop.JsonData.B(dataBody,"hidden"));
+                    else if(route=="cloud/roles/hide-accepted-episode")result=Cloud.HideAcceptedEpisodeRoles(dataBody);
                     else if(route=="cloud/messages/read")result=Cloud.ReadMessage(FundiVoice.Desktop.JsonData.N(dataBody,"id"));
                     else if(route=="cloud/messages/delete")result=Cloud.DeleteMessage(FundiVoice.Desktop.JsonData.N(dataBody,"id"));
                     else if(route=="cloud/messages/clear")result=Cloud.ClearMessages();
