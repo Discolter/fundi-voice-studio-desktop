@@ -298,16 +298,30 @@ function episodeUnassignedList(ep){
     </div>
   </details>`;
 }
+function acceptedEpisodeRolesForActors(p,ep){
+  // Use review-adjusted stages, just like the episode table. Never change
+  // Studio assignments, statuses, local files or published roster snapshots.
+  const merged=withRoleReviews({projects:[p]},cloud.reviews||[]).projects[0].episodes.find(item=>item.id===ep.id);
+  const hidden=new Set((cloud.hiddenRoles||[]).map(x=>x.actorId+'|'+x.roleId));
+  const seen=new Set();
+  return (merged?.roles||[]).flatMap(r=>{
+    const actor=actorForRole(state,r);
+    if(r.status!=='done'||!actor?.id||hidden.has(actor.id+'|'+r.id)||seen.has(r.id))return [];
+    seen.add(r.id);
+    return [{actorId:actor.id,roleId:r.id}];
+  });
+}
 function episodeRoles(p,ep){
   const mine=state.settings.mode==='actor';
   const viewEp=withRoleReviews({projects:[p]},cloud.reviews||[]).projects[0].episodes.find(item=>item.id===ep.id);
   const all=viewEp.roles.filter(r=>!mine||r.mine);
+  const hideable=acceptedEpisodeRolesForActors(p,ep);
   const actorChoices=episodeRoleActorOptions(state,all);
   const characterChoices=episodeRoleCharacterOptions(all);
   const rows=filterEpisodeRoles(state,all,{status:ui.roleFilter||'all',actorKey:ui.roleActor||'all',characterKey:ui.roleCharacter||'all',order:ui.roleOrder||'original'}).map(r=>({p,ep,r}));
   const actorOptions=[['all','Все актёры'],...actorChoices.map(a=>[a.key,`${a.label} (${a.count})`])];
   const characterOptions=[['all','Все персонажи'],...characterChoices.map(c=>[c.key,`${c.label} (${c.count})`])];
-  return `<div class="panel-head"><div class="role-count">${ep.roles.length} ролей</div><div class="btn-row"><button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
+  return `<div class="panel-head"><div class="role-count">${ep.roles.length} ролей</div><div class="btn-row">${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
 }
 const actorLabel=a=>a.name+(a.telegram?' @'+a.telegram:'');
 // Встроенный визуальный выбор актёра: карточки загружаются в список только при открытии.
@@ -1128,6 +1142,19 @@ async function action(a,d,el){
     case 'delete-task':{const t=ep.tasks.find(t=>t.id===d.item);confirmAction('Удалить задачу?',e(t.title),'Удалить',()=>{ep.tasks=ep.tasks.filter(x=>x.id!==d.item);touch(p);});break;}
     case 'new-role':roleForm(p.id,ep.id);break;
     case 'edit-role':roleForm(p.id,ep.id,d.item);break;
+    case 'hide-accepted-episode':{
+      if(!native||!cloud.connected)throw Error('Подключи Studio к Fundi Voice Cloud.');
+      if(!p||!ep)throw Error('Выбери конкретную серию.');
+      const roles=acceptedEpisodeRolesForActors(p,ep);
+      if(!roles.length){render();toast('Все принятые роли этой серии уже скрыты.');break;}
+      el.disabled=true;
+      try{
+        cloud=await api('cloud/roles/hide-accepted-episode',{projectId:p.id,episodeId:ep.id,roles});
+        render();
+        toast('Принятые роли этой серии скрыты у актёров. В Studio они сохранены.');
+      }finally{if(el.isConnected)el.disabled=false;}
+      break;
+    }
     case 'actor-cabinet-visibility':{
       if(!cloud.connected)throw Error('Подключи Studio к Fundi Voice Cloud.');
       const r=ep?.roles.find(x=>x.id===d.item);
