@@ -467,14 +467,6 @@ function moveActorToGroup(id,cast,voice){
   const card=Array.from(app.querySelectorAll('[data-drag-actor]')).find(el=>el.dataset.dragActor===id);if(card){card.classList.add('actor-drop-flash');setTimeout(()=>card.classList.remove('actor-drop-flash'),700);}
   toast('Актёр перенесён');return true;
 }
-function actorRegistrationInfo(account, connection){
-  if(!connection.connected)return {state:'unknown',label:'Регистрация: неизвестна',hint:'Подключи Windows Studio к Fundi Voice Cloud, чтобы проверить регистрацию.'};
-  if(connection.error)return {state:'unknown',label:'Регистрация: нет связи',hint:'Не удалось обновить данные с сервера. Повтори синхронизацию.'};
-  if(!account)return {state:'unknown',label:'Регистрация: нет данных',hint:'Сначала опубликуй актёра на сервере и дождись синхронизации.'};
-  return account.registered===true
-    ? {state:'yes',label:'Зарегистрирован',hint:'Актёр создал учётную запись в Fundi Voice Actor.'}
-    : {state:'no',label:'Не зарегистрирован',hint:'Актёр ещё не активировал приглашение в Fundi Voice Actor.'};
-}
 function renderRecoveries(){
  let html=heading('Запросы на сброс пароля','Актёр возвращается к прежнему аккаунту и всем ролям');
  if(!native||!cloud.connected)return html+'<div class="panel"><p class="muted">Подключи Studio к Cloud, чтобы принимать запросы.</p></div>';
@@ -494,6 +486,14 @@ function renderRecoveries(){
   </div></article>`;
  }).join('')+'</div>';
  return html;
+}
+function actorRegistrationInfo(account, connection){
+  if(!connection.connected)return {state:'unknown',label:'Регистрация: неизвестна',hint:'Подключи Windows Studio к Fundi Voice Cloud, чтобы проверить регистрацию.'};
+  if(connection.error)return {state:'unknown',label:'Регистрация: нет связи',hint:'Не удалось обновить данные с сервера. Повтори синхронизацию.'};
+  if(!account)return {state:'unknown',label:'Регистрация: нет данных',hint:'Сначала опубликуй актёра на сервере и дождись синхронизации.'};
+  return account.registered===true
+    ? {state:'yes',label:'Зарегистрирован',hint:'Актёр создал учётную запись в Fundi Voice Actor.'}
+    : {state:'no',label:'Не зарегистрирован',hint:'Актёр ещё не активировал приглашение в Fundi Voice Actor.'};
 }
 function renderActorPortal(){
   const actors=[...(state.actors||[])].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
