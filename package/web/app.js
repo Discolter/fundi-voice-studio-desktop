@@ -60,7 +60,8 @@ const myRoleRows=(s,options)=>{
 };
 const debtRows=(s,options)=>storedDebtRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
 const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length});
-const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['actors','users','Актёры'],['actorportal','shield','Доступ актёров']];
+const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['actors','users','Актёры'],['actorportal','shield','Доступ актёров'],['recovery','shield','Сброс пароля']];
+let recoveryRequests=[],recoveryCode='';
 const vacationFor=id=>(cloud.vacations||[]).find(v=>v.actorId===id&&(v.status==='active'||v.status==='planned'));
 const activeVacation=id=>vacationFor(id)?.status==='active';
 const vacationTag=id=>{const v=vacationFor(id);return v?`<span class="studio-vacation-tag ${v.status==='active'?'active':'planned'}" title="${v.status==='active'?'В отпуске: новые роли не назначать':'Запланирован отпуск'}">${icon('vacation')}${v.status==='active'?'В отпуске':'Отпуск скоро'}</span>`:'';};
@@ -123,7 +124,7 @@ function flushSave(){
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
 function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter}));}catch{}}
-function navigate(page){if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(page==='vacations'&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
+function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(page==='vacations'&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles'){selectedTasks.clear();const p=getProject(id);if(!p)return;ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);}
 
 function render(){
@@ -141,7 +142,7 @@ function render(){
 function renderPage(c){
   if(ui.siteMode==='site')return siteManager.render(ui.sitePage);
   if(ui.page==='detail')return renderDetail();if(ui.page==='actors')return renderActors();if(ui.page==='mytasks')return renderMyTasks();if(ui.page==='debts')return renderDebts();if(ui.page==='vacations')return renderVacations();
-  if(ui.page==='actorportal')return renderActorPortal();if(ui.page==='settings')return renderSettings();return renderProjects(c);
+  if(ui.page==='recovery')return renderRecoveries();if(ui.page==='actorportal')return renderActorPortal();if(ui.page==='settings')return renderSettings();return renderProjects(c);
 }
 function heading(title,desc='',actions=''){return `<div class="page-head"><div><h1>${e(title)}</h1>${desc?`<span class="heading-meta">${e(desc)}</span>`:''}</div><div class="page-actions">${actions}</div></div>`;}
 const modeSwitch=()=>`<div class="mode-switch"><button data-mode="studio" class="${state.settings.mode==='studio'?'active':''}">Все</button><button data-mode="actor" class="${state.settings.mode==='actor'?'active':''}">Мои</button></div>`;
@@ -473,6 +474,26 @@ function actorRegistrationInfo(account, connection){
   return account.registered===true
     ? {state:'yes',label:'Зарегистрирован',hint:'Актёр создал учётную запись в Fundi Voice Actor.'}
     : {state:'no',label:'Не зарегистрирован',hint:'Актёр ещё не активировал приглашение в Fundi Voice Actor.'};
+}
+function renderRecoveries(){
+ let html=heading('Запросы на сброс пароля','Актёр возвращается к прежнему аккаунту и всем ролям');
+ if(!native||!cloud.connected)return html+'<div class="panel"><p class="muted">Подключи Studio к Cloud, чтобы принимать запросы.</p></div>';
+ html+='<div class="panel"><p class="muted small">Перед одобрением обязательно подтверди личность актёра через известный тебе Telegram или другой привычный канал.</p><div class="btn-row"><button type="button" class="btn ghost small" data-action="recovery-refresh">Обновить заявки</button></div></div>';
+ if(!recoveryRequests.length)return html+'<div class="panel"><p class="muted">Ожидающих запросов нет.</p></div>';
+ html+='<div class="actor-cloud-grid">'+recoveryRequests.map(row=>{
+  const actor=(state.actors||[]).find(a=>a.id===row.actorId);
+  return `<article class="actor-cloud-card"><div class="actor-cloud-identity"><div>
+  <strong>${e(actor?.name||row.profile?.name||row.username)}</strong>
+  <small>Логин: ${e(row.username)}</small>
+  <small>ID: ${e(row.actorId)}</small>
+  ${row.profile?.telegram?'<small>Telegram: @'+e(row.profile.telegram)+'</small>':''}
+  <small>Запрос: ${e(new Date(row.requestedAt).toLocaleString('ru-RU'))}</small>
+  </div></div><div class="btn-row">
+  <button class="btn primary small" data-action="recovery-approve" data-actor="${e(row.actorId)}">Одобрить</button>
+  <button class="btn ghost small" data-action="recovery-reject" data-actor="${e(row.actorId)}">Отклонить</button>
+  </div></article>`;
+ }).join('')+'</div>';
+ return html;
 }
 function renderActorPortal(){
   const actors=[...(state.actors||[])].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
@@ -1196,6 +1217,30 @@ async function action(a,d,el){
     case 'cloud-copy-setup':await copyText(cloudWizard.code);toast('Код скопирован');break;
     case 'cloud-renew-setup':{const result=await api('cloud/setup-code',{renew:true});cloudWizard.code=result.code;await cloudSetup(1);break;}
     case 'cloud-sync':if(!await syncStudioTasks())throw Error('Не удалось согласовать этапы ролей с сайтом. Старые данные не отправлены.');await flushSave();await api('cloud/sync',{replace:false});await refreshCloud(true);toast(cloud.pending?'Синхронизация продолжается':'Изменения отправлены');break;
+    case 'recovery-refresh':{const result=await api('cloud/recovery/requests',{});recoveryRequests=result.requests||[];render();break;}
+    case 'recovery-copy':await copyText(recoveryCode);toast('Код скопирован');break;
+    case 'recovery-approve':
+    case 'recovery-reject':{
+      const actorId=d.actor,record=recoveryRequests.find(r=>r.actorId===actorId);
+      if(!record)throw new Error('Запрос уже обработан. Обнови список.');
+      if(!confirm(a==='recovery-approve'
+        ?'Ты лично подтвердил, что запрос принадлежит '+(record.profile?.name||record.username)+'? Старые сеансы будут отключены.'
+        :'Отклонить запрос от '+record.username+'?'))break;
+      el.disabled=true;
+      try{
+        const response=await api('cloud/recovery/decision',{actorId,action:a==='recovery-approve'?'approve':'reject'});
+        const result=await api('cloud/recovery/requests',{});recoveryRequests=result.requests||[];
+        render();
+        if(response.approved){
+          recoveryCode=response.code||'';
+          showModal('Сброс пароля одобрен','Новый код для '+record.username,
+            `<p class="muted">Передай код актёру лично. Он действует 24 часа и показывается только сейчас.</p>
+            <p style="overflow-wrap:anywhere;font-family:monospace;user-select:all">${e(recoveryCode)}</p>
+            <button type="button" class="btn primary" data-action="recovery-copy">Скопировать код</button>`);
+        }else toast('Запрос отклонён.');
+      }finally{if(el.isConnected)el.disabled=false;}
+      break;
+    }
     case 'cloud-invite':el.disabled=true;try{await cloudInvite(d.actor);}finally{if(el.isConnected)el.disabled=false;}break;
     case 'cloud-replace':confirmAction('Опубликовать данные этой Studio?','Списки ролей и разрешения на сервере будут заменены текущими данными этой программы.','Опубликовать',async()=>{await flushSave();await api('cloud/sync',{replace:true});await refreshCloud(true);toast('Назначения опубликованы');});break;
     case 'delete-actor':{const a=state.actors.find(a=>a.id===d.actor);if(!a)break;confirmAction('Удалить актёра?',`<strong>${e(a.name)}</strong>. Имя в ролях сохранится. Файлы демок останутся на диске.`,'Удалить',()=>{removeActor(state,a.id);if(ui.actorFilter===a.id)ui.actorFilter='';persist();});break;}
