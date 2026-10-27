@@ -93,6 +93,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Actor cabinet role visibility regression failed' }
           node ./tools/check-studio-managed-vacations.mjs
           if($LASTEXITCODE -ne 0){ throw 'Studio vacation management regression failed' }
+          node ./tools/check-recovery-bottom-nav.mjs
+          if($LASTEXITCODE -ne 0){ throw 'Recovery bottom navigation regression failed' }
           node ./tools/check-episode-unassigned.mjs
           if($LASTEXITCODE -ne 0){ throw 'Unassigned episode actors regression failed' }
       - name: Validate code and compile C#
