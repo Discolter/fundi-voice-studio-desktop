@@ -1,4 +1,5 @@
 using System;
+using FundiVoice.Desktop;
 
 namespace FundiVoice {
     public sealed partial class StudioCloud {
