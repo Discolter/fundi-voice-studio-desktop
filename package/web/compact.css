@@ -285,6 +285,13 @@ body[data-theme=silver] .search kbd{color:#40566c;border-color:#a6b2c0}
 .episode-unassigned-empty,.episode-unassigned-no-matches{margin:8px 6px 10px;font-size:11px;line-height:1.5;color:var(--muted)}
 @media(max-width:700px){.episode-unassigned-dropdown{flex:1 1 155px;min-width:0}.episode-unassigned-menu{width:min(355px,calc(100vw - 35px));max-height:min(400px,calc(100vh - 210px))}}
 
+/* Owner password recovery: a discreet bottom-nav item with a red hover glow. */
+.studio-recovery-nav{color:#abb9ca;transition:color .18s ease,background .18s ease,box-shadow .18s ease}
+.studio-recovery-nav:is(:hover,:focus-visible){color:#ffb6c2;background:rgba(235,54,83,.19);box-shadow:inset 0 0 0 1px rgba(255,96,119,.22),0 0 16px rgba(235,54,83,.10)}
+.studio-recovery-nav.active{color:#ff9fb1;background:rgba(235,54,83,.15)}
+.studio-recovery-nav.active:is(:hover,:focus-visible){color:#ffd0d8;background:rgba(235,54,83,.25);box-shadow:inset 0 0 0 1px rgba(255,113,140,.35),0 0 16px rgba(235,54,83,.14)}
+@media(prefers-reduced-motion:reduce){.studio-recovery-nav{transition:none}}
+
 /* Studio 1.8.0: owner vacations and top-bar force refresh. */
 .studio-refresh-button{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:9px;font-size:12px;padding:9px 12px}
 .studio-refresh-button .icon{width:16px;height:16px}
