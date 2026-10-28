@@ -92,3 +92,8 @@ body[data-theme=silver] input::placeholder{color:#576877}
 .theme-preview.twilight{background:#252b55}.theme-preview.twilight:before{background:radial-gradient(ellipse at 0% 0%,#94afffa0,transparent 78%),radial-gradient(ellipse at 100% 100%,#edb4caa0,transparent 77%)}.theme-preview.twilight:after{background:linear-gradient(90deg,#94afff,#edb4ca)}
 .theme-preview.rose{background:#402842}.theme-preview.rose:before{background:radial-gradient(ellipse at 0% 0%,#f1a5daa0,transparent 78%),radial-gradient(ellipse at 100% 100%,#ffd1a8a0,transparent 77%)}.theme-preview.rose:after{background:linear-gradient(90deg,#f1a5da,#ffd1a8)}
 @media(max-width:580px){.theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.theme-card strong{font-size:11px}}
+
+/* Saving state uses semantic colors, independently of theme accents. */
+.status-indicator[data-save-state="saved"] .status-dot{background:#34d399;box-shadow:0 0 10px #34d39955}
+.status-indicator[data-save-state="saving"] .status-dot{background:#fbbf24;box-shadow:0 0 10px #fbbf2455}
+.status-indicator[data-save-state="error"] .status-dot{background:#fb7185;box-shadow:0 0 10px #fb718555}
