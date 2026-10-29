@@ -44,7 +44,7 @@ const quick=createQuickViews({
  editVacation:id=>callbacks.push(['vacation',id]),
  openProject:(p,e)=>callbacks.push(['project',p,e]),
  openFiles:x=>callbacks.push(['files',x.r.id]),
- transferRole:(p,e,r,candidate)=>callbacks.push(['transfer',p,e,r,candidate]),
+ transferRole:(p,e,r,candidate,showAll)=>callbacks.push(['transfer',p,e,r,candidate,showAll]),
  availableActors:()=>[actor2,actor3],
  changeRole:(x,patch)=>{callbacks.push(['save',x.r.id,patch]);x.r.status=patch.status;},
  cloudRequest:async ()=>({actors:[{actorId:'actor1',enabled:true,feed:{roles:[{roleId:'r1'}]}}]}),
@@ -84,7 +84,7 @@ tap('demos',{actor:'actor2'});
 assert.deepEqual(callbacks.at(-1),['demos','actor2']);
 tap('select',{actor:'actor3'});
 tap('transfer');
-assert.deepEqual(callbacks.at(-1),['transfer','p1','e1','r1','actor3']);
+assert.deepEqual(callbacks.at(-1),['transfer','p1','e1','r1','actor3',false]);
 assert.equal(quick.isPinned(),true);
 quick.closePanel();
 assert.equal(quick.isPinned(),false);
@@ -97,7 +97,8 @@ assert.match(source,/quickViews\.contextMenu/);
 assert.match(source,/roleReviewStage\(r,reviewForRole\(r\)\)/);
 assert.match(source,/changeRole:\(\{p,r\}/);
 const transferFn=source.slice(source.indexOf('function vacationReviewTransferForm('),source.indexOf('function renderVacations('));
-assert.match(transferFn,/preferredActorId===a\.id\?'selected'/);
+assert.match(transferFn,/vacationReviewCandidateOptions\(available,preferredActorId\)/);
+assert.match(source,/preferred===a\.id/,'Preferred actor remains selected in replacement dropdown');
 const vacationOwner=source.slice(source.indexOf('function studioVacationForm('),source.indexOf('async function studioVacationEnd('));
 assert.doesNotMatch(vacationOwner,/preferredActorId/,'Owner vacation selector must not depend on reassignment input');
 assert.match(index,/quick-view-root/);

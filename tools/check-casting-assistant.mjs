@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {rankActorsForRole,episodeActorWorkload,validRoleVoice,roleVoiceLabel} from '../package/web/casting-assistant.js';
+import {rankActorsForRole,episodeActorWorkload,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor} from '../package/web/casting-assistant.js';
 import {normalizeState,seedState} from '../package/web/core.js';
 import {reassignVacationRole} from '../package/web/vacation-review.js';
 
@@ -41,6 +41,19 @@ assert.deepEqual(rankActorsForRole(state,episode,{id:'new',voiceGender:''},[])
 assert.deepEqual(rankActorsForRole(state,episode,episode.roles[0],[],{excludeActorId:'m2'})
  .map(x=>x.actor.id),['m1','m3']);
 
+assert.equal(roleVoiceFromActor({voiceGender:''},actors[0]),'male');
+assert.equal(roleVoiceFromActor({voiceGender:'female'},actors[0]),'female','explicit label wins over actor group');
+const tagged={voiceGender:''};
+assert.equal(applyRoleVoiceFromActor(tagged,actors[0]),'male');
+applyRoleVoiceFromActor(tagged,actors[3]);
+assert.equal(tagged.voiceGender,'male','actor replacement does not overwrite character voice type');
+assert.deepEqual(rankActorsForRole(state,episode,{id:'target',actorId:'m2',voiceGender:''},[],{excludeActorId:'m2'}).map(x=>x.actor.id),['m1','m3'],'old roles use linked actor type before migration');
+const allCandidates=rankActorsForRole(state,episode,episode.roles[0],[],{excludeActorId:'m2',showAll:true});
+assert.deepEqual(allCandidates.map(x=>x.actor.id).slice(0,2),['m1','m3'],'same group stays ahead even if opposite group is less busy');
+assert.ok(allCandidates.some(x=>x.actor.id==='f1'));
+assert.ok(allCandidates.some(x=>x.actor.id==='x1'),'Show all includes actors without gender group');
+assert.equal(rankActorsForRole(state,episode,episode.roles[0],[{actorId:'f1',status:'planned'}],{showAll:true}).some(x=>x.actor.id==='f1'),false,'Show all never ignores holidays');
+
 const copy=seedState();
 copy.actors=actors;
 copy.projects=[{id:'p',title:'Аниме',episodes:[episode]}];
@@ -48,25 +61,32 @@ const normalized=normalizeState(copy);
 assert.equal(normalized.projects[0].episodes[0].roles[0].voiceGender,'male');
 const invalid=structuredClone(copy);
 invalid.projects[0].episodes[0].roles[0].voiceGender='bad';
-assert.equal(normalizeState(invalid).projects[0].episodes[0].roles[0].voiceGender,'');
+assert.equal(normalizeState(invalid).projects[0].episodes[0].roles[0].voiceGender,'male','invalid labels infer from linked actor');
 const legacy=structuredClone(copy);
 delete legacy.projects[0].episodes[0].roles[0].voiceGender;
-assert.equal(normalizeState(legacy).projects[0].episodes[0].roles[0].voiceGender,'','old projects remain compatible');
+assert.equal(normalizeState(legacy).projects[0].episodes[0].roles[0].voiceGender,'male','old assignments inherit linked actor voice group');
 
 const app=readFileSync('package/web/app.js','utf8');
 const quick=readFileSync('package/web/quick-views.js','utf8');
 const css=readFileSync('package/web/compact.css','utf8');
 for(const needle of [
  'function castingAssistantForm(', 'function updateCastingSuggestions()',
- 'id="role-voice-gender"', 'voiceGender:validRoleVoice(data.voiceGender)',
+ 'id="role-voice-gender"', 'voiceGender:roleVoiceFromActor({voiceGender:data.voiceGender},actor)',
  'case \'casting-assistant\':castingAssistantForm(d.id,d.ep,d.item)',
  'case \'casting-pick\':', 'data-action="casting-assistant"',
- 'rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id})',
+ 'rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors})',
  'updateCastingSuggestions();'
 ])assert.ok(app.includes(needle),'Studio casting UI missing: '+needle);
 assert.ok(quick.includes("data-q=\"casting-assistant\"")||quick.includes("btn('casting-assistant'"));
 assert.ok(css.includes('.casting-suggestion-list'));
 assert.ok(css.includes('.casting-modal-option'));
+assert.ok(css.includes('.casting-show-all'));
+assert.ok(app.includes('id="review-show-all-actors"'));
+assert.ok(app.includes('id="casting-modal-show-all"'));
+assert.ok(app.includes('actor-picker-show-all-input'));
+assert.ok(app.includes('showAll:showAllActors'));
+assert.ok(quick.includes('data-q="show-all-candidates"'));
+
 assert.ok(app.includes('reviewSeen:changedActor?\'\':r.reviewSeen'),'changing actor resets previous feedback');
 
 console.log('PASS: gender persistence, episode repeat counts, holiday-safe casting recommendations and manual UI');
