@@ -40,6 +40,19 @@ namespace FundiVoice {
                 vacations=vacationRows,vacationEvents=vacationEvents,vacationUnread=vacationUnread,
                 vacationApiAvailable=vacationApiAvailable,vacationError=vacationError,sourceLinks=sourceLinks};
         }
+        // Owner-only read of the roster actually published for Actor Desktop/Web.
+        // Never use an actor's credentials or impersonate an actor session.
+        public object ActorRoster(){
+            string server,token;
+            lock(gate){
+                if(!Connected())throw new CloudFault(409,"not_connected","Сначала подключи Studio к Fundi Voice Cloud.");
+                server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");
+            }
+            var roster=CloudHttp.Request(server,"/v1/studio/web/roster","GET",null,token);
+            var links=CloudHttp.Request(server,"/v1/studio/source-links","GET",null,token);
+            return new { actors=JsonData.A(roster,"actors"),sourceLinks=JsonData.A(links,"links"),
+                checkedAt=DateTime.UtcNow.ToString("o") };
+        }
         public void Queue(Dictionary<string,object> state){
             var actors=ActorProjection.Build(state);string digest=JsonData.Digest(JsonData.Json().Serialize(actors));
             lock(gate){
