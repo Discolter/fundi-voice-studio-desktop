@@ -26,7 +26,7 @@ export function episodeActorWorkload(episode,actorId,exceptRoleId=''){
 }
 
 export function rankActorsForRole(state,episode,role,vacations=[],{excludeActorId='',showAll=false}={}){
-  const gender=validRoleVoice(role?.voiceGender);
+  const gender=roleVoiceFromActor(role,(state?.actors||[]).find(a=>a.id===role?.actorId));
   const unavailable=new Set((Array.isArray(vacations)?vacations:[])
     .filter(v=>['active','planned'].includes(v?.status)).map(v=>v.actorId));
   const candidates=[];
