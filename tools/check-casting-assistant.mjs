@@ -73,11 +73,13 @@ for(const needle of [
  'function castingAssistantForm(', 'function updateCastingSuggestions()',
  'id="role-voice-gender"', 'voiceGender:roleVoiceFromActor({voiceGender:data.voiceGender},actor)',
  'case \'casting-assistant\':castingAssistantForm(d.id,d.ep,d.item)',
- 'case \'casting-pick\':', 'data-action="casting-assistant"',
+ 'case \'casting-pick\':',
  'rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors})',
  'updateCastingSuggestions();'
 ])assert.ok(app.includes(needle),'Studio casting UI missing: '+needle);
 assert.ok(quick.includes("data-q=\"casting-assistant\"")||quick.includes("btn('casting-assistant'"));
+assert.ok(!app.includes('class="icon-btn casting-table-button"'),'Workload dashboard replaces per-row casting shortcut');
+
 assert.ok(css.includes('.casting-suggestion-list'));
 assert.ok(css.includes('.casting-modal-option'));
 assert.ok(css.includes('.casting-show-all'));

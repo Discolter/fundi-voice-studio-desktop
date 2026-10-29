@@ -8,6 +8,7 @@ import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole} from './vacation-review.js';
+import {actorWorkloadRows,actorWorkloadGroups} from './actor-workload.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog} from './task-cloud-sync.js';
@@ -21,6 +22,7 @@ ICONS.grip='M8 5h.01M8 12h.01M8 19h.01M16 5h.01M16 12h.01M16 19h.01';
 ICONS.debts='M12 3 2 21h20L12 3ZM12 9v5M12 18h.01';
 ICONS.shield='M12 2 20 6v6c0 5-4 8-8 10C8 20 4 17 4 12V6l8-4ZM9 12l2 2 4-4';
 ICONS.bell='M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4';
+ICONS.workload='M4 20V12M9 20V7M14 20V4M19 20V10M2 20h20';
 ICONS.chat='M3 3h18v14H9l-6 4Z';
 ICONS.eye='M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6';
 ICONS['eye-off']='M3 3l18 18M10.6 5.2A10.5 10.5 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.5 4.3M6.8 6.8C3.5 8.8 2 12 2 12s4 7 10 7c1.7 0 3.2-.5 4.5-1.3M10 10a3 3 0 0 0 4 4';
@@ -41,9 +43,10 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='';
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all'};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
+  ui.workloadIncludeArchive=saved.workloadIncludeArchive===true;
   ui.myRoleOrder=validMyRoleOrder(saved.myRoleOrder);
   ui.taskStatus=validTaskStatusFilter(saved.taskStatus);
   ui.taskLines=validTaskLineFilter(saved.taskLines);
@@ -69,7 +72,7 @@ const myRoleRows=(s,options)=>{
 };
 const debtRows=(s,options)=>storedDebtRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
 const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length,review:vacationReviewRows(state,cloud.vacations||[]).length});
-const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['actors','users','Актёры'],['actorportal','shield','Доступ актёров']];
+const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['actors','users','Актёры'],['workload','workload','Нагрузка'],['actorportal','shield','Доступ актёров']];
 let recoveryRequests=[],recoveryCode='';
 const vacationFor=id=>(cloud.vacations||[]).find(v=>v.actorId===id&&(v.status==='active'||v.status==='planned'));
 const activeVacation=id=>vacationFor(id)?.status==='active';
@@ -133,7 +136,7 @@ const studioNavigation=createStudioNavigation({
   restore:route=>{
     ui.siteMode=['studio','site','cabinet'].includes(route.siteMode)?route.siteMode:'studio';
     ui.sitePage=['releases','news','notifications','ratings','users'].includes(route.sitePage)?route.sitePage:'releases';
-    const sections=['projects','archive','detail','mytasks','debts','actors','actorportal','settings','review','vacations','recovery'];
+    const sections=['projects','archive','detail','mytasks','debts','actors','workload','actorportal','settings','review','vacations','recovery'];
     ui.page=sections.includes(route.page)?route.page:'projects';
     const project=state.projects.find(p=>p.id===route.project);
     ui.project=project?.id||null;
@@ -200,7 +203,7 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter}));}catch{}}
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive}));}catch{}}
 function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(['vacations','review'].includes(page)&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles'){selectedTasks.clear();const p=getProject(id);if(!p)return;ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);}
 
@@ -221,7 +224,7 @@ function render(){
 function renderPage(c){
   if(ui.siteMode==='cabinet')return actorCabinet.render();
   if(ui.siteMode==='site')return siteManager.render(ui.sitePage);
-  if(ui.page==='detail')return renderDetail();if(ui.page==='actors')return renderActors();if(ui.page==='mytasks')return renderMyTasks();if(ui.page==='debts')return renderDebts();if(ui.page==='vacations')return renderVacations();
+  if(ui.page==='detail')return renderDetail();if(ui.page==='actors')return renderActors();if(ui.page==='workload')return renderWorkload();if(ui.page==='mytasks')return renderMyTasks();if(ui.page==='debts')return renderDebts();if(ui.page==='vacations')return renderVacations();
   if(ui.page==='review')return renderVacationReview();if(ui.page==='recovery')return renderRecoveries();if(ui.page==='actorportal')return renderActorPortal();if(ui.page==='settings')return renderSettings();return renderProjects(c);
 }
 function heading(title,desc='',actions=''){return `<div class="page-head"><div><h1>${e(title)}</h1>${desc?`<span class="heading-meta">${e(desc)}</span>`:''}</div><div class="page-actions">${actions}</div></div>`;}
@@ -518,7 +521,7 @@ function actorCabinetVisibilityButton(p,ep,r){
   ${!native||!cloud.connected?'disabled':''}>${icon(hidden?'restore':'eye-off')}</button>${hidden?'<small class="role-actor-hidden-label">Скрыта у актёра</small>':''}`;
 }
 function roleImageThumb(role){const image=safeRoleImage(role?.image);return image?`<button type="button" class="role-character-image" data-role-image-open aria-label="Увеличить персонажа ${e(role.character)}"><img src="${e(image)}" alt="${e(role.character)}"></button>`:'';}
-function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><td>${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${validRoleVoice(r.voiceGender)?`<span class="role-voice-badge">${e(roleVoiceLabel(r.voiceGender))}</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions"><button type="button" class="icon-btn casting-table-button" data-action="casting-assistant" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Подобрать актёра · нагрузка в серии" aria-label="Подобрать актёра для ${e(r.character)}">${icon('users')}</button>${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
+function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><td>${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${validRoleVoice(r.voiceGender)?`<span class="role-voice-badge">${e(roleVoiceLabel(r.voiceGender))}</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
 
 function episodeTasks(p,ep){return `<div class="panel-head"><h2>Задачи</h2><button class="btn primary small" data-action="new-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Добавить</button></div>${tasksTable(ep.tasks.filter(t=>state.settings.mode!=='actor'||t.mine).map(t=>({p,ep,t})))||empty('Нет задач','new-task','Добавить задачу',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;}
 // Compact visual identity cells for task assignments; always derive from live project/role/actor data.
@@ -561,6 +564,49 @@ function tasksTable(rows,global=false){
 
 function actorAvatar(a,large=false){return `<button type="button" class="actor-avatar ${large?'actor-avatar-large':''}" data-action="actor-avatar" data-actor="${e(a.id)}" title="Изменить аватар" aria-label="Аватар ${e(a.name)}">${a.avatar?`<img src="${e(a.avatar)}" alt="" draggable="false">`:e(a.name.slice(0,2).toUpperCase())}</button>`;}
 function actorCard(a){return `<article class="actor-card actor-compact" data-voice="${e(a.voiceGroup||'')}" data-qv-context="actor" data-qv-actor="${e(a.id)}" draggable="true" data-drag-actor="${e(a.id)}"><span class="actor-drag-handle" title="Перетащить актёра" aria-hidden="true">${icon('grip')}</span>${actorAvatar(a)}<div class="actor-identity"><button class="actor-name" data-action="actor-details" data-actor="${e(a.id)}" title="${e(a.name)}">${e(a.name)}</button>${a.telegram?`<div class="actor-telegram" title="@${e(a.telegram)}">@${e(a.telegram)}</div>`:''}${vacationTag(a.id)}</div><div class="actor-row-actions"><button class="icon-btn" data-action="actor-details" data-actor="${e(a.id)}" title="Демки: ${a.demos.length}" aria-label="Демки ${e(a.name)}">${icon('play')}</button><button class="icon-btn" data-action="actor-roles" data-actor="${e(a.id)}" title="Роли: ${actorAssignments(state,a.id).length}" aria-label="Роли ${e(a.name)}">${icon('mic')}</button><button class="icon-btn" data-action="edit-actor" data-actor="${e(a.id)}" title="Изменить актёра" aria-label="Изменить ${e(a.name)}">${icon('edit')}</button></div></article>`;}
+// Team-wide workload board. Every card is a read-only view of existing role assignments.
+function renderWorkload(){
+  const all=actorWorkloadRows(state,{includeArchived:ui.workloadIncludeArchive});
+  const rows=actorWorkloadRows(state,{includeArchived:ui.workloadIncludeArchive,query:ui.query});
+  const groups=actorWorkloadGroups(rows);
+  const pending=all.reduce((sum,item)=>sum+item.pending,0);
+  const knownLines=all.reduce((sum,item)=>sum+item.pendingLines,0);
+  const view=(item)=>{
+    const a=item.actor;
+    const initial=e((a.name||'?').trim().slice(0,2).toUpperCase());
+    const avatar=a.avatar?'<img src="'+e(a.avatar)+'" alt="" loading="lazy">':initial;
+    const linesLabel=item.pendingUnknown?'известно '+item.pendingLines+' репл. · '+item.pendingUnknown+' без числа':item.pendingLines+' репл.';
+    return '<article class="workload-actor-card" data-tier="'+item.tier+'" data-qv-context="actor" data-qv-actor="'+e(a.id)+'">'+
+      '<div class="workload-actor-top"><button type="button" class="workload-actor-identity" data-qv-open="actor" data-qv-actor="'+e(a.id)+'" title="Открыть карточку актёра '+e(a.name)+'">'+
+      '<span class="workload-actor-avatar">'+avatar+'</span><span class="workload-actor-name"><strong>'+e(a.name)+'</strong>'+
+      (a.telegram?'<small>@'+e(a.telegram)+'</small>':'<small>Без Telegram</small>')+'</span></button>'+
+      '<span class="workload-actor-score" title="Условный индекс: максимум из количества ролей на запись и реплик / 50">'+item.score+'</span></div>'+
+      (vacationTag(a.id)?'<div class="workload-vacation">'+vacationTag(a.id)+'</div>':'')+
+      '<div class="workload-actor-metrics">'+
+      '<span><strong>'+item.pending+'</strong><small>На запись</small></span>'+
+      '<span><strong>'+item.inReview+'</strong><small>На проверке</small></span>'+
+      '<span><strong>'+item.total+'</strong><small>Всего ролей</small></span></div>'+
+      '<div class="workload-actor-foot"><span>'+e(linesLabel)+'</span><span>'+item.projectsCount+' '+(item.projectsCount===1?'проект':'проектов')+'</span></div>'+
+      '<button type="button" class="workload-actor-open" data-qv-open="actor" data-qv-actor="'+e(a.id)+'">Посмотреть роли '+icon('arrow')+'</button>'+
+      '</article>';
+  };
+  const section=(key,title,explanation)=>{
+    const items=groups[key];
+    return '<section class="workload-section" data-tier="'+key+'"><div class="workload-section-heading"><div><h2>'+title+'</h2><p>'+explanation+'</p></div><span class="workload-section-count">'+items.length+'</span></div>'+
+      (items.length?'<div class="workload-grid">'+items.map(view).join('')+'</div>':'<p class="workload-section-empty">Пока нет актёров в этой группе.</p>')+'</section>';
+  };
+  let html=heading('Нагрузка','Все назначения по актёрам — без ручного подсчёта.');
+  html+='<div class="workload-dashboard-stats"><div><small>Актёров</small><strong>'+all.length+'</strong></div>'+
+    '<div><small>Ролей на запись</small><strong>'+pending+'</strong></div>'+
+    '<div><small>Известных реплик на запись</small><strong>'+knownLines+'</strong></div></div>';
+  html+='<div class="workload-tools"><label class="workload-scope-toggle"><input type="checkbox" id="workload-include-archive" '+(ui.workloadIncludeArchive?'checked':'')+'> Учитывать архивные проекты</label>'+
+    '<p>В расчёт нагрузки входят роли «Жду запись», «В записи» и «На перезапись». Ожидающие проверки и принятые роли показаны отдельно.</p></div>';
+  if(!rows.length)return html+'<div class="workload-section-empty">По запросу актёры не найдены.</div>';
+  html+=section('high','Высокая нагрузка','6 и более условных единиц нагрузки. Сюда стоит заглянуть перед новым назначением.');
+  html+=section('medium','Средняя нагрузка','От 3 до 5 условных единиц. Можно распределять новые роли с учётом сроков.');
+  html+=section('low','Низкая нагрузка','0–2 условные единицы. В первую очередь стоит проверить этих актёров для новых ролей.');
+  return html+'<p class="workload-explainer">Для ориентировочной оценки одна роль = 1 единица, каждые 50 известных реплик = 1 единица. Используется большее из двух значений, чтобы одна большая роль не выглядела маленькой нагрузкой. Это подсказка, а не автоматическое решение о кастинге. Данные обновляются вместе с ролями Studio.</p>';
+}
 function renderActors(){
   const q=ui.query.trim().toLocaleLowerCase('ru');
   const actors=(state.actors||[]).filter(a=>`${a.name} ${a.telegram} ${a.notes}`.toLocaleLowerCase('ru').includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
@@ -1684,6 +1730,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='casting-modal-show-all'){updateCastingModalCandidates();return;}
   if(el.id==='review-show-all-actors'){refreshVacationReviewCandidates();return;}
   if(el.classList.contains('actor-picker-show-all-input')){const picker=el.closest('.actor-picker');fillActorPicker(picker,picker.querySelector('.actor-picker-search')?.value||'');return;}
+  if(el.id==='workload-include-archive'){ui.workloadIncludeArchive=el.checked;saveUI();render();return;}
   if(el.id==='role-filter'){ui.roleFilter=el.value;render();}
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
