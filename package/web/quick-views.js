@@ -20,7 +20,7 @@ export const candidateScores=(state,actors)=>actors.map(actor=>{
 export function createQuickViews({root,getState,getCloud,getRole,getReview,getSourceUrl,
  icon,escapeHTML:e,actorAvatar,getStage,editRole,editActor,openProject,openFiles,transferRole,
  availableActors,castingAssistant,changeRole,cloudRequest,refreshCloud,openActorCabinet,editVacation,viewActorDemos,toast}) {
- let panel=null,dialog=null,pinned=false,tab='roles',history=[],context=null,selectedCandidate='',comparedActorId='';
+ let panel=null,dialog=null,pinned=false,tab='roles',history=[],context=null,selectedCandidate='',comparedActorId='',showAllCandidates=false;
  let cloudResult=null,checking=false,cloudError='',stamp='';
  const state=()=>getState(),cloud=()=>getCloud()||{};
  const actor=id=>(state()?.actors||[]).find(a=>a.id===id);
@@ -73,10 +73,10 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
  }
  function replacementView(){
   const x=role();if(!x)return '<p>Роль уже удалена.</p>';
-  const candidates=rankActorsForRole(state(),x.ep,x.r,cloud().vacations||[],{excludeActorId:x.r.actorId});
+  const candidates=rankActorsForRole(state(),x.ep,x.r,cloud().vacations||[],{excludeActorId:x.r.actorId,showAll:showAllCandidates});
   if(!candidates.some(v=>v.actor.id===selectedCandidate))selectedCandidate=candidates[0]?.actor.id||'';
   return '<p class="qv-muted">'+e(x.p.title)+' · '+e(x.r.character)+' · Серия '+e(x.ep.number||'')+'</p>'+
-    '<p class="qv-warning">Переназначение потребует подтверждения и актуального статуса отпуска. При указанном типе голоса показываются только подходящие актёры.</p>'+
+    '<p class="qv-warning">Переназначение требует подтверждения. Исполнители в отпуске исключены.</p>'+ (validRoleVoice(x.r.voiceGender)?'<label class="casting-show-all"><input type="checkbox" data-q="show-all-candidates" '+(showAllCandidates?'checked':'')+'> Показать всех актёров</label>':'')+
     '<div class="qv-candidates">'+candidates.map(({actor:a,debtCount,activeCount,episodeCount,characters})=>
       '<article class="qv-candidate '+(selectedCandidate===a.id?'selected':'')+'">'+id(a)+
       '<p>'+episodeCount+' ролей в этой серии · '+debtCount+' долгов · '+activeCount+' активных всего</p><small>'+(characters.length?'Уже озвучивает: '+e(characters.slice(0,4).join(', ')):'Ещё не назначен на роли в этой серии')+'</small>'+
@@ -142,7 +142,7 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
  }
  function openReplacement(projectId,episodeId,roleId){
   if(!getRole(projectId,episodeId,roleId))return false;
-  dialog={kind:'replace',projectId,episodeId,roleId};selectedCandidate='';comparedActorId='';context=null;render();return true;
+  dialog={kind:'replace',projectId,episodeId,roleId};selectedCandidate='';comparedActorId='';showAllCandidates=false;context=null;render();return true;
  }
  function openCloud(projectId='',episodeId='',roleId='',actorId=''){
   dialog={kind:'cloud',projectId,episodeId,roleId,actorId};cloudResult=null;checking=false;cloudError='';context=null;render();return true;
@@ -180,10 +180,11 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
    const i=x.ep.roles.findIndex(y=>y.id===x.r.id),next=x.ep.roles[i+(q==='previous'?-1:1)];
    if(next)openRole(x.p.id,x.ep.id,next.id);return;
   }
+  if(q==='show-all-candidates'){showAllCandidates=!!node.checked;render();return;}
   if(q==='select'){selectedCandidate=node.dataset.actor;render();return;}
   if(q==='compare'){comparedActorId=node.dataset.actor;render();return;}
   if(q==='demos'){viewActorDemos(node.dataset.actor);return;}
-  if(q==='transfer'&&x&&selectedCandidate){const choice=selectedCandidate;closeDialog();transferRole(x.p.id,x.ep.id,x.r.id,choice);return;}
+  if(q==='transfer'&&x&&selectedCandidate){const choice=selectedCandidate;closeDialog();transferRole(x.p.id,x.ep.id,x.r.id,choice,showAllCandidates);return;}
   if(q==='cloud-refresh'){await checkCloud();return;}
   if(q==='cloud-sync'){await refreshCloud();if(dialog?.kind==='cloud')await checkCloud();return;}
   if(q.startsWith('context-')){
