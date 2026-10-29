@@ -587,3 +587,28 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .actor-picker-show-all{margin:7px 5px 8px;padding:9px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)}
 .casting-show-all input,.actor-picker-show-all input{accent-color:var(--lime);width:16px;height:16px;flex:none;cursor:pointer}
 .actor-picker-show-all[hidden]{display:none!important}
+
+
+/* Project cover cards: numbers reflect ONLY the highest-numbered/latest episode.
+   Color on numeric values keeps stage, age and other information visually distinct. */
+.compact-project .project-role-progress{
+  display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:5px;min-width:0;
+  font-size:10px;line-height:1.6;color:var(--muted);
+}
+.compact-project .project-role-progress .project-accepted-count{
+  font-size:13px;line-height:1.3;font-weight:800;letter-spacing:.1px;
+  font-variant-numeric:tabular-nums;
+}
+.compact-project .project-role-progress .project-remaining-count{
+  color:var(--muted);white-space:nowrap;
+}
+.compact-project .project-role-progress .project-remaining-count b{
+  color:inherit;font-weight:750;font-variant-numeric:tabular-nums;
+}
+.compact-project .project-role-progress[data-progress="red"] .project-accepted-count,
+.compact-project .project-role-progress[data-progress="red"] .project-remaining-count b{color:#ff8585}
+.compact-project .project-role-progress[data-progress="yellow"] .project-accepted-count,
+.compact-project .project-role-progress[data-progress="yellow"] .project-remaining-count b{color:#f4ce74}
+.compact-project .project-role-progress[data-progress="green"] .project-accepted-count,
+.compact-project .project-role-progress[data-progress="green"] .project-remaining-count b{color:#60dda2}
+.compact-project .project-role-progress[data-progress="none"]{color:var(--muted)}
