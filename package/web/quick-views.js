@@ -1,4 +1,5 @@
 // Studio-only contextual actions, rendered outside #app so pages retain filters/scroll.
+import {rankActorsForRole,validRoleVoice,roleVoiceLabel} from './casting-assistant.js';
 const STAGES=[['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['done','Принято']];
 const validImage=s=>typeof s==='string'&&s.length<=150000&&/^data:image\/(?:png|webp|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/i.test(s)?s:'';
 const validTelegram=s=>typeof s==='string'&&/^https:\/\/(?:t\.me|telegram\.me)\/[A-Za-z0-9_+/-]+\/?$/.test(s)?s:'';
@@ -18,7 +19,7 @@ export const candidateScores=(state,actors)=>actors.map(actor=>{
 
 export function createQuickViews({root,getState,getCloud,getRole,getReview,getSourceUrl,
  icon,escapeHTML:e,actorAvatar,getStage,editRole,editActor,openProject,openFiles,transferRole,
- availableActors,changeRole,cloudRequest,refreshCloud,openActorCabinet,editVacation,viewActorDemos,toast}) {
+ availableActors,castingAssistant,changeRole,cloudRequest,refreshCloud,openActorCabinet,editVacation,viewActorDemos,toast}) {
  let panel=null,dialog=null,pinned=false,tab='roles',history=[],context=null,selectedCandidate='',comparedActorId='';
  let cloudResult=null,checking=false,cloudError='',stamp='';
  const state=()=>getState(),cloud=()=>getCloud()||{};
@@ -58,26 +59,27 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
   const {p,ep,r}=x,a=actor(r.actorId),siblings=ep.roles||[],index=siblings.findIndex(y=>y.id===r.id),url=validTelegram(getSourceUrl(p.id,ep.id));
   return '<div class="qv-role-heading">'+roleImage(r)+'<div><h2>'+e(r.character)+'</h2><p>'+e(p.title)+' · Серия '+e(ep.number||ep.title||'')+'</p>'+
     (a?'<button type="button" class="qv-link" data-q="actor" data-actor="'+e(a.id)+'">'+e(a.name)+' · открыть актёра →</button>':'<small>Актёр не назначен</small>')+'</div></div>'+
+    (validRoleVoice(r.voiceGender)?'<p class="qv-muted">Тип голоса персонажа: '+e(roleVoiceLabel(r.voiceGender))+'</p>':'')+
     '<div class="qv-actions">'+btn('previous','Предыдущая','back',index===0?'disabled':'')+btn('next','Следующая','arrow',index>=siblings.length-1?'disabled':'')+'</div>'+
     '<form id="qv-role-form" class="qv-form"><label>Обработка<select name="status">'+STAGES.map(([key,label])=>'<option value="'+key+'" '+(stage(r)===key?'selected':'')+'>'+label+'</option>').join('')+
       '</select></label><label>Дедлайн<input type="date" name="due" value="'+e(r.due||'')+'"></label>'+
       '<label>Реплики<input type="number" min="0" max="1000000" name="lineCount" placeholder="Не указано" value="'+e(r.lineCount??'')+'"></label>'+
       '<button class="btn primary" type="submit">Сохранить показатели</button></form>'+
     '<div class="qv-actions">'+btn('edit-role','Полное редактирование','edit')+btn('recordings','Записи','download')+
-      btn('role-cloud','Проверка Cloud','refresh')+btn('project','Открыть проект','folder')+'</div>'+
+      btn('role-cloud','Проверка Cloud','refresh')+btn('casting-assistant','Подобрать актёра','users')+btn('project','Открыть проект','folder')+'</div>'+
     (url?'<a class="qv-source" href="'+e(url)+'" target="_blank" rel="noopener noreferrer">'+icon('external')+' Исходники в Telegram ↗</a>':
       '<p class="qv-muted">Ссылка на исходники Telegram не прикреплена.</p>')+
     (r.notes?'<section class="qv-project"><h4>Заметки</h4><p>'+e(r.notes)+'</p></section>':'')+note;
  }
  function replacementView(){
   const x=role();if(!x)return '<p>Роль уже удалена.</p>';
-  const candidates=candidateScores(state(),availableActors(x.r.actorId));
+  const candidates=rankActorsForRole(state(),x.ep,x.r,cloud().vacations||[],{excludeActorId:x.r.actorId});
   if(!candidates.some(v=>v.actor.id===selectedCandidate))selectedCandidate=candidates[0]?.actor.id||'';
   return '<p class="qv-muted">'+e(x.p.title)+' · '+e(x.r.character)+' · Серия '+e(x.ep.number||'')+'</p>'+
-    '<p class="qv-warning">Переназначение потребует подтверждения и актуального статуса отпуска.</p>'+
-    '<div class="qv-candidates">'+candidates.map(({actor:a,debts,active,nearest})=>
+    '<p class="qv-warning">Переназначение потребует подтверждения и актуального статуса отпуска. При указанном типе голоса показываются только подходящие актёры.</p>'+
+    '<div class="qv-candidates">'+candidates.map(({actor:a,debtCount,activeCount,episodeCount,characters})=>
       '<article class="qv-candidate '+(selectedCandidate===a.id?'selected':'')+'">'+id(a)+
-      '<p>'+debts+' долгов · '+active+' активных ролей</p><small>'+(nearest?'Ближайший срок: '+e(nearest):'Сроки не указаны')+'</small>'+
+      '<p>'+episodeCount+' ролей в этой серии · '+debtCount+' долгов · '+activeCount+' активных всего</p><small>'+(characters.length?'Уже озвучивает: '+e(characters.slice(0,4).join(', ')):'Ещё не назначен на роли в этой серии')+'</small>'+
       '<div class="qv-actions"><button class="btn '+(selectedCandidate===a.id?'primary':'ghost')+' small" type="button" data-q="select" data-actor="'+e(a.id)+'">'+
       (selectedCandidate===a.id?'Выбран':'Выбрать')+'</button>'+btn('compare','Демки и роли','users','data-actor="'+e(a.id)+'"')+'</div></article>').join('')+'</div>'+
     (candidates.length?'<button type="button" data-q="transfer" class="btn primary">Продолжить переназначение</button>':'<p>Нет доступных исполнителей.</p>')+
@@ -170,6 +172,7 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
   if(q==='actor-account'&&panel){openActorCabinet(panel.actorId);return;}
   const x=role();
   if(q==='edit-role'&&x){editRole(x.p.id,x.ep.id,x.r.id);return;}
+  if(q==='casting-assistant'&&x){closeDialog();castingAssistant(x.p.id,x.ep.id,x.r.id);return;}
   if(q==='recordings'&&x){openFiles(x);return;}
   if(q==='project'&&x){closeDialog();openProject(x.p.id,x.ep.id);return;}
   if(q==='role-cloud'&&x){openCloud(x.p.id,x.ep.id,x.r.id,x.r.actorId);return;}
