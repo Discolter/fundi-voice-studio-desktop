@@ -84,7 +84,7 @@ tap('demos',{actor:'actor2'});
 assert.deepEqual(callbacks.at(-1),['demos','actor2']);
 tap('select',{actor:'actor3'});
 tap('transfer');
-assert.deepEqual(callbacks.at(-1),['transfer','p1','e1','r1','actor3']);
+assert.deepEqual(callbacks.at(-1),['transfer','p1','e1','r1','actor3',false]);
 assert.equal(quick.isPinned(),true);
 quick.closePanel();
 assert.equal(quick.isPinned(),false);
