@@ -1405,6 +1405,16 @@ document.addEventListener('click',event=>{
   if(changesSummary)vacationChangesExpanded=!changesSummary.parentElement.open;
   const mySummary=event.target.closest('.my-role-project-group > summary');
   if(mySummary){if(myRolesExpanded===null)myRolesExpanded=new Set([...document.querySelectorAll('.my-role-project-group[open]')].map(group=>group.dataset.myRoleGroup));const id=mySummary.parentElement.dataset.myRoleGroup;if(myRolesExpanded.has(id))myRolesExpanded.delete(id);else myRolesExpanded.add(id);}
+  const quick=event.target.closest?.('[data-qv-open]');
+  if(quick){
+    event.preventDefault();event.stopPropagation();
+    const kind=quick.dataset.qvOpen;
+    if(kind==='actor')quickViews.openActor(quick.dataset.qvActor);
+    else if(kind==='role')quickViews.openRole(quick.dataset.qvProject,quick.dataset.qvEpisode,quick.dataset.qvRole);
+    else if(kind==='replace')quickViews.openReplacement(quick.dataset.qvProject,quick.dataset.qvEpisode,quick.dataset.qvRole);
+    else if(kind==='cloud')quickViews.openCloud(quick.dataset.qvProject,quick.dataset.qvEpisode,quick.dataset.qvRole,quick.dataset.qvActor);
+    return;
+  }
   if(!event.target.closest('.actor-picker'))closeActorPickers();
   const el=event.target.closest('[data-action],[data-nav],[data-mode],[data-filter],[data-tab],[data-site-mode],[data-site-nav],[data-cabinet]');if(!el)return;event.preventDefault();event.stopPropagation();
   if(el.dataset.siteMode){ui.siteMode=['studio','site','cabinet'].includes(el.dataset.siteMode)?el.dataset.siteMode:'studio';if(ui.siteMode==='site')siteManager.start();if(ui.siteMode==='cabinet')actorCabinet.start();render();return;}
@@ -1415,6 +1425,15 @@ document.addEventListener('click',event=>{
   if(el.dataset.filter){ui.filter=el.dataset.filter;render();return;}
   if(el.dataset.tab&&!el.dataset.action){ui.tab=el.dataset.tab;render();return;}
   Promise.resolve(action(el.dataset.action,el.dataset,el)).catch(err=>{if(modal.open)formError(err);else toast(err.message,true);});
+});
+document.addEventListener('contextmenu',event=>{
+  if(modal.open||event.target.closest('input,textarea,select,[contenteditable=true]'))return;
+  const target=event.target.closest?.('[data-qv-context]');
+  if(!target)return;
+  quickViews.contextMenu(event,{
+    actorId:target.dataset.qvActor||'',projectId:target.dataset.qvProject||'',
+    episodeId:target.dataset.qvEpisode||'',roleId:target.dataset.qvRole||''
+  });
 });
 document.addEventListener('dragstart',event=>{
   const card=event.target.closest?.('[data-drag-actor]');if(!card)return;
