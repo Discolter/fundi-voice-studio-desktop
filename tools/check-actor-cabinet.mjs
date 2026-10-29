@@ -70,7 +70,7 @@ assert.match(html,/Исходники в Telegram/);
 assert.match(html,/https:\/\/t\.me\/c\/123\/456/);
 assert.match(html,/data:image\/webp;base64,AQID/);
 assert.match(html,/отсутствуют в опубликованном списке: 1/);
-assert.doesNotMatch(html,/Новая роль<\/strong>/);
+assert.doesNotMatch(html.split('<div class="ac-projects">')[1]||'',/Новая роль<\/strong>/, 'Unpublished roles must appear only in diagnostics, never in the Actor project list');
 manager.action({cabinet:'section',section:'history'});
 html=manager.render();
 assert.match(html,/Принятая роль/);
