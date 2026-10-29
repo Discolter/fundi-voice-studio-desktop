@@ -29,7 +29,7 @@ namespace FundiVoice {
             ".mp4", ".mkv", ".mov", ".webm", ".avi", ".srt", ".ass", ".ssa", ".vtt", ".txt", ".pdf", ".png", ".jpg", ".jpeg"
         };
         static readonly HashSet<string> StaticFiles = new HashSet<string>(StringComparer.Ordinal) {
-            "/", "/index.html", "/app.js", "/core.js", "/age.js", "/my-role-workload.js", "/task-bulk.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/file-browser.js", "/file-browser.css", "/visual-selects.js", "/visual-selects.css", "/task-priorities.css", "/task-cloud-sync.js", "/vacation-review.js", "/update-notice.css", "/update-notice.js", "/site-manager.css", "/site-manager.js", "/compact.css", "/role-image-viewer.js", "/role-image-viewer.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
+            "/", "/index.html", "/app.js", "/core.js", "/age.js", "/my-role-workload.js", "/task-bulk.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/file-browser.js", "/file-browser.css", "/visual-selects.js", "/visual-selects.css", "/task-priorities.css", "/task-cloud-sync.js", "/vacation-review.js", "/update-notice.css", "/update-notice.js", "/site-manager.css", "/site-manager.js", "/actor-cabinet.css", "/actor-cabinet.js", "/compact.css", "/role-image-viewer.js", "/role-image-viewer.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
         };
         static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = 9 * 1024 * 1024, RecursionLimit = 150 }; }
         static string S(Dictionary<string, object> d, string key) { object v; return d.TryGetValue(key, out v) && v != null ? Convert.ToString(v) : ""; }
@@ -286,6 +286,7 @@ namespace FundiVoice {
                         if(File.Exists(DataFile))Cloud.Queue(Body(File.ReadAllText(DataFile,Encoding.UTF8)));
                     }
                     else if(route=="cloud/sync")result=Cloud.SyncNow(S(dataBody,"replace")=="True");
+                    else if(route=="cloud/actor-roster")result=Cloud.ActorRoster();
                     else if(route=="cloud/invite")result=Cloud.Invite(S(dataBody,"actorId"));
                     else if(route=="cloud/recovery/requests")result=Cloud.RecoveryRequests();
                     else if(route=="cloud/recovery/decision")result=Cloud.RecoveryDecision(S(dataBody,"actorId"),S(dataBody,"action"));
