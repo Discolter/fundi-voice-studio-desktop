@@ -796,7 +796,7 @@ function roleImageEditor(value){
 async function loadRoleImage(file){
   if(!file)return;
   const targetInput=modal.querySelector('#role-image-input');
-  if(!/^image\\/(?:png|jpeg|webp)$/.test(file.type)||file.size>12*1024*1024)
+  if(!/^image\/(?:png|jpeg|webp)$/.test(file.type)||file.size>12*1024*1024)
     throw new Error('Выбери изображение JPG, PNG или WebP размером до 12 МБ.');
   const source=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Не удалось прочитать картинку.'));reader.readAsDataURL(file);});
   const img=await new Promise((resolve,reject)=>{const element=new Image();element.onload=()=>resolve(element);element.onerror=()=>reject(new Error('Файл изображения повреждён.'));element.src=source;});
