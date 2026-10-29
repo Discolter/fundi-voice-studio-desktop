@@ -453,7 +453,7 @@ function fillActorPicker(picker,query=''){
   if(isForm){try{currentEp=resolveTarget(modal.querySelector('[name=target]')?.value).ep;}catch{}}
   else currentEp=getEpisode(getProject(picker.dataset.id),picker.dataset.ep);
   const roleId=picker.dataset.item,role=currentEp?.roles.find(r=>r.id===roleId);
-  const gender=validRoleVoice(isForm?modal.querySelector('[name=voiceGender]')?.value:role?.voiceGender);
+  const gender=isForm?validRoleVoice(modal.querySelector('[name=voiceGender]')?.value):roleVoiceFromActor(role,state.actors.find(a=>a.id===role?.actorId));
   const toggle=picker.querySelector('.actor-picker-show-all');
   if(toggle)toggle.hidden=!gender;
   const showAll=!!toggle?.querySelector('input')?.checked;
@@ -723,7 +723,7 @@ function renderVacationReview(){
     const dates=`${v.startDate?'С '+e(v.startDate):'Начало неизвестно'}${v.endDate?' по '+e(v.endDate):' · без даты окончания'}`;
     html+=`<section class="vacation-review-actor"><header class="vacation-review-person">${actorPickAvatar(a)}<div><strong>${e(a.name)}</strong><small>${a.telegram?'@'+e(a.telegram)+' · ':''}${dates}</small></div>${vacationTag(actorId)}<span class="vacation-review-count">${items.length} ${items.length===1?'роль':'ролей'}</span></header><div class="vacation-review-roles">`;
     for(const {p,ep,r,due} of items){
-      const replacements=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actorId}).length;
+      const replacements=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actorId,showAll:true}).length;
       html+=`<article class="vacation-review-role" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><div class="vacation-review-role-main"><strong>${e(r.character)}</strong><small>${e(p.title)} · ${e(episodeLabel(p,ep))}</small><div class="vacation-review-meta"><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span>${Number.isInteger(r.lineCount)?`<span>${r.lineCount} репл.</span>`:''}${due?`<span>Срок: ${e(dueLabel(due))}</span>`:''}</div></div><div class="vacation-review-actions"><button type="button" class="btn ghost small" data-qv-open="replace" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}" ${!healthy||!replacements?'disabled':''}>Сравнить кандидатов</button><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть</button><button class="btn primary small" data-action="vacation-review-transfer" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" ${!healthy||!replacements?'disabled':''} title="${!replacements?'Нет актёров вне отпуска':'Передать роль другому актёру'}">Передать роль ${icon('arrow')}</button></div></article>`;
     }
     html+='</div></section>';
