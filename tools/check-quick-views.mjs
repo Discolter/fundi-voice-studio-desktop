@@ -50,6 +50,7 @@ const quick=createQuickViews({
  cloudRequest:async ()=>({actors:[{actorId:'actor1',enabled:true,feed:{roles:[{roleId:'r1'}]}}]}),
  refreshCloud:async()=>{},
  openActorCabinet:id=>callbacks.push(['cabinet',id]),
+ viewActorDemos:id=>callbacks.push(['demos',id]),
  toast:m=>messages.push(m)
 });
 assert.equal(quick.openActor('actor1'),true);
@@ -77,6 +78,10 @@ assert.match(root.innerHTML,/Даша/,'Pinned actor drawer should survive centr
 quick.openReplacement('p1','e1','r1');
 assert.match(root.innerHTML,/Подбор замены/);
 assert.match(root.innerHTML,/Актёр В/);
+tap('compare',{actor:'actor2'});
+assert.match(root.innerHTML,/Подробности кандидата/);
+tap('demos',{actor:'actor2'});
+assert.deepEqual(callbacks.at(-1),['demos','actor2']);
 tap('select',{actor:'actor3'});
 tap('transfer');
 assert.deepEqual(callbacks.at(-1),['transfer','p1','e1','r1','actor3']);
