@@ -5,6 +5,11 @@
 .fv-select.fv-role-actor-filter{min-width:210px}
 .fv-select.fv-role-character-filter{min-width:178px;width:210px;max-width:230px}
 .fv-type-character .fv-character-art{color:#d1abff;background:#a876ed1c;border-color:#a876ed4a}
+.fv-dropdown-character .fv-character-art{width:36px;height:36px;flex-basis:36px}
+.fv-role-character-filter .fv-character-art{width:32px;height:32px;flex-basis:32px}
+.fv-type-character .fv-character-art.has-image{background:transparent;border-color:var(--line);padding:0}
+.fv-character-art .fv-character-avatar{display:block;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:7px}
+
 .fv-select.fv-role-order{min-width:188px}
 .fv-select.fv-episode-select{max-width:330px}
 .fv-select .fv-native-select{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;clip-path:inset(50%);margin:0!important;padding:0!important}
