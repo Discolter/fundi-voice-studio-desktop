@@ -1108,12 +1108,14 @@ function updateCastingSuggestions(){
   const existing=ep.roles.find(r=>r.id===panel.dataset.roleId);
   const currentId=modal.querySelector('[name=actorId]')?.value||'';
   const gender=validRoleVoice(modal.querySelector('[name=voiceGender]')?.value);
+  const showAll=!!panel.querySelector('#casting-suggestions-show-all')?.checked;
   const role={id:panel.dataset.roleId,voiceGender:gender};
-  const rows=rankActorsForRole(state,ep,role,cloud.vacations||[],{excludeActorId:currentId&&currentId!=='__new__'&&currentId!=='__legacy__'?currentId:''});
+  const rows=rankActorsForRole(state,ep,role,cloud.vacations||[],{excludeActorId:currentId&&currentId!=='__new__'&&currentId!=='__legacy__'?currentId:'',showAll});
   const picked=state.actors.find(a=>a.id===currentId);
   const currentLoad=picked?episodeActorWorkload(ep,picked.id,existing?.id||role.id):null;
   const mismatch=picked&&gender&&picked.voiceGroup!==gender;
-  panel.innerHTML='<div class="casting-suggestions-head"><strong>'+icon('users')+' Рекомендации по кастингу</strong><span class="small muted">Меньше повторов в серии — выше в списке</span></div>'+
+  panel.innerHTML=(gender?'<label class="casting-show-all"><input type="checkbox" id="casting-suggestions-show-all" '+(showAll?'checked':'')+'> Показать всех актёров</label>':'')+
+    '<div class="casting-suggestions-head"><strong>'+icon('users')+' Рекомендации по кастингу</strong><span class="small muted">Меньше повторов в серии — выше в списке</span></div>'+
     (picked?'<p class="casting-current">'+e(picked.name)+': '+currentLoad.count+' других ролей в этой серии'+(mismatch?' · ⚠ Тип голоса не совпадает с ролью':'')+'</p>':'')+
     '<div class="casting-suggestion-list">'+(rows.length?rows.slice(0,5).map((item,index)=>
       '<button type="button" class="casting-suggestion" data-action="casting-pick" data-actor="'+e(item.actor.id)+'">'+
@@ -1647,6 +1649,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='cast-scope'){const p=getProject(el.dataset.id);modal.querySelector('#cast-draft').value=castFromCurrentStatus(p.id,el.value);}
   if(el.classList.contains('episode-stage')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);ep.stage=el.value;touch(p);}
   if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
+  if(el.id==='casting-suggestions-show-all'){updateCastingSuggestions();return;}
   if(el.classList.contains('actor-picker-show-all-input')){const picker=el.closest('.actor-picker');fillActorPicker(picker,picker.querySelector('.actor-picker-search')?.value||'');return;}
   if(el.id==='role-filter'){ui.roleFilter=el.value;render();}
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
