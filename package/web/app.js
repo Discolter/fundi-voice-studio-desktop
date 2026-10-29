@@ -584,7 +584,7 @@ function studioVacationForm(actorId=''){
   if(!current&&!available.length){toast('Все актёры уже отмечены или список актёров пуст.',true);return;}
   const selected=actor||available[0];
   const picker=current?`<div class="studio-vacation-picked">${actorPickAvatar(actor||{name:actorId})}<strong>${e(actor?.name||actorId)}</strong></div>`:
-    `<select name="actorId" id="vacation-owner-actor" required aria-label="Выбери актёра">${available.map(a=>`<option value="${e(a.id)}" ${preferredActorId===a.id?'selected':''}>${e(a.name)}${a.telegram?' @'+e(a.telegram):''}</option>`).join('')}</select>`;
+    `<select name="actorId" id="vacation-owner-actor" required aria-label="Выбери актёра">${available.map(a=>`<option value="${e(a.id)}">${e(a.name)}${a.telegram?' @'+e(a.telegram):''}</option>`).join('')}</select>`;
   const body=`<div class="form-grid">
     ${field('Актёр *',picker,'Выбирай из своей базы: регистрация в Actor не нужна.',true)}
     ${current?'':field('Первый день *',input('startDate',today(),'date',`required min="${today()}"`),'Сегодня или день начала будущего отпуска.')}
@@ -650,7 +650,7 @@ function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId=
   if(!row)throw Error('Роль уже не требует пересмотра.');
   const {p,ep,r,actor}=row,available=availableReplacementActors(state,cloud.vacations||[],actor.id);
   if(!available.length)throw Error('Сейчас нет доступных актёров без действующего или запланированного отпуска.');
-  const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.</p><label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" required>${available.map(a=>`<option value="${e(a.id)}">${e(a.name)}${a.telegram?' · @'+e(a.telegram):''}${a.voiceGroup===actor.voiceGroup?' · похожая группа голоса':''}${a.actorAccess?'':' · без доступа Actor'}</option>`).join('')}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
+  const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.</p><label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" required>${available.map(a=>`<option value="${e(a.id)}" ${preferredActorId===a.id?'selected':''}>${e(a.name)}${a.telegram?' · @'+e(a.telegram):''}${a.voiceGroup===actor.voiceGroup?' · похожая группа голоса':''}${a.actorAccess?'':' · без доступа Actor'}</option>`).join('')}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
   showModal('Переназначить роль',p.title+' · '+episodeLabel(p,ep),chooser,'Передать роль',async data=>{
     if(!native||!cloud.connected||cloud.error||cloud.vacationError)throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
     const transfer=reassignVacationRole(state,cloud.vacations||[],{
