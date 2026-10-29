@@ -93,6 +93,7 @@ const quickViews=createQuickViews({
  getState:()=>state,getCloud:()=>cloud,
  getRole:(pid,eid,rid)=>roleSnapshot(state,pid,eid,rid),
  getReview:r=>reviewForRole(r),
+ getStage:r=>roleReviewStage(r,reviewForRole(r)),
  getSourceUrl:(pid,eid)=>(cloud.sourceLinks||[]).find(x=>x.projectId===pid&&x.episodeId===eid)?.url||'',
  icon,escapeHTML:e,actorAvatar:actorPickAvatar,
  editRole:(pid,eid,rid)=>roleForm(pid,eid,rid),
