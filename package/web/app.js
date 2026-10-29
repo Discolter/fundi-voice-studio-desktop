@@ -1126,6 +1126,26 @@ function updateCastingSuggestions(){
     ).join(''):'<p class="small muted">Нет свободных кандидатов'+(gender?' с указанным типом голоса':'')+'. Проверь базу актёров и отпуска.</p>')+'</div>'+
     '<p class="small muted">Исключены действующие и запланированные отпуска. Тип голоса определяется по группе актёра в базе. Это подсказка, а не автоматическое назначение.</p>';
 }
+function castingModalCandidatesHTML(rows,preferredId=''){
+  if(!rows.length)return '<p class="small muted">Подходящих актёров вне отпуска не найдено. Включи «Показать всех актёров» или проверь состав.</p>';
+  const chosen=rows.some(x=>x.actor.id===preferredId)?preferredId:rows[0].actor.id;
+  return '<div class="casting-modal-list">'+rows.map(item=>
+    '<label class="casting-modal-option"><input type="radio" name="actorId" value="'+e(item.actor.id)+'" '+(item.actor.id===chosen?'checked':'')+'><span><strong>'+e(item.actor.name)+'</strong>'+
+    '<small>'+e(castingCandidateLabel(item))+(item.episodeLines?' · '+item.episodeLines+' известных реплик':'')+'</small>'+
+    (item.characters.length?'<small>Уже озвучивает: '+e(item.characters.slice(0,5).join(', '))+'</small>':'')+
+    (!item.hasAccess?'<small>Доступ в Actor пока выключен</small>':'')+'</span></label>'
+  ).join('')+'</div>';
+}
+function updateCastingModalCandidates(){
+  const target=modal.querySelector('#casting-modal-candidates');
+  if(!target)return;
+  const p=getProject(target.dataset.project),ep=getEpisode(p,target.dataset.episode);
+  const role=ep?.roles.find(r=>r.id===target.dataset.role);
+  if(!role)return;
+  const showAll=!!modal.querySelector('#casting-modal-show-all')?.checked;
+  const chosen=modal.querySelector('input[name=actorId]:checked')?.value||'';
+  target.innerHTML=castingModalCandidatesHTML(rankActorsForRole(state,ep,role,cloud.vacations||[],{excludeActorId:role.actorId,showAll}),chosen);
+}
 function castingAssistantForm(projectId,episodeId,roleId){
   const p=getProject(projectId),ep=getEpisode(p,episodeId),r=ep?.roles.find(x=>x.id===roleId);
   if(!p||!r)throw new Error('Роль не найдена. Обнови список.');
@@ -1133,16 +1153,12 @@ function castingAssistantForm(projectId,episodeId,roleId){
   const voice=validRoleVoice(r.voiceGender);
   const intro='<p class="casting-intro"><strong>'+e(r.character)+'</strong> · '+e(roleVoiceLabel(voice))+
     ' · '+e(episodeLabel(p,ep))+'</p><p class="small muted">Сначала исполнители без ролей в этой серии, затем с меньшей нагрузкой. В отпуске кандидаты исключены. Решение принимаешь ты.</p>';
-  const list='<div class="casting-modal-list">'+rows.map((item,index)=>
-    '<label class="casting-modal-option"><input type="radio" name="actorId" value="'+e(item.actor.id)+'" '+(index===0?'checked':'')+'><span><strong>'+e(item.actor.name)+'</strong>'+
-    '<small>'+e(castingCandidateLabel(item))+(item.episodeLines?' · '+item.episodeLines+' известных реплик':'')+'</small>'+
-    (item.characters.length?'<small>Уже озвучивает: '+e(item.characters.slice(0,5).join(', '))+'</small>':'')+
-    (!item.hasAccess?'<small>Доступ в Actor пока выключен</small>':'')+'</span></label>'
-  ).join('')+'</div>';
-  showModal('Подбор актёра',p.title, intro+(rows.length?list:'<p class="small muted">Подходящих актёров вне отпуска не найдено. Проверь тип голоса и базу актёров.</p>'),
+  const list='<div id="casting-modal-candidates" data-project="'+e(p.id)+'" data-episode="'+e(ep.id)+'" data-role="'+e(r.id)+'">'+castingModalCandidatesHTML(rows)+'</div>';
+  showModal('Подбор актёра',p.title, intro+(voice?'<label class="casting-show-all"><input type="checkbox" name="showAllActors" id="casting-modal-show-all"> Показать всех актёров</label>':'')+list,
     'Назначить выбранного',data=>{
-      const candidate=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:r.actorId}).find(x=>x.actor.id===data.actorId);
+      const candidate=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:r.actorId,showAll:data.showAllActors==='on'}).find(x=>x.actor.id===data.actorId);
       if(!candidate)throw new Error('Выбранный актёр больше недоступен. Обнови рекомендации.');
+      applyRoleVoiceFromActor(r,state.actors.find(a=>a.id===r.actorId));
       const oldActorId=r.actorId;
       r.actorId=candidate.actor.id;r.actor=candidate.actor.name;
       if(oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';}
@@ -1650,6 +1666,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.classList.contains('episode-stage')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);ep.stage=el.value;touch(p);}
   if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
   if(el.id==='casting-suggestions-show-all'){updateCastingSuggestions();return;}
+  if(el.id==='casting-modal-show-all'){updateCastingModalCandidates();return;}
   if(el.classList.contains('actor-picker-show-all-input')){const picker=el.closest('.actor-picker');fillActorPicker(picker,picker.querySelector('.actor-picker-search')?.value||'');return;}
   if(el.id==='role-filter'){ui.roleFilter=el.value;render();}
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
