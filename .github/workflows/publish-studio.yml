@@ -95,6 +95,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Studio vacation management regression failed' }
           node ./tools/check-global-vacation-badges.mjs
           if($LASTEXITCODE -ne 0){ throw 'Studio-wide vacation indicators regression failed' }
+          node ./tools/check-vacation-role-review.mjs
+          if($LASTEXITCODE -ne 0){ throw 'Vacation reassignment review regression failed' }
           node ./tools/check-recovery-bottom-nav.mjs
           if($LASTEXITCODE -ne 0){ throw 'Recovery bottom navigation regression failed' }
           node ./tools/check-episode-unassigned.mjs
