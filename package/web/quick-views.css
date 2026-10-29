@@ -76,3 +76,7 @@ body.qv-has-pinned .qv-panel{width:min(490px,36vw)}
 @media(max-width:650px){.qv-form,.qv-candidates{grid-template-columns:1fr}.qv-dialog{max-height:95vh}.qv-body{padding:14px}.qv-role-heading h2{font-size:20px}}
 @media(prefers-reduced-motion:reduce){.qv-panel,.qv-dialog{animation:none!important}}
 body[data-motion=off] .qv-panel,body[data-motion=off] .qv-dialog{animation:none!important}
+
+.qv-avatar-button{border:0;padding:0;background:none;cursor:pointer;flex:0 0 auto}
+.qv-avatar-button .actor-pick-avatar{width:52px;height:52px;border-radius:12px;overflow:hidden}
+.qv-avatar-button img{width:100%;height:100%;object-fit:cover}
