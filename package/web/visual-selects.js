@@ -1,7 +1,7 @@
 // Studio-wide visual dropdowns. The original <select> remains the single source
 // of truth for FormData, validation, existing change handlers and stored IDs.
 // Only presentation is enhanced; Actor Desktop and the web portal are untouched.
-export function installVisualSelects({getActors, getVacation=()=>null, actorAvatar, icon}) {
+export function installVisualSelects({getActors, getVacation=()=>null, getCharacterImage=()=>'', actorAvatar, icon}) {
   const roleStages = new Set(['waiting','recording','received','processing','processed','retake','done']);
   const stageIcons = {
     waiting:'clock', recording:'mic', received:'download', processing:'settings',
@@ -83,7 +83,8 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
     if(type === 'character') {
       const name=label.replace(/\s+\(\d+\)$/,'');
       const count=label.match(/\((\d+)\)$/)?.[1] || '';
-      return {label:name,subtitle:value==='all'?'Показать роли всех персонажей':'Фильтр по персонажу',count,actor:null,value};
+      return {label:name,subtitle:value==='all'?'Показать роли всех персонажей':'Фильтр по персонажу',count,actor:null,value,
+        image:value==='all'?'':getCharacterImage(value)};
     }
     return {label,subtitle:type==='priority'?priorityDetails[value]||'':
       type==='lines'?taskLineDetails[value]||'':
@@ -100,7 +101,18 @@ export function installVisualSelects({getActors, getVacation=()=>null, actorAvat
       else art.innerHTML = icon(detail.value === 'all' || detail.value === 'unassigned' ? 'users' : 'users');
     } else if(type === 'character') {
       art.classList.add('fv-character-art');
-      art.innerHTML = icon(detail.value === 'all' ? 'grid' : 'star');
+      if(detail.image) {
+        const image = element('img','fv-character-avatar');
+        image.alt = ''; // The character name is already adjacent to this decorative portrait.
+        image.decoding = 'async';
+        image.src = detail.image;
+        image.addEventListener('error',()=>{
+          art.classList.remove('has-image');
+          art.innerHTML = icon('star');
+        },{once:true});
+        art.classList.add('has-image');
+        art.append(image);
+      } else art.innerHTML = icon(detail.value === 'all' ? 'grid' : 'star');
     } else if(type === 'priority') {
       art.classList.add('fv-priority-art');
       art.dataset.priority = detail.value;
