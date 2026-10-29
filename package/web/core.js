@@ -200,6 +200,7 @@ export function seedState() {
   return {schema:SCHEMA,projects:[],actors:[],trash:[],settings:{mode:'studio',name:'Студия',myTelegram:'Discolter',studioRoot:'',folderTemplate:['source','voices','render','video','audio','subs','characterSubs','premiere'],theme:'aurora',motion:true,onboardingSeen:false,workspaceVersion:2},updatedAt:new Date().toISOString()};
 }
 export const safeCover = value => typeof value==='string'&&value.length<=700000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
+export const safeRoleImage = value => typeof value==='string'&&value.length<=150000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
 // Retire only untouched bundled cards from v1. User-created cards use symbol "spark".
 function untouchedStarter(p){
   const defaults=[['Re:Zero','hourglass','violet','','6'],['Ателье колдовских колпаков','witch','lime','','1'],['DAN DA DAN','bolt','orange','','2'],['Меч и жезл Вистории','swords','cyan','2',''],['Моб Психо 100','orbit','pink','1',''],['Токийские мстители','flower','blue','4','1']];
@@ -228,7 +229,7 @@ export function normalizeState(raw) {
       if(matches.length===1)linked=matches[0];
       else if(matches.length===0&&raw.actors===undefined){linked=newActor({id:id(''),name});actors.push(linked);}
     }
-    return {id:id(r.id),character:str(r.character,200),lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0&&r.lineCount<=1000000?r.lineCount:null,actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:r.status==='processed'?'processing':'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),createdAt:str(r.createdAt,50),reviewSeen:str(r.reviewSeen,260)};
+    return {id:id(r.id),character:str(r.character,200),image:safeRoleImage(r.image),lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0&&r.lineCount<=1000000?r.lineCount:null,actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:r.status==='processed'?'processing':'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),createdAt:str(r.createdAt,50),reviewSeen:str(r.reviewSeen,260)};
   }
   function normalizeProject(p) {
     if (!p || typeof p !== 'object' || !str(p.title,160).trim()) throw new Error('У проекта должно быть название.');
@@ -308,7 +309,7 @@ export function actorPublicFeed(state, actorId, {preview=false}={}) {
       roleId:r.id,
       projectId:p.id, projectTitle:p.title, season:p.season,
       episodeId:ep.id, episodeNumber:ep.number, episodeTitle:ep.title,
-      character:r.character, lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null, status:r.status,
+      character:r.character, image:safeRoleImage(r.image), lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null, status:r.status,
       createdAt:r.createdAt||'',projectCreatedAt:p.createdAt||'',
       due:effectiveRoleDue(r,ep)
     }))));

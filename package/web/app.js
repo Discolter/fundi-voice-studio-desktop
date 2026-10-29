@@ -8,7 +8,7 @@ import {vacationReviewRows,availableReplacementActors,reassignVacationRole} from
 import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
-import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorOptions,episodeRoleCharacterOptions,episodeUnassignedActors,filterEpisodeRoles,removeActor,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
+import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorOptions,episodeRoleCharacterOptions,episodeUnassignedActors,filterEpisodeRoles,removeActor,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
@@ -22,7 +22,8 @@ ICONS.eye='M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0
 ICONS['eye-off']='M3 3l18 18M10.6 5.2A10.5 10.5 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.5 4.3M6.8 6.8C3.5 8.8 2 12 2 12s4 7 10 7c1.7 0 3.2-.5 4.5-1.3M10 10a3 3 0 0 0 4 4';
 ICONS.refresh='M3 11a9 9 0 0 1 15-6l3 3M21 3v5h-5M21 13a9 9 0 0 1-15 6l-3-3M3 21v-5h5';
 ICONS.vacation='M12 3a9 9 0 1 0 9 9M12 3v9l5 3M8 21h8';
-ICONS.review='M3 4h14v13H3zM7 9h6M7 13h4M18 11l3 3-3 3M21 14h-7';
+// Two rounded clockwise arrows are clearer for roles needing reassignment.
+ICONS.review=ICONS.refresh;
 // Three asterisks symbolize a password without reusing the actor-access shield.
 ICONS.password='M5 9v6M2.5 10.5l5 3M7.5 10.5l-5 3M12 9v6M9.5 10.5l5 3M14.5 10.5l-5 3M19 9v6M16.5 10.5l5 3M21.5 10.5l-5 3';
 const icon=(name,cls='')=>`<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]||ICONS.file}"/></svg>`;
@@ -68,7 +69,7 @@ const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои за
 let recoveryRequests=[],recoveryCode='';
 const vacationFor=id=>(cloud.vacations||[]).find(v=>v.actorId===id&&(v.status==='active'||v.status==='planned'));
 const activeVacation=id=>vacationFor(id)?.status==='active';
-const vacationTag=id=>{const v=vacationFor(id);return v?`<span class="studio-vacation-tag ${v.status==='active'?'active':'planned'}" title="${e((v.status==='active'?'В отпуске: новые роли не назначать':'Запланирован отпуск')+(v.startDate?' · с '+v.startDate:'')+(v.endDate?' по '+v.endDate:''))}">${icon('vacation')}${v.status==='active'?'В отпуске':'Отпуск скоро'}</span>`:'';};
+const vacationTag=id=>{const v=vacationFor(id);return v?`<span class="studio-vacation-tag ${v.status==='active'?'active':'planned'}" title="${e((v.status==='active'?'В отпуске: новые роли не назначать':'Запланирован отпуск')+(v.startDate?' · с '+v.startDate:'')+(v.endDate?' по '+v.endDate:' · Бессрочно'))}">${icon('vacation')}${v.status==='active'?'В отпуске':'Отпуск скоро'}</span>`:'';};
 const vacationOptionSuffix=id=>{const v=vacationFor(id);return v?(v.status==='active'?' · ⛔ В отпуске':' · ◷ Отпуск скоро'):'';};
 
 async function api(path,body){
@@ -409,7 +410,8 @@ function actorCabinetVisibilityButton(p,ep,r){
   title="${e(title)}" aria-label="${label}: ${e(r.character)}"
   ${!native||!cloud.connected?'disabled':''}>${icon(hidden?'restore':'eye-off')}</button>${hidden?'<small class="role-actor-hidden-label">Скрыта у актёра</small>':''}`;
 }
-function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}"><td><span class="character-name">${e(r.character)}</span>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
+function roleImageThumb(role){const image=safeRoleImage(role?.image);return image?`<button type="button" class="role-character-image" data-role-image-open aria-label="Увеличить персонажа ${e(role.character)}"><img src="${e(image)}" alt="${e(role.character)}"></button>`:'';}
+function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}"><td>${roleImageThumb(r)}<span class="character-name">${e(r.character)}</span>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
 
 function episodeTasks(p,ep){return `<div class="panel-head"><h2>Задачи</h2><button class="btn primary small" data-action="new-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Добавить</button></div>${tasksTable(ep.tasks.filter(t=>state.settings.mode!=='actor'||t.mine).map(t=>({p,ep,t})))||empty('Нет задач','new-task','Добавить задачу',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;}
 function tasksTable(rows,global=false){
@@ -545,17 +547,19 @@ function studioVacationForm(actorId=''){
   const body=`<div class="form-grid">
     ${field('Актёр *',picker,'Выбирай из своей базы: регистрация в Actor не нужна.',true)}
     ${current?'':field('Первый день *',input('startDate',today(),'date',`required min="${today()}"`),'Сегодня или день начала будущего отпуска.')}
-    ${field('Последний день',input('endDate',current?.endDate||'','date'),'Необязательно: оставь пустым для отпуска без даты возвращения.')}
+    ${field('Последний день',input('endDate',current?.endDate||'','date',current&&!current.endDate?'disabled':'required'),'Дата нужна только для отпуска с возвращением.')}
+    <label class="check-label studio-indefinite-vacation"><input type="checkbox" name="indefinite" data-vacation-indefinite ${current&&!current.endDate?'checked':''}> Бессрочно — до ручного завершения отпуска</label>
     ${field('Причина или комментарий',`<textarea name="reason" maxlength="800" rows="4" placeholder="По желанию">${e(current?.reason||'')}</textarea>`,'Виден руководителю и самому актёру после регистрации.',true)}
   </div>`;
   showModal(current?'Изменить отпуск':'Назначить отпуск',current?actor?.name||actorId:'Для актёра без приложения или сайта',body,'Сохранить',async data=>{
     const id=current?actorId:data.actorId;
     if(!id||!(state.actors||[]).some(a=>a.id===id))throw new Error('Выбери актёра из базы.');
     if(!current&&!data.startDate)throw new Error('Укажи дату начала.');
+    if(!data.indefinite&&!data.endDate)throw new Error('Выбери дату возвращения или отметь «Бессрочно».');
     const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Europe/Madrid';
     cloud=await api('cloud/vacations/manage',{
       action:current?'update':'start',actorId:id,
-      startDate:current?'':data.startDate,endDate:data.endDate||'',
+      startDate:current?'':data.startDate,endDate:data.indefinite?'':data.endDate,
       reason:data.reason||'',timeZone:zone
     });
     modal.close();render();toast(current?'Отпуск обновлён':'Отпуск актёра сохранён в облаке');
@@ -636,7 +640,7 @@ function renderVacations(){
   html+=`<div class="studio-vacation-stats"><div><strong>${active.length}</strong><span>В отпуске</span></div><div><strong>${planned.length}</strong><span>Запланировано</span></div><div><strong>${cloud.vacationUnread||0}</strong><span>Новых событий</span></div></div>`;
   const names={active:'В отпуске',planned:'Запланирован',completed:'Завершён',ended:'Досрочный возврат',cancelled:'Отменён'};
   const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('ru-RU'):'Срок неизвестен';
-  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
+  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} ${v.endDate?'по '+e(fmt(v.endDate)):'· Бессрочно (до ручного завершения)'}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
   html+=section('Сейчас в отпуске',active)+section('Предстоящие отпуска',planned);
   const types={planned:'Отпуск запланирован',started:'Отпуск начался',updated:'Отпуск обновлён',cancelled:'Отпуск отменён',returned:'Отпуск завершён'};
   html+=`<details class="studio-vacation-section studio-vacation-changes" ${vacationChangesExpanded?'open':''}><summary class="studio-vacation-changes-summary"><h2>Изменения <span>${cloud.vacationUnread||0} новых</span></h2><span class="studio-vacation-changes-hint">${vacationChangesExpanded?'Скрыть':'Показать'}${events.length?' · '+events.length+' событий':''}</span>${icon('chevron')}</summary>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</details>`;
@@ -781,6 +785,41 @@ async function loadProjectCover(file){
   else{const scale=Math.min(1,640/img.naturalWidth,960/img.naturalHeight);canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);}
   let value=canvas.toDataURL('image/webp',.82);if(value.length>700000)value=canvas.toDataURL('image/jpeg',.7);if(!safeCover(value))throw new Error('Выбери картинку поменьше.');
   if(uploadInput!==modal.querySelector('#project-cover-input'))return;const target=modal.querySelector('[name=cover]');if(!target)return;target.value=value;modal.querySelector('#cover-preview').innerHTML=`<img src="${value}" alt="${avatar?'Аватар':'Выбранная обложка'}">`;
+}
+function roleImageEditor(value){
+  const image=safeRoleImage(value);
+  return `<div class="field full"><label>Изображение персонажа</label><div class="role-image-editor">
+    <div class="role-image-editor-preview" id="role-image-preview">${image?`<img src="${e(image)}" alt="Предпросмотр персонажа">`:icon('file')}</div>
+    <div class="role-image-editor-actions"><button class="btn ghost small" type="button" data-action="choose-role-image">${icon('upload')}Загрузить изображение</button>
+    <button class="text-button" type="button" data-action="remove-role-image">Убрать</button>
+    <small>JPG, PNG или WebP. Картинка синхронизируется с приложением и сайтом назначенного актёра.</small></div></div>
+    <input type="hidden" name="image" value="${e(image)}"><input type="file" id="role-image-input" accept="image/png,image/jpeg,image/webp" hidden></div>`;
+}
+async function loadRoleImage(file){
+  if(!file)return;
+  const targetInput=modal.querySelector('#role-image-input');
+  if(!/^image\/(?:png|jpeg|webp)$/.test(file.type)||file.size>12*1024*1024)
+    throw new Error('Выбери изображение JPG, PNG или WebP размером до 12 МБ.');
+  const source=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Не удалось прочитать картинку.'));reader.readAsDataURL(file);});
+  const img=await new Promise((resolve,reject)=>{const element=new Image();element.onload=()=>resolve(element);element.onerror=()=>reject(new Error('Файл изображения повреждён.'));element.src=source;});
+  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+  if(!ctx)throw new Error('Браузер не поддерживает обработку изображений.');
+  let result='';
+  for(const maxSize of [1280,1100,960,800,700,600]){
+    const scale=Math.min(1,maxSize/img.naturalWidth,maxSize/img.naturalHeight);
+    canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    for(const quality of [.85,.74,.62,.50,.40]){
+      const preview=canvas.toDataURL('image/webp',quality);
+      if(preview.length<=140000 && safeRoleImage(preview)){result=preview;break;}
+    }
+    if(result)break;
+  }
+  if(!result)throw new Error('Не удалось уменьшить изображение до безопасного размера.');
+  if(targetInput!==modal.querySelector('#role-image-input'))return;
+  modal.querySelector('[name=image]').value=result;
+  modal.querySelector('#role-image-preview').innerHTML=`<img src="${e(result)}" alt="Предпросмотр персонажа">`;
 }
 const defaultFolderKeys=()=>state.settings.folderTemplate||['source','voices','render','video','audio','subs','characterSubs','premiere'];
 function episodeNumber(value){if(value===undefined||value===null||value==='')return '';const n=Number(value);if(!Number.isInteger(n)||n<1||n>9999)throw new Error('Номер серии — целое число от 1 до 9999.');return String(n);}
@@ -927,14 +966,14 @@ function taskForm(pid,epid,itemId){
 }
 
 function roleForm(pid,epid,itemId){
-  const p=pid?getProject(pid):null,ep=getEpisode(p,epid),old=ep?.roles.find(r=>r.id===itemId),r=old||{id:uid(),createdAt:new Date().toISOString(),character:'',lineCount:null,actorId:'',actor:'',mine:state.settings.mode==='actor',status:'waiting',inProject:false,folder:'',subtitle:'',notes:'',due:''};
+  const p=pid?getProject(pid):null,ep=getEpisode(p,epid),old=ep?.roles.find(r=>r.id===itemId),r=old||{id:uid(),createdAt:new Date().toISOString(),character:'',lineCount:null,actorId:'',actor:'',mine:state.settings.mode==='actor',status:'waiting',inProject:false,folder:'',subtitle:'',notes:'',due:'',image:''};
   if(!state.projects.length){projectForm();return;}
-  showModal(old?'Изменить роль':'Новая роль',pid?p.title:'',`<div class="form-grid">${targetField(pid,epid)}${field('Персонаж *',input('character',r.character,'text','required maxlength="200"'),'',true)}${field('Количество реплик',input('lineCount',r.lineCount??'','number','min="0" max="1000000" step="1" inputmode="numeric" placeholder="Не указано"'),'Необязательно. 0 — реплик нет; пустое поле — количество неизвестно.',true)}<div class="field full"><label>Актёр</label>${actorPicker(r,{form:true})}</div><div class="field full new-actor-inline" id="new-actor-inline" hidden><label for="new-actor-name">Имя нового актёра *</label><input id="new-actor-name" name="newActorName" maxlength="160" disabled></div></div><details class="disclosure form-details"><summary>Обработка, голос и субтитры</summary><div class="form-grid">${field('Обработка',`<select name="status">${options(ROLE_STAGES,roleReviewStage(r,reviewForRole(r)))}</select>`)}${field('Срок для актёра',input('due',r.due||'','date'),'Если пусто — берём срок серии.')}${field('Отметки',`<label class="check-label">${input('mine','1','checkbox',r.mine?'checked':'')}Моя роль</label>`)}${field('Папка с голосом',pathField('folder',r.folder||'','folder'),'',true)}${field('SRT / ASS персонажа',pathField('subtitle',r.subtitle||'','file'),'',true)}${field('Заметки',area('notes',r.notes),'',true)}</div></details>`,'Сохранить',data=>{
+  showModal(old?'Изменить роль':'Новая роль',pid?p.title:'',`<div class="form-grid">${targetField(pid,epid)}${field('Персонаж *',input('character',r.character,'text','required maxlength="200"'),'',true)}${roleImageEditor(r.image||'')}${field('Количество реплик',input('lineCount',r.lineCount??'','number','min="0" max="1000000" step="1" inputmode="numeric" placeholder="Не указано"'),'Необязательно. 0 — реплик нет; пустое поле — количество неизвестно.',true)}<div class="field full"><label>Актёр</label>${actorPicker(r,{form:true})}</div><div class="field full new-actor-inline" id="new-actor-inline" hidden><label for="new-actor-name">Имя нового актёра *</label><input id="new-actor-name" name="newActorName" maxlength="160" disabled></div></div><details class="disclosure form-details"><summary>Обработка, голос и субтитры</summary><div class="form-grid">${field('Обработка',`<select name="status">${options(ROLE_STAGES,roleReviewStage(r,reviewForRole(r)))}</select>`)}${field('Срок для актёра',input('due',r.due||'','date'),'Если пусто — берём срок серии.')}${field('Отметки',`<label class="check-label">${input('mine','1','checkbox',r.mine?'checked':'')}Моя роль</label>`)}${field('Папка с голосом',pathField('folder',r.folder||'','folder'),'',true)}${field('SRT / ASS персонажа',pathField('subtitle',r.subtitle||'','file'),'',true)}${field('Заметки',area('notes',r.notes),'',true)}</div></details>`,'Сохранить',data=>{
     const {p,ep}=resolveTarget(data.target);if(!data.character.trim())throw new Error('Укажи персонажа.');const lineCountRaw=String(data.lineCount??'').trim();if(lineCountRaw&&!/^(?:0|[1-9][0-9]{0,6})$/.test(lineCountRaw))throw new Error('Количество реплик должно быть целым числом от 0 до 1 000 000.');const lineCount=lineCountRaw===''?null:Number(lineCountRaw);if(lineCount!==null&&lineCount>1000000)throw new Error('Максимум — 1 000 000 реплик.');if(!old&&ep.roles.length>=2000)throw new Error('В серии уже 2000 ролей.');
     let actor=(state.actors||[]).find(a=>a.id===data.actorId),legacy=data.actorId==='__legacy__'?r.actor:(data.actor||'').trim();
     if(data.actorId==='__new__'){const name=(data.newActorName||'').trim();if(!name)throw new Error('Укажи имя актёра.');if(state.actors.length>=2000)throw new Error('В списке уже 2000 актёров.');actor=newActor({name});state.actors.push(actor);}
     if(!actor&&data.mine&&!legacy){const matches=state.actors.filter(a=>a.name===state.settings.name);if(matches.length===1)actor=matches[0];else if(!matches.length){actor=newActor({name:state.settings.name});state.actors.push(actor);}}
-    Object.assign(r,{character:data.character.trim(),lineCount,actorId:actor?.id||'',actor:actor?.name||legacy||'',status:data.status||'waiting',mine:!!data.mine,inProject:!!r.inProject,folder:trimPath(data.folder),subtitle:trimPath(data.subtitle),notes:data.notes||'',due:dateValue(data.due)});
+    Object.assign(r,{character:data.character.trim(),image:safeRoleImage(data.image),lineCount,actorId:actor?.id||'',actor:actor?.name||legacy||'',status:data.status||'waiting',mine:!!data.mine,inProject:!!r.inProject,folder:trimPath(data.folder),subtitle:trimPath(data.subtitle),notes:data.notes||'',due:dateValue(data.due)});
     if(!old)ep.roles.push(r);touch(p);modal.close();render();toast('Сохранено');
   },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}">Удалить</button>`:''});
 }
@@ -1175,6 +1214,8 @@ async function action(a,d,el){
     case 'project-section':projectForm(d.id,d.section);break;
     case 'studio-folder':studioFolderForm();break;
     case 'create-folder':createFolderForm(p.id,ep.id);break;
+    case 'choose-role-image':modal.querySelector('#role-image-input')?.click();break;
+    case 'remove-role-image':modal.querySelector('[name=image]').value='';modal.querySelector('#role-image-preview').innerHTML=icon('file');break;
     case 'choose-cover':modal.querySelector('#project-cover-input').click();break;
     case 'remove-cover':modal.querySelector('[name=cover]').value='';modal.querySelector('#cover-preview').innerHTML=icon('file');break;
     case 'edit-project':projectForm(d.id);break;
@@ -1367,6 +1408,7 @@ document.addEventListener('change',event=>{const el=event.target;
     render();return;
   }
   if(el.id==='project-cover-input'){loadProjectCover(el.files[0]).catch(formError);}
+  if(el.id==='role-image-input'){loadRoleImage(el.files[0]).catch(formError);}
   if(el.id==='folder-parent-choice'){const row=modal.querySelector('#folder-parent-custom');if(row)row.hidden=el.value!=='__other__';}
   if(el.classList.contains('wizard-folder')){const deps={premiere:['video','source'],characterSubs:['subs','source'],video:['source'],audio:['source'],subs:['source']};if(el.checked){for(const key of deps[el.dataset.key]||[]){const parent=modal.querySelector('[name=folder-'+key+']');if(parent)parent.checked=true;}}else{for(const [child,parents] of Object.entries(deps))if(parents.includes(el.dataset.key)){const input=modal.querySelector('[name=folder-'+child+']');if(input)input.checked=false;}}}
   if(el.id==='sort-select'){ui.sort=el.value;saveUI();render();}
@@ -1396,6 +1438,11 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='profile-telegram'){state.settings.myTelegram=cleanTelegram(el.value).replace(/[^a-zA-Z0-9_]/g,'').slice(0,80);persist();render();}
   if(el.classList.contains('role-status')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep),r=ep.roles.find(x=>x.id===el.dataset.item),review=reviewForRole(r);r.status=el.value;if(review)r.reviewSeen=reviewVersion(review);touch(p);render();}
   if(el.id==='scan-all')modal.querySelectorAll('[name^=scan-]').forEach(input=>input.checked=el.checked);
+});
+document.addEventListener('change',event=>{
+  const checkbox=event.target.closest?.('input[data-vacation-indefinite]');if(!checkbox)return;
+  const date=checkbox.closest('form')?.querySelector('input[name=endDate]');if(!date)return;
+  date.disabled=checkbox.checked;date.required=!checkbox.checked;
 });
 modal.addEventListener('submit',async event=>{event.preventDefault();if(!modalSubmit)return;const form=event.target,data=Object.fromEntries(new FormData(form)),submit=form.querySelector('[type=submit]'),handler=modalSubmit;submit.disabled=true;try{await handler(data);}catch(err){formError(err);}finally{if(submit.isConnected)submit.disabled=false;}});
 modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)modal.close();}});
