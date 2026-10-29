@@ -1062,9 +1062,13 @@ function demoForm(actorId,demoId){
     Object.assign(d,{path,folder,label:(data.label||'').trim()||path.split(/[\\/]/).filter(Boolean).pop()||'Демка'});if(!old)a.demos.push(d);persist();render();actorDetails(a.id);toast('Демка добавлена');
   },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-demo" data-actor="${e(a.id)}" data-demo="${e(d.id)}">Убрать</button>`:''});
 }
+const castFromCurrentStatus=(projectId,episodeId)=>{
+  const reviewed=withRoleReviews(state,cloud.reviews||[]);
+  return castText(reviewed,reviewed.projects.find(p=>p.id===projectId),episodeId);
+};
 function castPreview(pid,epid,scope){
   const p=getProject(pid),ep=getEpisode(p,epid),selected=scope||ep.id;
-  showModal('Состав для Telegram',p.title,`<div class="form-grid">${field('Серия',`<select id="cast-scope" data-id="${e(p.id)}">${p.episodes.map(x=>`<option value="${e(x.id)}" ${selected===x.id?'selected':''}>${e(episodeLabel(p,x))}</option>`).join('')}<option value="all" ${selected==='all'?'selected':''}>Все серии</option></select>`,'',true)}${field('Текст сообщения',`<textarea id="cast-draft" name="text" class="cast-draft">${e(castText(state,p,selected))}</textarea>`,'',true)}</div>`,'Скопировать',async data=>{await copyText(data.text);});
+  showModal('Состав для Telegram',p.title,`<div class="form-grid">${field('Серия',`<select id="cast-scope" data-id="${e(p.id)}">${p.episodes.map(x=>`<option value="${e(x.id)}" ${selected===x.id?'selected':''}>${e(episodeLabel(p,x))}</option>`).join('')}<option value="all" ${selected==='all'?'selected':''}>Все серии</option></select>`,'',true)}${field('Текст сообщения',`<textarea id="cast-draft" name="text" class="cast-draft">${e(castFromCurrentStatus(p.id,selected))}</textarea>`,'',true)}</div>`,'Скопировать',async data=>{await copyText(data.text);});
 }
 
 function episodePaths(pid,epid){
@@ -1429,7 +1433,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.classList.contains('wizard-folder')){const deps={premiere:['video','source'],characterSubs:['subs','source'],video:['source'],audio:['source'],subs:['source']};if(el.checked){for(const key of deps[el.dataset.key]||[]){const parent=modal.querySelector('[name=folder-'+key+']');if(parent)parent.checked=true;}}else{for(const [child,parents] of Object.entries(deps))if(parents.includes(el.dataset.key)){const input=modal.querySelector('[name=folder-'+child+']');if(input)input.checked=false;}}}
   if(el.id==='sort-select'){ui.sort=el.value;saveUI();render();}
   if(el.id==='episode-select'){ui.episode=el.value;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';render();}
-  if(el.id==='cast-scope'){const p=getProject(el.dataset.id);modal.querySelector('#cast-draft').value=castText(state,p,el.value);}
+  if(el.id==='cast-scope'){const p=getProject(el.dataset.id);modal.querySelector('#cast-draft').value=castFromCurrentStatus(p.id,el.value);}
   if(el.classList.contains('episode-stage')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);ep.stage=el.value;touch(p);}
   if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
   if(el.id==='role-filter'){ui.roleFilter=el.value;render();}
