@@ -57,6 +57,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Actor registration/picker regression failed' }
           node --check ./package/web/visual-selects.js
           if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
+          node ./tools/check-project-role-progress.mjs
+          if($LASTEXITCODE -ne 0){ throw 'Latest project role progress regression failed' }
           node ./tools/check-task-priorities.mjs
           if($LASTEXITCODE -ne 0){ throw 'Task priority regressions failed' }
           node ./tools/check-task-assignment.mjs
