@@ -6,7 +6,7 @@ const alice={id:'alice',name:'Алиса',voiceGroup:'female',castGroup:'main',a
 const bob={id:'bob',name:'Борис',voiceGroup:'male',castGroup:'support'};
 const vera={id:'vera',name:'Вера',voiceGroup:'female',castGroup:'main',actorAccess:true};
 const fedor={id:'fedor',name:'Фёдор',voiceGroup:'male',castGroup:'main'};
-const role=(id,status,actorId='alice',due='')=>({id,character:id,actorId,actor:actorId==='alice'?'Алиса':'Борис',status,due,lineCount:37,folder:'C:/voices/test',notes:'Important dialogue',reviewSeen:'old'});
+const role=(id,status,actorId='alice',due='')=>({id,character:id,actorId,actor:actorId==='alice'?'Алиса':'Борис',status,due,voiceGender:actorId==='alice'?'female':'male',lineCount:37,folder:'C:/voices/test',notes:'Important dialogue',reviewSeen:'old'});
 const ep={id:'ep1',number:'2',due:'2026-11-12',roles:[
   role('waiting','waiting'),role('recording','recording'),role('retake','retake'),
   role('received','received'),role('processing','processing'),role('done','done'),
@@ -31,6 +31,13 @@ assert.deepEqual(availableReplacementActors(state,vacations,'alice').map(x=>x.id
 assert.throws(()=>reassignVacationRole(state,vacations,{projectId:'project',episodeId:'ep1',roleId:'waiting',previousActorId:'alice',newActorId:'bob'}),/в отпуске/);
 assert.throws(()=>reassignVacationRole(state,vacations,{projectId:'project',episodeId:'ep1',roleId:'done',previousActorId:'alice',newActorId:'vera'}),/пересмотра/);
 assert.throws(()=>reassignVacationRole(state,vacations,{projectId:'project',episodeId:'ep1',roleId:'waiting',previousActorId:'wrong',newActorId:'vera'}),/изменён/);
+assert.throws(()=>reassignVacationRole(state,vacations,{projectId:'project',episodeId:'ep1',roleId:'recording',previousActorId:'alice',newActorId:'fedor'}),/Показать всех актёров/);
+const opposite=reassignVacationRole(state,vacations,{projectId:'project',episodeId:'ep1',roleId:'recording',previousActorId:'alice',newActorId:'fedor',showAllActors:true});
+assert.equal(opposite.role.actorId,'fedor','manual override allows a male actor on female character');
+assert.equal(opposite.role.voiceGender,'female','role gender stays stable after opposite-gender reassignment');
+assert.equal(opposite.role.status,'waiting');
+assert.throws(()=>reassignVacationRole(state,vacations,{projectId:'project',episodeId:'ep1',roleId:'waiting',previousActorId:'alice',newActorId:'bob',showAllActors:true}),/Показать всех актёров/,'override must not bypass vacation validation');
+
 const moved=reassignVacationRole(state,vacations,{projectId:'project',episodeId:'ep1',roleId:'retake',previousActorId:'alice',newActorId:'vera'});
 assert.equal(moved.role.actorId,'vera');
 assert.equal(moved.role.actor,'Вера');
