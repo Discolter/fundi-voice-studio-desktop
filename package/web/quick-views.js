@@ -18,8 +18,8 @@ export const candidateScores=(state,actors)=>actors.map(actor=>{
 
 export function createQuickViews({root,getState,getCloud,getRole,getReview,getSourceUrl,
  icon,escapeHTML:e,actorAvatar,getStage,editRole,editActor,openProject,openFiles,transferRole,
- availableActors,changeRole,cloudRequest,refreshCloud,openActorCabinet,editVacation,toast}) {
- let panel=null,dialog=null,pinned=false,tab='roles',history=[],context=null,selectedCandidate='';
+ availableActors,changeRole,cloudRequest,refreshCloud,openActorCabinet,editVacation,viewActorDemos,toast}) {
+ let panel=null,dialog=null,pinned=false,tab='roles',history=[],context=null,selectedCandidate='',comparedActorId='';
  let cloudResult=null,checking=false,cloudError='',stamp='';
  const state=()=>getState(),cloud=()=>getCloud()||{};
  const actor=id=>(state()?.actors||[]).find(a=>a.id===id);
@@ -81,7 +81,15 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
       '<div class="qv-actions"><button class="btn '+(selectedCandidate===a.id?'primary':'ghost')+' small" type="button" data-q="select" data-actor="'+e(a.id)+'">'+
       (selectedCandidate===a.id?'Выбран':'Выбрать')+'</button>'+btn('compare','Демки и роли','users','data-actor="'+e(a.id)+'"')+'</div></article>').join('')+'</div>'+
     (candidates.length?'<button type="button" data-q="transfer" class="btn primary">Продолжить переназначение</button>':'<p>Нет доступных исполнителей.</p>')+
-    '<p class="qv-muted">Нагрузка — подсказка, не оценка голосового соответствия.</p>';
+    '<p class="qv-muted">Нагрузка — подсказка, не оценка голосового соответствия.</p>'+
+    (comparedActorId&&actor(comparedActorId)?(a=>{
+      const {rows,debts}=actorLoad(state(),a.id);
+      const demos=Array.isArray(a.demos)?a.demos:[];
+      return '<section class="qv-compare"><h3>Подробности кандидата: '+e(a.name)+'</h3>'+
+        '<p>'+rows.length+' назначений · '+debts+' долгов · '+demos.length+' демозаписей</p>'+
+        '<div class="qv-compare-roles">'+rows.slice(0,8).map(x=>'<span>'+e(x.p.title)+' — '+e(x.r.character)+'</span>').join('')+'</div>'+
+        btn('demos','Открыть демозаписи','play','data-actor="'+e(a.id)+'"')+'</section>';
+    })(actor(comparedActorId)):'');
  }
  function cloudView(){
   const x=role(),a=actor(dialog?.actorId||x?.r?.actorId);if(!a)return '<p>Актёр не выбран.</p>';
@@ -132,7 +140,7 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
  }
  function openReplacement(projectId,episodeId,roleId){
   if(!getRole(projectId,episodeId,roleId))return false;
-  dialog={kind:'replace',projectId,episodeId,roleId};selectedCandidate='';context=null;render();return true;
+  dialog={kind:'replace',projectId,episodeId,roleId};selectedCandidate='';comparedActorId='';context=null;render();return true;
  }
  function openCloud(projectId='',episodeId='',roleId='',actorId=''){
   dialog={kind:'cloud',projectId,episodeId,roleId,actorId};cloudResult=null;checking=false;cloudError='';context=null;render();return true;
@@ -154,7 +162,7 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
   if(q==='pin'){pinned=!pinned;render();return;}
   if(q==='back'){const a=history.pop();if(a){panel={actorId:a};tab='roles';render();}return;}
   if(q==='tab'){tab=node.dataset.tab;render();return;}
-  if(q==='actor'){openActor(node.dataset.actor);return;}
+  if(q==='actor'){if(dialog)closeDialog();openActor(node.dataset.actor);return;}
   if(q==='role'){openRole(node.dataset.project,node.dataset.episode,node.dataset.role);return;}
   if(q==='edit-actor'&&panel){editActor(panel.actorId);return;}
   if(q==='vacation-edit'&&panel){editVacation(panel.actorId);return;}
@@ -170,7 +178,8 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
    if(next)openRole(x.p.id,x.ep.id,next.id);return;
   }
   if(q==='select'){selectedCandidate=node.dataset.actor;render();return;}
-  if(q==='compare'){openActor(node.dataset.actor);return;}
+  if(q==='compare'){comparedActorId=node.dataset.actor;render();return;}
+  if(q==='demos'){viewActorDemos(node.dataset.actor);return;}
   if(q==='transfer'&&x&&selectedCandidate){const choice=selectedCandidate;closeDialog();transferRole(x.p.id,x.ep.id,x.r.id,choice);return;}
   if(q==='cloud-refresh'){await checkCloud();return;}
   if(q==='cloud-sync'){await refreshCloud();if(dialog?.kind==='cloud')await checkCloud();return;}
