@@ -143,6 +143,7 @@ body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-hig
 }
 .tasks-priority-table .task-project-image{height:45px;flex-basis:35px;border-radius:7px}
 .tasks-priority-table .task-actor-image{border-radius:50%}
+.tasks-priority-table .task-character-image{border-radius:9px}
 .tasks-priority-table .task-identity-image>img,
 .tasks-priority-table .task-project-image .project-poster{
   display:block;width:100%;height:100%;object-fit:cover;object-position:center;
