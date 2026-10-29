@@ -184,5 +184,7 @@ export function createActorCabinet({getActors,getCloud,getLocalFeed,actorAvatar,
   }
   function search(value){query=value;rerender();}
   return {render:()=>selected?actorView():home(),start:()=>{selected='';section='projects';query='';refresh();},
+    navigationState:()=>({actorId:selected,section}),
+    restoreNavigation:route=>{const candidate=String(route?.actorId||'');selected=actors().some(a=>a.id===candidate)?candidate:'';section=['projects','debts','history'].includes(route?.section)?route.section:'projects';query='';},
     action,search,refresh};
 }
