@@ -451,7 +451,7 @@ function updateActorPicker(picker,id){
   }else{
     const p=getProject(picker.dataset.id),ep=getEpisode(p,picker.dataset.ep),r=ep?.roles.find(r=>r.id===picker.dataset.item);
     if(!p||!r)return;
-    if(r.actorId&&r.actorId!==a?.id){r.status='waiting';r.reviewSeen='';}r.actorId=a?.id||'';r.actor=a?.name||'';touch(p);
+    if(r.actorId!==(a?.id||'')){r.status='waiting';r.reviewSeen='';}r.actorId=a?.id||'';r.actor=a?.name||'';touch(p);
   }
   const legacy=id==='__legacy__';
   const name=a?.name||(isNew?'Новый актёр':legacy?'Старая запись':'Не назначен');
@@ -1081,7 +1081,7 @@ function castingAssistantForm(projectId,episodeId,roleId){
       if(!candidate)throw new Error('Выбранный актёр больше недоступен. Обнови рекомендации.');
       const oldActorId=r.actorId;
       r.actorId=candidate.actor.id;r.actor=candidate.actor.name;
-      if(oldActorId&&oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';}
+      if(oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';}
       touch(p);modal.close();render();toast('Роль «'+r.character+'» назначена: '+candidate.actor.name);
     },{extra:'<button class="btn ghost small" type="button" data-action="edit-role" data-id="'+e(p.id)+'" data-ep="'+e(ep.id)+'" data-item="'+e(r.id)+'">Изменить роль</button>'});
 }
@@ -1094,7 +1094,7 @@ function roleForm(pid,epid,itemId){
     let actor=(state.actors||[]).find(a=>a.id===data.actorId),legacy=data.actorId==='__legacy__'?r.actor:(data.actor||'').trim();
     if(data.actorId==='__new__'){const name=(data.newActorName||'').trim();if(!name)throw new Error('Укажи имя актёра.');if(state.actors.length>=2000)throw new Error('В списке уже 2000 актёров.');actor=newActor({name});state.actors.push(actor);}
     if(!actor&&data.mine&&!legacy){const matches=state.actors.filter(a=>a.name===state.settings.name);if(matches.length===1)actor=matches[0];else if(!matches.length){actor=newActor({name:state.settings.name});state.actors.push(actor);}}
-    const newActorId=actor?.id||'',changedActor=!!old&&!!r.actorId&&r.actorId!==newActorId;
+    const newActorId=actor?.id||'',changedActor=!!old&&r.actorId!==newActorId;
     Object.assign(r,{character:data.character.trim(),voiceGender:validRoleVoice(data.voiceGender),image:safeRoleImage(data.image),lineCount,actorId:newActorId,actor:actor?.name||legacy||'',status:changedActor?'waiting':data.status||'waiting',reviewSeen:changedActor?'':r.reviewSeen,mine:!!data.mine,inProject:!!r.inProject,folder:trimPath(data.folder),subtitle:trimPath(data.subtitle),notes:data.notes||'',due:dateValue(data.due)});
     if(!old)ep.roles.push(r);touch(p);modal.close();render();toast('Сохранено');
   },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}">Удалить</button>`:''});
