@@ -49,7 +49,8 @@ assert.ok(!one.includes('<span')&&!one.includes('class=')&&!one.includes('**'),
 const reviewed=withRoleReviews(state,[{actorId:'a2',roleId:'retake',state:'accepted',submissionId:8}]);
 assert.match(castText(reviewed,reviewed.projects[0],'e1'),/@voice_actor — Росты ✅/);
 const app=readFileSync('package/web/app.js','utf8');
-assert.match(app,/const castFromCurrentStatus=.*\n\s*const reviewed=withRoleReviews\(state,cloud\.reviews\|\|\[\]\)/);
+assert.ok(app.includes("const reviewed=withRoleReviews(state,cloud.reviews||[]);"),
+  'The text must reflect the same Cloud review stages as the Studio table');
 assert.match(app,/e\(castFromCurrentStatus\(p\.id,selected\)\)/);
 assert.match(app,/modal\.querySelector\('#cast-draft'\)\.value=castFromCurrentStatus\(p\.id,el\.value\)/);
 assert.match(app,/await copyText\(data\.text\)/);
