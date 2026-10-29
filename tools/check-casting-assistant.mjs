@@ -47,7 +47,7 @@ const tagged={voiceGender:''};
 assert.equal(applyRoleVoiceFromActor(tagged,actors[0]),'male');
 applyRoleVoiceFromActor(tagged,actors[3]);
 assert.equal(tagged.voiceGender,'male','actor replacement does not overwrite character voice type');
-assert.deepEqual(rankActorsForRole(state,episode,{id:'target',actorId:'m2',voiceGender:''},[]).map(x=>x.actor.id),['m1','m3'],'old roles use linked actor type before migration');
+assert.deepEqual(rankActorsForRole(state,episode,{id:'target',actorId:'m2',voiceGender:''},[],{excludeActorId:'m2'}).map(x=>x.actor.id),['m1','m3'],'old roles use linked actor type before migration');
 const allCandidates=rankActorsForRole(state,episode,episode.roles[0],[],{excludeActorId:'m2',showAll:true});
 assert.deepEqual(allCandidates.map(x=>x.actor.id).slice(0,2),['m1','m3'],'same group stays ahead even if opposite group is less busy');
 assert.ok(allCandidates.some(x=>x.actor.id==='f1'));
