@@ -182,6 +182,9 @@ export function removeActor(state,id) {
   for(const p of [...state.projects,...state.trash])for(const ep of p.episodes)for(const r of ep.roles)if(r.actorId===id){r.actor=actor.name;r.actorId='';}
   state.actors=state.actors.filter(a=>a.id!==id);
 }
+// Unicode markers survive plain-text copying and display correctly in Telegram.
+export const castRoleStatusEmoji=status=>
+  status==='done'?' ✅':status==='retake'?' 🔴':['processing','processed'].includes(status)?' 🟡':'';
 export function castText(state,p,episodeId='all') {
   const episodes=episodeId==='all'?p.episodes:p.episodes.filter(ep=>ep.id===episodeId);
   const lines=[p.title+(p.season?` · Сезон ${p.season}`:''),''];
@@ -193,7 +196,7 @@ export function castText(state,p,episodeId='all') {
       const username=cleanTelegram(actor?.telegram||'').replace(/[^A-Za-z0-9_]/g,'');
       const character=String(r.character||'').replace(/[\r\n]+/g,' ').trim();
       const who=username?'@'+username:(actor||r.actorId||r.actor?'Без @username':'Не назначен');
-      lines.push(`${who} — ${character}`);
+      lines.push(`${who} — ${character}${castRoleStatusEmoji(r.status)}`);
     }
     if(!ep.roles.length)lines.push('Роли не добавлены');
     lines.push('');
