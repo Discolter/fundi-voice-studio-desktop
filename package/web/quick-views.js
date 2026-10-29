@@ -17,7 +17,7 @@ export const candidateScores=(state,actors)=>actors.map(actor=>{
 }).sort((a,b)=>a.debts-b.debts||a.active-b.active||a.actor.name.localeCompare(b.actor.name,'ru'));
 
 export function createQuickViews({root,getState,getCloud,getRole,getReview,getSourceUrl,
- icon,escapeHTML:e,actorAvatar,editRole,editActor,openProject,openFiles,transferRole,
+ icon,escapeHTML:e,actorAvatar,getStage,editRole,editActor,openProject,openFiles,transferRole,
  availableActors,changeRole,cloudRequest,refreshCloud,openActorCabinet,editVacation,toast}) {
  let panel=null,dialog=null,pinned=false,tab='roles',history=[],context=null,selectedCandidate='';
  let cloudResult=null,checking=false,cloudError='',stamp='';
@@ -25,7 +25,7 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
  const actor=id=>(state()?.actors||[]).find(a=>a.id===id);
  const role=()=>getRole(dialog?.projectId,dialog?.episodeId,dialog?.roleId);
  const ref=x=>'data-project="'+e(x.p.id)+'" data-episode="'+e(x.ep.id)+'" data-role="'+e(x.r.id)+'"';
- const stage=r=>{const rev=getReview(r);return rev?.state==='accepted'?'done':rev?.state==='retake'?'retake':rev?.state==='pending'?'received':r.status==='processed'?'processing':r.status;};
+ const stage=r=>getStage(r);
  const tag=r=>'<span class="qv-status qv-status-'+e(stage(r))+'">'+e(STAGES.find(([k])=>k===stage(r))?.[1]||r.status)+'</span>';
  const btn=(act,label,ic,extra='')=>'<button type="button" class="btn ghost small" data-q="'+act+'" '+extra+'>'+icon(ic)+' '+e(label)+'</button>';
  const id=a=>'<div class="qv-identity">'+actorAvatar(a)+'<span><strong>'+e(a.name)+'</strong><small>'+e(a.telegram?'@'+a.telegram:'Telegram не указан')+'</small></span></div>';
@@ -194,7 +194,7 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
    lineCount:String(data.get('lineCount')??'')})).then(()=>{render();toast('Роль сохранена');}).catch(err=>toast(err.message,true));
  });
  document.addEventListener('keydown',ev=>{
-  if(ev.key!=='Escape')return;
+  if(ev.key!=='Escape'||document.querySelector('#modal')?.open)return;
   if(context){context=null;render();}else if(dialog){closeDialog();ev.preventDefault();}
   else if(panel&&!pinned){closePanel();ev.preventDefault();}
  });
