@@ -128,7 +128,7 @@ namespace FundiVoice.Desktop {
                         roles[actorId].Add(new Dictionary<string,object>{
                             {"roleId",S(role,"id")},{"projectId",S(project,"id")},{"projectTitle",S(project,"title")},{"season",S(project,"season")},
                             {"episodeId",S(episode,"id")},{"episodeNumber",S(episode,"number")},{"episodeTitle",S(episode,"title")},
-                            {"character",S(role,"character")},{"lineCount",RoleLineCount(role)},{"status",S(role,"status")},{"due",due}
+                            {"character",S(role,"character")},{"image",S(role,"image")},{"lineCount",RoleLineCount(role)},{"status",S(role,"status")},{"due",due}
                         });
                     }
                 }
