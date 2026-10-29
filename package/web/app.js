@@ -99,6 +99,7 @@ const quickViews=createQuickViews({
  editRole:(pid,eid,rid)=>roleForm(pid,eid,rid),
  editActor:id=>actorForm(id),
  editVacation:id=>studioVacationForm(id),
+ viewActorDemos:id=>actorDetails(id,'demos'),
  openProject:(pid,eid)=>{ui.siteMode='studio';openProject(pid,eid,'roles');},
  openFiles:({p,ep,r})=>showStudioFiles({roleId:r.id,actorId:r.actorId,title:r.character+' · '+p.title+' · '+episodeLabel(p,ep)}),
  openActorCabinet:id=>{ui.siteMode='cabinet';actorCabinet.start();actorCabinet.action({cabinet:'actor',id});render();},
