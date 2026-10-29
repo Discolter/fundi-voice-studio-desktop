@@ -105,7 +105,7 @@ const quickViews=createQuickViews({
  openProject:(pid,eid)=>{ui.siteMode='studio';openProject(pid,eid,'roles');},
  openFiles:({p,ep,r})=>showStudioFiles({roleId:r.id,actorId:r.actorId,title:r.character+' · '+p.title+' · '+episodeLabel(p,ep)}),
  openActorCabinet:id=>{ui.siteMode='cabinet';actorCabinet.start();actorCabinet.action({cabinet:'actor',id});render();},
- transferRole:(pid,eid,rid,actorId)=>vacationReviewTransferForm(pid,eid,rid,actorId),
+ transferRole:(pid,eid,rid,actorId,showAllActors=false)=>vacationReviewTransferForm(pid,eid,rid,actorId,showAllActors),
  castingAssistant:(pid,eid,rid)=>castingAssistantForm(pid,eid,rid),
  availableActors:oldId=>availableReplacementActors(state,cloud.vacations||[],oldId),
  cloudRequest:api,refreshCloud:()=>refreshAllStudio(),
