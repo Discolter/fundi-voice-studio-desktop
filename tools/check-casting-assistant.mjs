@@ -47,6 +47,7 @@ const tagged={voiceGender:''};
 assert.equal(applyRoleVoiceFromActor(tagged,actors[0]),'male');
 applyRoleVoiceFromActor(tagged,actors[3]);
 assert.equal(tagged.voiceGender,'male','actor replacement does not overwrite character voice type');
+assert.deepEqual(rankActorsForRole(state,episode,{id:'target',actorId:'m2',voiceGender:''},[]).map(x=>x.actor.id),['m1','m3'],'old roles use linked actor type before migration');
 const allCandidates=rankActorsForRole(state,episode,episode.roles[0],[],{excludeActorId:'m2',showAll:true});
 assert.deepEqual(allCandidates.map(x=>x.actor.id).slice(0,2),['m1','m3'],'same group stays ahead even if opposite group is less busy');
 assert.ok(allCandidates.some(x=>x.actor.id==='f1'));
@@ -79,6 +80,13 @@ for(const needle of [
 assert.ok(quick.includes("data-q=\"casting-assistant\"")||quick.includes("btn('casting-assistant'"));
 assert.ok(css.includes('.casting-suggestion-list'));
 assert.ok(css.includes('.casting-modal-option'));
+assert.ok(css.includes('.casting-show-all'));
+assert.ok(app.includes('id="review-show-all-actors"'));
+assert.ok(app.includes('id="casting-modal-show-all"'));
+assert.ok(app.includes('actor-picker-show-all-input'));
+assert.ok(app.includes('showAll:showAllActors'));
+assert.ok(quick.includes('data-q="show-all-candidates"'));
+
 assert.ok(app.includes('reviewSeen:changedActor?\'\':r.reviewSeen'),'changing actor resets previous feedback');
 
 console.log('PASS: gender persistence, episode repeat counts, holiday-safe casting recommendations and manual UI');
