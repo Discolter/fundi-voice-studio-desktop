@@ -398,9 +398,12 @@ function actorPicker(role,{form=false,pid='',eid=''}={}){
   const name=actor?.name||role.actor||'Не назначен';
   const extra=activeVacation(actor?.id)?'⛔ В отпуске — новые роли не назначать':vacationFor(actor?.id)?'◷ Отпуск запланирован':actor?.telegram?'@'+actor.telegram:legacy?'Старая запись':'Нажми, чтобы выбрать из базы';
   const id=role.id||'';
+  const relatedEpisode=!form&&pid&&eid?getEpisode(getProject(pid),eid):null;
+  const otherCount=relatedEpisode&&actor?episodeActorWorkload(relatedEpisode,actor.id,id).count:null;
+  const extraWithLoad=extra+(otherCount===null?'':' · '+otherCount+' других ролей в серии');
   return `<div class="actor-picker ${form?'actor-picker-form':'actor-picker-table'}" data-picker-scope="${form?'form':'row'}" data-id="${e(pid)}" data-ep="${e(eid)}" data-item="${e(id)}">
     <button type="button" class="actor-picker-trigger" data-action="actor-picker-toggle" aria-haspopup="true" aria-expanded="false" title="Выбрать актёра из базы">
-      ${actorPickAvatar(actor||{name:legacy?role.actor:'?'})}<span class="actor-picker-selected"><strong>${e(name)}</strong><small>${e(extra)}</small></span>${icon('chevron')}
+      ${actorPickAvatar(actor||{name:legacy?role.actor:'?'})}<span class="actor-picker-selected"><strong>${e(name)}</strong><small>${e(extraWithLoad)}</small></span>${icon('chevron')}
     </button>
     ${form?`<input type="hidden" name="actorId" value="${e(selected)}">`:''}
     <div class="actor-picker-menu" hidden>
