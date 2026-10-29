@@ -104,7 +104,7 @@ export function createActorCabinet({getActors,getCloud,getLocalFeed,actorAvatar,
       '<span><strong>'+e(role.character)+'</strong><small>'+
       (Number.isInteger(role.lineCount)?'Реплик: '+role.lineCount+' · ':'')+
       (role.episodeNumber?'Серия '+e(role.episodeNumber):e(role.episodeTitle||'Серия'))+
-      '</small></span></div><span class="ac-stage" data-stage="'+e(role.status)+'">'+e(role.reviewLabel)+'</span>'+
+      '</small></span></div><button type="button" class="btn ghost small" data-qv-open="role" data-qv-project="'+e(role.projectId)+'" data-qv-episode="'+e(role.episodeId)+'" data-qv-role="'+e(role.roleId)+'">Карточка в Studio</button><span class="ac-stage" data-stage="'+e(role.status)+'">'+e(role.reviewLabel)+'</span>'+
       '<span class="ac-role-due">'+e(dateLabel(role.due))+'</span>'+
       '<button type="button" class="ac-disabled-action" disabled title="Доступно только актёру в его аккаунте">'+
       (accepted?'Принято':role.review?.state==='pending'?'На проверке':'Сдать на проверку')+'</button>'+
