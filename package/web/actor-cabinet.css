@@ -1,0 +1,96 @@
+/* Actor cabinet for Studio owner: visually mirrors Actor's personal project panels,
+   but all role-changing controls are read-only and actor authentication is never used. */
+.ac-home,.ac-view{max-width:1380px;margin:0 auto;min-width:0}
+.ac-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:20px;flex-wrap:wrap}
+.ac-heading .ac-eyebrow{color:var(--lime);font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}
+.ac-heading h1{font-size:clamp(23px,2.8vw,33px);font-weight:800;margin:8px 0 7px;color:var(--text)}
+.ac-heading p{font-size:12px;color:var(--muted);line-height:1.7;margin:0;max-width:780px}
+.ac-heading .btn{white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+.ac-heading .icon{width:17px;height:17px}
+.ac-cloud-status,.ac-alert{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 15px;margin:0 0 14px;border:1px solid color-mix(in srgb,var(--lime) 29%,var(--line));border-radius:13px;background:color-mix(in srgb,var(--lime) 8%,var(--panel));color:var(--text);font-size:12px}
+.ac-cloud-status>.icon{width:16px;height:16px;color:var(--lime)}
+.ac-alert{border-color:color-mix(in srgb,#e9a943 34%,var(--line));background:color-mix(in srgb,#e9a943 9%,var(--panel))}
+.ac-alert-error{border-color:color-mix(in srgb,#eb647b 40%,var(--line));background:color-mix(in srgb,#eb647b 8%,var(--panel))}
+.ac-alert-inline{color:#f3b27d;margin-left:8px}
+.ac-owner-note{font-size:11px;color:var(--muted);margin:0 0 23px;line-height:1.65}
+.ac-home-bar{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:19px;color:var(--muted);font-size:11px}
+.ac-home-bar label{display:flex;gap:8px;align-items:center;width:min(440px,100%);min-width:0;padding:10px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.ac-home-bar label .icon{width:17px;height:17px}
+.ac-home-bar input,.ac-role-search input{min-width:0;width:100%;border:none;outline:0;box-shadow:none!important;background:transparent;color:var(--text);font-size:12px}
+.ac-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.ac-person{display:flex;flex-direction:column;justify-content:space-between;gap:22px;padding:20px;border:1px solid var(--line);border-radius:17px;background:var(--surface);text-align:left;transition:transform .16s,border-color .16s,box-shadow .16s;min-height:141px;min-width:0}
+.ac-person:hover,.ac-person:focus-visible{transform:translateY(-3px);border-color:var(--lime);box-shadow:0 12px 35px #0002}
+.ac-person-head{display:flex;align-items:center;gap:14px;min-width:0}
+.ac-person-head>.actor-pick-avatar{height:54px;width:54px;border-radius:14px;flex:0 0 54px;font-size:20px;overflow:hidden}
+.ac-person-head>.actor-pick-avatar img{height:100%;width:100%;object-fit:cover}
+.ac-person-text{min-width:0;display:flex;flex-direction:column;gap:6px}
+.ac-person-text strong{font-size:15px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-person-text small{font-size:11px;color:var(--muted)}
+.ac-person-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}
+.ac-person-bottom .icon{width:16px;height:16px}
+.ac-empty{display:flex;align-items:center;justify-content:center;min-height:130px;padding:24px;text-align:center;background:var(--surface);border:1px dashed var(--line);border-radius:13px;color:var(--muted);font-size:12px}
+.ac-back{background:transparent;border:0;color:var(--lime);font-size:12px;display:inline-flex;align-items:center;gap:5px;padding:4px 0}
+.ac-back .icon{width:15px;height:15px}
+.ac-actor-shell{display:grid;grid-template-columns:216px minmax(0,1fr);min-height:480px;border:1px solid var(--line);border-radius:19px;overflow:hidden;background:var(--surface);box-shadow:0 15px 50px #0002}
+.ac-actor-sidebar{min-width:0;background:color-mix(in srgb,var(--side) 86%,var(--surface));border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 12px;gap:22px}
+.ac-actor-brand{display:flex;align-items:center;gap:9px;padding:8px;color:var(--text);font-weight:800;font-size:14px;flex-wrap:wrap}
+.ac-actor-brand .icon{width:22px;height:22px;color:var(--lime)}
+.ac-actor-brand small{display:block;font-size:10px;color:var(--muted);font-weight:500;flex-basis:100%;margin-left:31px;margin-top:-10px}
+.ac-actor-sidebar nav{display:grid;gap:6px}
+.ac-actor-sidebar nav button{display:flex;align-items:center;gap:10px;border:1px solid transparent;border-radius:11px;background:transparent;color:var(--muted);text-align:left;padding:12px 11px;font-size:12px}
+.ac-actor-sidebar nav button.active,.ac-actor-sidebar nav button:hover{color:var(--text);background:var(--surface2);border-color:var(--line)}
+.ac-actor-sidebar nav button .icon{width:17px;height:17px;flex-shrink:0}
+.ac-actor-sidebar nav button b{margin-left:auto;font-size:10px;font-weight:700;color:var(--muted)}
+.ac-actor-profile{display:flex;gap:10px;align-items:center;margin-top:auto;padding:14px 8px 0;border-top:1px solid var(--line)}
+.ac-actor-profile .actor-pick-avatar{width:38px;height:38px;flex-shrink:0;overflow:hidden;border-radius:10px}
+.ac-actor-profile .actor-pick-avatar img{width:100%;height:100%;object-fit:cover}
+.ac-actor-profile>span:last-child{min-width:0;overflow:hidden}
+.ac-actor-profile strong{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.ac-actor-profile small,.ac-actor-profile a{display:block;margin-top:4px;font-size:10px;color:var(--muted);text-decoration:none}
+.ac-actor-body{min-width:0;padding:25px;background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--brand1) 9%,transparent),transparent 50%),var(--surface)}
+.ac-actor-top>span{color:var(--lime);font-size:10px;font-weight:750;letter-spacing:1.5px}
+.ac-actor-top h2{font-size:26px;margin:8px 0 15px;color:var(--text)}
+.ac-role-search{display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid var(--line);background:var(--surface2);border-radius:11px;max-width:500px}
+.ac-role-search .icon{width:17px;height:17px;color:var(--muted)}
+.ac-actor-sync{font-size:10px;color:var(--muted);padding:13px 0 25px}
+.ac-synced{color:#70d9a8}.ac-unsynced{color:#e9ac62}
+.ac-projects{display:grid;gap:14px}
+.ac-project{min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.ac-project>summary{display:flex;gap:13px;align-items:center;list-style:none;padding:17px;cursor:pointer}
+.ac-project>summary::-webkit-details-marker{display:none}
+.ac-project>summary>.icon{width:17px;height:17px;color:var(--muted);transform:rotate(90deg);flex-shrink:0}
+.ac-project[open]>summary>.icon{transform:rotate(-90deg)}
+.ac-project-symbol{flex:0 0 41px;width:41px;height:41px;display:grid;place-items:center;border-radius:12px;background:linear-gradient(125deg,var(--brand1),var(--brand2));color:white;font-weight:800;font-size:18px}
+.ac-project-name{flex:1;min-width:0;display:grid;gap:6px}
+.ac-project-name strong{font-size:14px;color:var(--text)}
+.ac-project-name small{font-size:10px;color:var(--muted)}
+.ac-debt-pill,.ac-done-pill{font-size:10px;border-radius:8px;padding:6px 8px;background:color-mix(in srgb,#ecad70 14%,var(--surface2));color:#ecad70;white-space:nowrap}
+.ac-done-pill{background:var(--surface2);color:var(--muted)}
+.ac-episodes{border-top:1px solid var(--line);padding:15px 17px 18px}
+.ac-episode+.ac-episode{margin-top:20px}
+.ac-episode h3{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-weight:700;font-size:13px;margin:0 0 11px;color:var(--text)}
+.ac-episode h3 a{font-size:11px;font-weight:600;color:var(--lime);text-decoration:none}
+.ac-episode h3 a:hover,.ac-actor-profile a:hover{text-decoration:underline}
+.ac-roles{display:grid;gap:8px}
+.ac-role{display:flex;align-items:center;flex-wrap:wrap;gap:12px;min-width:0;padding:13px;background:var(--surface);border:1px solid var(--line);border-radius:11px}
+.ac-role-identity{display:flex;align-items:center;gap:11px;flex:1 1 205px;min-width:0}
+.ac-role-identity>span:last-child{min-width:0}
+.ac-role-identity strong{display:block;min-width:0;color:var(--text);font-size:12px;overflow-wrap:anywhere}
+.ac-role-identity small{display:block;margin-top:5px;font-size:10px;color:var(--muted)}
+.ac-role-image{display:grid;place-items:center;width:42px;height:48px;flex:0 0 42px;overflow:hidden;padding:0;border:1px solid var(--line);background:var(--surface2);border-radius:10px;color:var(--muted)}
+.ac-role-image img{display:block;width:100%;height:100%;object-fit:cover}
+.ac-role-no-image .icon{width:17px;height:17px}
+.ac-stage{font-size:10px;border-radius:9px;padding:8px;background:var(--surface2);color:var(--text);white-space:nowrap}
+.ac-stage[data-stage=waiting]{color:#e6be78;background:#b38c4225}
+.ac-stage[data-stage=retake]{color:#ff8e95;background:#e6627220}
+.ac-stage[data-stage=received],.ac-stage[data-stage=processing]{color:#9dcbff;background:#5798ea25}
+.ac-stage[data-stage=done]{color:#75dca5;background:#47b97d21}
+.ac-role-due{font-size:10px;color:var(--muted);white-space:nowrap}
+.ac-disabled-action{font-size:10px;min-width:110px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);opacity:.52;cursor:not-allowed}
+.ac-feedback{flex:1 1 100%;padding:8px;color:var(--muted);font-size:11px;border-top:1px solid var(--line)}
+.ac-diagnostic{margin:0 0 15px;border:1px solid color-mix(in srgb,#e6a964 30%,var(--line));background:var(--panel);border-radius:13px;padding:12px 16px;font-size:12px}
+.ac-diagnostic summary{cursor:pointer;font-weight:750;color:#e9b67d}
+.ac-diagnostic>div{margin-top:10px;max-height:170px;overflow:auto}
+.ac-diagnostic p{font-size:11px;color:var(--muted);margin:7px 0}
+@media(max-width:1020px){.ac-actor-shell{grid-template-columns:175px minmax(0,1fr)}.ac-actor-body{padding:19px}.ac-actor-sidebar{padding:18px 8px}.ac-actor-brand{font-size:12px}.ac-done-pill{display:none}}
+@media(max-width:700px){.ac-home-bar{align-items:stretch;flex-direction:column}.ac-home-bar label{max-width:none;width:100%}.ac-actor-shell{display:block}.ac-actor-sidebar{border-right:0;border-bottom:1px solid var(--line)}.ac-actor-sidebar nav{display:flex;overflow:auto}.ac-actor-sidebar nav button{white-space:nowrap}.ac-actor-profile{display:none}.ac-actor-brand small{display:none}.ac-actor-body{padding:17px}.ac-role{gap:9px}.ac-stage,.ac-role-due{white-space:normal}.ac-project>summary{padding:12px}.ac-debt-pill{display:none}}
