@@ -579,3 +579,11 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .casting-modal-option strong{font-size:12px}
 .casting-modal-option small{display:block}
 @media(max-width:650px){.casting-suggestion-list{grid-template-columns:1fr}.casting-suggestions-head{align-items:flex-start}.casting-suggestions{padding:12px}}
+
+
+/* Gender-aware casting is the default. A deliberate opt-in shows every available actor. */
+.casting-show-all,.actor-picker-show-all{display:flex;align-items:center;gap:9px;color:var(--text);font-size:12px;font-weight:650;cursor:pointer;line-height:1.5}
+.casting-show-all{padding:9px 12px;margin:9px 0 13px;border-radius:9px;border:1px solid var(--line);background:var(--panel2)}
+.actor-picker-show-all{margin:7px 5px 8px;padding:9px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)}
+.casting-show-all input,.actor-picker-show-all input{accent-color:var(--lime);width:16px;height:16px;flex:none;cursor:pointer}
+.actor-picker-show-all[hidden]{display:none!important}
