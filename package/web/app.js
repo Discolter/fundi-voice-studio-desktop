@@ -4,6 +4,7 @@ import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAcce
 import {createSiteManager} from './site-manager.js';
 import {createActorCabinet} from './actor-cabinet.js';
 import {createQuickViews,roleSnapshot} from './quick-views.js';
+import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole} from './vacation-review.js';
@@ -120,6 +121,34 @@ const quickViews=createQuickViews({
  },
  toast
 });
+
+const studioNavigation=createStudioNavigation({
+  win:window,
+  canNavigate:()=>!modal.open,
+  read:()=>({
+    siteMode:ui.siteMode,sitePage:ui.sitePage,page:ui.page,
+    project:ui.project,episode:ui.episode,tab:ui.tab,
+    cabinet:ui.siteMode==='cabinet'?actorCabinet.navigationState():null
+  }),
+  restore:route=>{
+    ui.siteMode=['studio','site','cabinet'].includes(route.siteMode)?route.siteMode:'studio';
+    ui.sitePage=['releases','news','notifications','ratings','users'].includes(route.sitePage)?route.sitePage:'releases';
+    const sections=['projects','archive','detail','mytasks','debts','actors','actorportal','settings','review','vacations','recovery'];
+    ui.page=sections.includes(route.page)?route.page:'projects';
+    const project=state.projects.find(p=>p.id===route.project);
+    ui.project=project?.id||null;
+    const episode=project?.episodes.find(ep=>ep.id===route.episode);
+    ui.episode=episode?.id||(project?.episodes[0]?.id||null);
+    ui.tab=['roles','materials','tasks'].includes(route.tab)?route.tab:'roles';
+    if(ui.page==='detail'&&!project)ui.page='projects';
+    if(ui.siteMode==='cabinet')actorCabinet.restoreNavigation(route.cabinet);
+    if(ui.siteMode==='site')siteManager.start();
+    ui.query='';ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';
+    selectedTasks.clear();
+    render();window.scrollTo(0,0);
+  }
+});
+
 function saveStatusState(){return saveError?'error':saving?'saving':'saved';}
 function updateSaveStatus(){const el=document.querySelector('#save-status');if(!el)return;el.textContent=saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено';const indicator=el.closest('.status-indicator');if(indicator)indicator.dataset.saveState=saveStatusState();}
 function scheduleTaskCloudSync(){
@@ -187,6 +216,7 @@ function render(){
   if(selectAll)selectAll.indeterminate=selectedTasks.size>0&&!selectAll.checked;
   if(focused){const input=document.querySelector('#search-input');input.focus();input.setSelectionRange(caret,caret);}
   quickViews.refresh();
+  studioNavigation.record();
 }
 function renderPage(c){
   if(ui.siteMode==='cabinet')return actorCabinet.render();
@@ -1539,6 +1569,19 @@ document.addEventListener('click',event=>{
   if(el.dataset.tab&&!el.dataset.action){ui.tab=el.dataset.tab;render();return;}
   Promise.resolve(action(el.dataset.action,el.dataset,el)).catch(err=>{if(modal.open)formError(err);else toast(err.message,true);});
 });
+// X1 (back, MouseEvent.button=3) and X2 (forward, button=4).
+// Edge --app is Chromium: browser navigation also uses these buttons. We own
+// them in the local app so a side click cannot leave the Studio or skip entries.
+// Native browser Back/Forward and Alt+arrows still work via popstate.
+window.addEventListener('mousedown',event=>{
+  if(native&&(event.button===3||event.button===4))event.preventDefault();
+},{capture:true});
+window.addEventListener('auxclick',event=>{
+  if(!native||(event.button!==3&&event.button!==4))return;
+  event.preventDefault();event.stopPropagation();
+  if(event.button===3)studioNavigation.back();
+  else studioNavigation.forward();
+},{capture:true});
 document.addEventListener('contextmenu',event=>{
   if(modal.open||event.target.closest('input,textarea,select,[contenteditable=true]'))return;
   const target=event.target.closest?.('[data-qv-context]');
