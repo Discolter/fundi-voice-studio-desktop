@@ -1,7 +1,7 @@
 // A derived review queue: no duplicate task table and no changes to the vacation database.
 // Only roles that still require an actor's recording are candidates for reassignment.
 import {effectiveRoleDue} from './core.js';
-import {rankActorsForRole} from './casting-assistant.js';
+import {rankActorsForRole,applyRoleVoiceFromActor} from './casting-assistant.js';
 
 export const VACATION_REVIEW_STAGES=Object.freeze(['waiting','recording','retake']);
 
@@ -54,16 +54,17 @@ export function availableReplacementActors(state,vacations,oldActorId){
       a.name.localeCompare(b.name,'ru'));
 }
 
-export function reassignVacationRole(state,vacations,{projectId,episodeId,roleId,previousActorId,newActorId}){
+export function reassignVacationRole(state,vacations,{projectId,episodeId,roleId,previousActorId,newActorId,showAllActors=false}){
   const row=vacationReviewRows(state,vacations).find(({p,ep,r})=>
     p.id===projectId&&ep.id===episodeId&&r.id===roleId);
   if(!row)throw new Error('Роль больше не требует пересмотра. Обнови список.');
   if(row.r.actorId!==previousActorId)throw new Error('Исполнитель роли уже изменён. Обнови список.');
-  const target=rankActorsForRole(state,row.ep,row.r,vacations,{excludeActorId:previousActorId})
+  const target=rankActorsForRole(state,row.ep,row.r,vacations,{excludeActorId:previousActorId,showAll:showAllActors===true})
     .find(candidate=>candidate.actor.id===newActorId)?.actor;
-  if(!target)throw new Error('Новый исполнитель не найден, находится в отпуске или не подходит по типу голоса роли.');
+  if(!target)throw new Error('Новый исполнитель недоступен или не подходит по типу голоса. Для нестандартного кастинга включи «Показать всех актёров».');
   // Preserve role ID, character, timings, notes, line count, deadlines and file links.
   // Retake/recording statuses belong to the previous actor and cannot carry over.
+  applyRoleVoiceFromActor(row.r,row.actor); // Lock voice type inherited from outgoing performer.
   row.r.actorId=target.id;
   row.r.actor=target.name;
   row.r.status='waiting';
