@@ -731,17 +731,30 @@ function renderVacationReview(){
   return html;
 }
 
-function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId=''){
+function vacationReviewCandidateOptions(rows,preferred=''){
+  return rows.length?rows.map(({actor:a,episodeCount,activeCount,characters},i)=>'<option value="'+e(a.id)+'" '+(preferred===a.id||!preferred&&i===0?'selected':'')+'>'+e(a.name)+' · '+episodeCount+' ролей в серии · '+activeCount+' активных'+(characters.length?' ('+e(characters.slice(0,3).join(', '))+')':'')+(a.actorAccess?'':' · без доступа Actor')+'</option>').join(''):
+    '<option value="">Нет подходящих кандидатов — включи «Показать всех актёров»</option>';
+}
+function refreshVacationReviewCandidates(){
+  const select=modal.querySelector('#review-next-actor');
+  if(!select)return;
+  const p=getProject(select.dataset.project),ep=getEpisode(p,select.dataset.episode),r=ep?.roles.find(r=>r.id===select.dataset.role);
+  if(!r)return;
+  const current=select.value,showAll=!!modal.querySelector('#review-show-all-actors')?.checked;
+  const available=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:r.actorId,showAll});
+  select.innerHTML=vacationReviewCandidateOptions(available,current);
+}
+function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId='',showAllActors=false){
   if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error)throw Error('Обнови данные об отпусках из Cloud.');
   const row=vacationReviewRows(state,cloud.vacations||[]).find(({p,ep,r})=>p.id===projectId&&ep.id===episodeId&&r.id===roleId);
   if(!row)throw Error('Роль уже не требует пересмотра.');
-  const {p,ep,r,actor}=row,available=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id});
-  if(!available.length)throw Error('Сейчас нет доступных актёров без действующего или запланированного отпуска.');
-  const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.${validRoleVoice(r.voiceGender)?' Тип голоса персонажа: <strong>'+e(roleVoiceLabel(r.voiceGender))+'</strong>.':''}</p><label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" required>${available.map(({actor:a,episodeCount,activeCount,characters})=>`<option value="${e(a.id)}" ${preferredActorId===a.id?'selected':''}>${e(a.name)} · ${episodeCount} ролей в серии · ${activeCount} активных${characters.length?' ('+e(characters.slice(0,3).join(', '))+')':''}${a.actorAccess?'':' · без доступа Actor'}</option>`).join('')}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
+  const {p,ep,r,actor}=row,available=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors});
+  if(!rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:true}).length)throw Error('Сейчас нет доступных актёров без действующего или запланированного отпуска.');
+  const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.${validRoleVoice(r.voiceGender)?' Тип голоса персонажа: <strong>'+e(roleVoiceLabel(r.voiceGender))+'</strong>.':''}</p>${validRoleVoice(r.voiceGender)?`<label class="casting-show-all"><input type="checkbox" name="showAllActors" id="review-show-all-actors" ${showAllActors?'checked':''}> Показать всех актёров</label>`:''}<label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" data-project="${e(p.id)}" data-episode="${e(ep.id)}" data-role="${e(r.id)}" required>${vacationReviewCandidateOptions(available,preferredActorId)}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
   showModal('Переназначить роль',p.title+' · '+episodeLabel(p,ep),chooser,'Передать роль',async data=>{
     if(!native||!cloud.connected||cloud.error||cloud.vacationError)throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
     const transfer=reassignVacationRole(state,cloud.vacations||[],{
-      projectId:p.id,episodeId:ep.id,roleId:r.id,previousActorId:actor.id,newActorId:data.actorId
+      projectId:p.id,episodeId:ep.id,roleId:r.id,previousActorId:actor.id,newActorId:data.actorId,showAllActors:data.showAllActors==='on'
     });
     touch(transfer.project);modal.close();render();
     toast('Роль «'+transfer.role.character+'» переназначена на '+transfer.newActor.name+'. Отправляем в Cloud…');
@@ -1667,6 +1680,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
   if(el.id==='casting-suggestions-show-all'){updateCastingSuggestions();return;}
   if(el.id==='casting-modal-show-all'){updateCastingModalCandidates();return;}
+  if(el.id==='review-show-all-actors'){refreshVacationReviewCandidates();return;}
   if(el.classList.contains('actor-picker-show-all-input')){const picker=el.closest('.actor-picker');fillActorPicker(picker,picker.querySelector('.actor-picker-search')?.value||'');return;}
   if(el.id==='role-filter'){ui.roleFilter=el.value;render();}
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
