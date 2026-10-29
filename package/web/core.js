@@ -265,6 +265,26 @@ export function projectProgress(p) {
   const steps = ['prep','record','edit','mix','review','done'];
   return Math.round(p.episodes.reduce((n,ep)=>n+Math.max(0,steps.indexOf(ep.stage)+1)/steps.length,0)/Math.max(1,p.episodes.length)*100);
 }
+// Project cards report voice work on the most recent episode by episode NUMBER,
+// independently of the first unfinished episode used by navigation.
+export function latestProjectEpisode(project){
+  const weight=episode=>{
+    const number=Number(episode?.number);
+    return Number.isFinite(number)&&number>0?number:-1;
+  };
+  return (project?.episodes||[]).reduce((latest,episode)=>
+    !latest||weight(episode)>=weight(latest)?episode:latest,null);
+}
+export function latestEpisodeRoleProgress(project){
+  const episode=latestProjectEpisode(project);
+  const roles=episode?.roles||[];
+  const total=roles.length,accepted=roles.filter(role=>role.status==='done').length;
+  const remaining=total-accepted;
+  // The final three unfinished characters count as almost complete, regardless of percentage.
+  // No roles means "not started", not 100% completed.
+  const tone=total===0?'none':remaining<=3?'green':accepted*2<total?'red':'yellow';
+  return {episode,accepted,total,remaining,tone};
+}
 export function currentEpisode(p) { return p.episodes.find(ep=>ep.stage!=='done') || p.episodes[p.episodes.length-1]; }
 export function nearestDue(p) { return p.episodes.filter(e=>e.stage!=='done' && e.due).map(e=>e.due).sort()[0] || ''; }
 export function projectMatches(p,q) {
