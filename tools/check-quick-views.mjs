@@ -44,7 +44,7 @@ const quick=createQuickViews({
  editVacation:id=>callbacks.push(['vacation',id]),
  openProject:(p,e)=>callbacks.push(['project',p,e]),
  openFiles:x=>callbacks.push(['files',x.r.id]),
- transferRole:(p,e,r,candidate)=>callbacks.push(['transfer',p,e,r,candidate]),
+ transferRole:(p,e,r,candidate,showAll)=>callbacks.push(['transfer',p,e,r,candidate,showAll]),
  availableActors:()=>[actor2,actor3],
  changeRole:(x,patch)=>{callbacks.push(['save',x.r.id,patch]);x.r.status=patch.status;},
  cloudRequest:async ()=>({actors:[{actorId:'actor1',enabled:true,feed:{roles:[{roleId:'r1'}]}}]}),
