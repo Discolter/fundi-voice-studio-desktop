@@ -69,7 +69,7 @@ const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои за
 let recoveryRequests=[],recoveryCode='';
 const vacationFor=id=>(cloud.vacations||[]).find(v=>v.actorId===id&&(v.status==='active'||v.status==='planned'));
 const activeVacation=id=>vacationFor(id)?.status==='active';
-const vacationTag=id=>{const v=vacationFor(id);return v?`<span class="studio-vacation-tag ${v.status==='active'?'active':'planned'}" title="${e((v.status==='active'?'В отпуске: новые роли не назначать':'Запланирован отпуск')+(v.startDate?' · с '+v.startDate:'')+(v.endDate?' по '+v.endDate:''))}">${icon('vacation')}${v.status==='active'?'В отпуске':'Отпуск скоро'}</span>`:'';};
+const vacationTag=id=>{const v=vacationFor(id);return v?`<span class="studio-vacation-tag ${v.status==='active'?'active':'planned'}" title="${e((v.status==='active'?'В отпуске: новые роли не назначать':'Запланирован отпуск')+(v.startDate?' · с '+v.startDate:'')+(v.endDate?' по '+v.endDate:' · Бессрочно'))}">${icon('vacation')}${v.status==='active'?'В отпуске':'Отпуск скоро'}</span>`:'';};
 const vacationOptionSuffix=id=>{const v=vacationFor(id);return v?(v.status==='active'?' · ⛔ В отпуске':' · ◷ Отпуск скоро'):'';};
 
 async function api(path,body){
@@ -547,17 +547,19 @@ function studioVacationForm(actorId=''){
   const body=`<div class="form-grid">
     ${field('Актёр *',picker,'Выбирай из своей базы: регистрация в Actor не нужна.',true)}
     ${current?'':field('Первый день *',input('startDate',today(),'date',`required min="${today()}"`),'Сегодня или день начала будущего отпуска.')}
-    ${field('Последний день',input('endDate',current?.endDate||'','date'),'Необязательно: оставь пустым для отпуска без даты возвращения.')}
+    ${field('Последний день',input('endDate',current?.endDate||'','date',current&&!current.endDate?'disabled':'required'),'Дата нужна только для отпуска с возвращением.')}
+    <label class="check-label studio-indefinite-vacation"><input type="checkbox" name="indefinite" data-vacation-indefinite ${current&&!current.endDate?'checked':''}> Бессрочно — до ручного завершения отпуска</label>
     ${field('Причина или комментарий',`<textarea name="reason" maxlength="800" rows="4" placeholder="По желанию">${e(current?.reason||'')}</textarea>`,'Виден руководителю и самому актёру после регистрации.',true)}
   </div>`;
   showModal(current?'Изменить отпуск':'Назначить отпуск',current?actor?.name||actorId:'Для актёра без приложения или сайта',body,'Сохранить',async data=>{
     const id=current?actorId:data.actorId;
     if(!id||!(state.actors||[]).some(a=>a.id===id))throw new Error('Выбери актёра из базы.');
     if(!current&&!data.startDate)throw new Error('Укажи дату начала.');
+    if(!data.indefinite&&!data.endDate)throw new Error('Выбери дату возвращения или отметь «Бессрочно».');
     const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Europe/Madrid';
     cloud=await api('cloud/vacations/manage',{
       action:current?'update':'start',actorId:id,
-      startDate:current?'':data.startDate,endDate:data.endDate||'',
+      startDate:current?'':data.startDate,endDate:data.indefinite?'':data.endDate,
       reason:data.reason||'',timeZone:zone
     });
     modal.close();render();toast(current?'Отпуск обновлён':'Отпуск актёра сохранён в облаке');
@@ -638,7 +640,7 @@ function renderVacations(){
   html+=`<div class="studio-vacation-stats"><div><strong>${active.length}</strong><span>В отпуске</span></div><div><strong>${planned.length}</strong><span>Запланировано</span></div><div><strong>${cloud.vacationUnread||0}</strong><span>Новых событий</span></div></div>`;
   const names={active:'В отпуске',planned:'Запланирован',completed:'Завершён',ended:'Досрочный возврат',cancelled:'Отменён'};
   const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('ru-RU'):'Срок неизвестен';
-  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} по ${e(fmt(v.endDate))}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
+  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} ${v.endDate?'по '+e(fmt(v.endDate)):'· Бессрочно (до ручного завершения)'}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
   html+=section('Сейчас в отпуске',active)+section('Предстоящие отпуска',planned);
   const types={planned:'Отпуск запланирован',started:'Отпуск начался',updated:'Отпуск обновлён',cancelled:'Отпуск отменён',returned:'Отпуск завершён'};
   html+=`<details class="studio-vacation-section studio-vacation-changes" ${vacationChangesExpanded?'open':''}><summary class="studio-vacation-changes-summary"><h2>Изменения <span>${cloud.vacationUnread||0} новых</span></h2><span class="studio-vacation-changes-hint">${vacationChangesExpanded?'Скрыть':'Показать'}${events.length?' · '+events.length+' событий':''}</span>${icon('chevron')}</summary>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</details>`;
@@ -1436,6 +1438,11 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='profile-telegram'){state.settings.myTelegram=cleanTelegram(el.value).replace(/[^a-zA-Z0-9_]/g,'').slice(0,80);persist();render();}
   if(el.classList.contains('role-status')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep),r=ep.roles.find(x=>x.id===el.dataset.item),review=reviewForRole(r);r.status=el.value;if(review)r.reviewSeen=reviewVersion(review);touch(p);render();}
   if(el.id==='scan-all')modal.querySelectorAll('[name^=scan-]').forEach(input=>input.checked=el.checked);
+});
+document.addEventListener('change',event=>{
+  const checkbox=event.target.closest?.('input[data-vacation-indefinite]');if(!checkbox)return;
+  const date=checkbox.closest('form')?.querySelector('input[name=endDate]');if(!date)return;
+  date.disabled=checkbox.checked;date.required=!checkbox.checked;
 });
 modal.addEventListener('submit',async event=>{event.preventDefault();if(!modalSubmit)return;const form=event.target,data=Object.fromEntries(new FormData(form)),submit=form.querySelector('[type=submit]'),handler=modalSubmit;submit.disabled=true;try{await handler(data);}catch(err){formError(err);}finally{if(submit.isConnected)submit.disabled=false;}});
 modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)modal.close();}});
