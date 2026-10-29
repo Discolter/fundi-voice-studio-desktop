@@ -413,7 +413,20 @@ function fillActorPicker(picker,query=''){
   const q=query.trim().toLocaleLowerCase('ru');
   const found=(state.actors||[]).filter(a=>`${a.name} ${a.telegram||''}`.toLocaleLowerCase('ru').includes(q));
   const max=200;
-  const makeCard=a=>`<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${activeVacation(a.id)?' · В отпуске — недоступен':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${activeVacation(a.id)?'⛔ В отпуске — недоступен':vacationFor(a.id)?'Отпуск запланирован':a.telegram?'@'+e(a.telegram):'Без Telegram'}</small></span></button>`;
+  const isForm=picker.dataset.pickerScope==='form';
+  let currentEp;
+  if(isForm){try{currentEp=resolveTarget(modal.querySelector('[name=target]')?.value).ep;}catch{}}
+  else currentEp=getEpisode(getProject(picker.dataset.id),picker.dataset.ep);
+  const roleId=picker.dataset.item,role=currentEp?.roles.find(r=>r.id===roleId);
+  const gender=validRoleVoice(isForm?modal.querySelector('[name=voiceGender]')?.value:role?.voiceGender);
+  const load=a=>episodeActorWorkload(currentEp,a.id,roleId);
+  found.sort((a,b)=>(gender?Number(a.voiceGroup!==gender)-Number(b.voiceGroup!==gender):0)||
+    load(a).count-load(b).count||a.name.localeCompare(b.name,'ru'));
+  const makeCard=a=>{
+    const workload=load(a),mismatch=gender&&a.voiceGroup!==gender;
+    const leave=activeVacation(a.id)?'⛔ В отпуске — недоступен':vacationFor(a.id)?'◷ Отпуск запланирован':a.telegram?'@'+a.telegram:'Без Telegram';
+    return `<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${mismatch?' · Тип голоса отличается':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${e(leave)}</small><small>${workload.count} других ролей в серии${mismatch?' · ⚠ другой тип голоса':''}</small></span></button>`;
+  };
   const groups=CAST_GROUPS.map(([cast,label])=>{
     const members=found.filter(a=>(a.castGroup||'')===cast);
     if(!members.length)return '';
