@@ -61,7 +61,7 @@ export function reassignVacationRole(state,vacations,{projectId,episodeId,roleId
   if(row.r.actorId!==previousActorId)throw new Error('Исполнитель роли уже изменён. Обнови список.');
   const target=rankActorsForRole(state,row.ep,row.r,vacations,{excludeActorId:previousActorId,showAll:showAllActors===true})
     .find(candidate=>candidate.actor.id===newActorId)?.actor;
-  if(!target)throw new Error('Новый исполнитель недоступен или не подходит по типу голоса. Для нестандартного кастинга включи «Показать всех актёров».');
+  if(!target)throw new Error('Новый исполнитель не найден, в отпуске или не подходит по типу голоса. Для нестандартного кастинга включи «Показать всех актёров».');
   // Preserve role ID, character, timings, notes, line count, deadlines and file links.
   // Retake/recording statuses belong to the previous actor and cannot carry over.
   applyRoleVoiceFromActor(row.r,row.actor); // Lock voice type inherited from outgoing performer.
