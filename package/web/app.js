@@ -3,6 +3,7 @@ import {ageBadge} from './age.js';
 import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAccepted,unfinishedMyRoleEpisodes,MY_ROLE_ORDERS,validMyRoleOrder,sortMyRoleGroups} from './my-role-workload.js';
 import {createSiteManager} from './site-manager.js';
 import {createActorCabinet} from './actor-cabinet.js';
+import {createQuickViews,roleSnapshot} from './quick-views.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole} from './vacation-review.js';
@@ -87,6 +88,34 @@ const actorCabinet=createActorCabinet({
   actorAvatar:actorPickAvatar,icon,escapeHTML:e,
   rerender:()=>render(),api
 });
+const quickViews=createQuickViews({
+ root:document.querySelector('#quick-view-root'),
+ getState:()=>state,getCloud:()=>cloud,
+ getRole:(pid,eid,rid)=>roleSnapshot(state,pid,eid,rid),
+ getReview:r=>reviewForRole(r),
+ getSourceUrl:(pid,eid)=>(cloud.sourceLinks||[]).find(x=>x.projectId===pid&&x.episodeId===eid)?.url||'',
+ icon,escapeHTML:e,actorAvatar:actorPickAvatar,
+ editRole:(pid,eid,rid)=>roleForm(pid,eid,rid),
+ editActor:id=>actorForm(id),
+ editVacation:id=>studioVacationForm(id),
+ openProject:(pid,eid)=>{ui.siteMode='studio';openProject(pid,eid,'roles');},
+ openFiles:({p,ep,r})=>showStudioFiles({roleId:r.id,actorId:r.actorId,title:r.character+' · '+p.title+' · '+episodeLabel(p,ep)}),
+ openActorCabinet:id=>{ui.siteMode='cabinet';actorCabinet.start();actorCabinet.action({cabinet:'actor',id});render();},
+ transferRole:(pid,eid,rid,actorId)=>vacationReviewTransferForm(pid,eid,rid,actorId),
+ availableActors:oldId=>availableReplacementActors(state,cloud.vacations||[],oldId),
+ cloudRequest:api,refreshCloud:()=>refreshAllStudio(),
+ changeRole:({p,r},{status,due,lineCount})=>{
+   if(!ROLE_STAGES.some(([key])=>key===status))throw Error('Выбери корректный статус роли.');
+   if(due&&!/^\d{4}-\d{2}-\d{2}$/.test(due))throw Error('Укажи корректную дату.');
+   if(lineCount!==''&&!/^(?:0|[1-9][0-9]{0,6})$/.test(lineCount))throw Error('Реплики: целое число от 0 до 1 000 000.');
+   const count=lineCount===''?null:Number(lineCount);
+   if(count!==null&&count>1000000)throw Error('Максимум 1 000 000 реплик.');
+   r.status=status;r.due=dateValue(due);r.lineCount=count;
+   const review=reviewForRole(r);if(review)r.reviewSeen=reviewVersion(review);
+   touch(p);render();
+ },
+ toast
+});
 function saveStatusState(){return saveError?'error':saving?'saving':'saved';}
 function updateSaveStatus(){const el=document.querySelector('#save-status');if(!el)return;el.textContent=saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено';const indicator=el.closest('.status-indicator');if(indicator)indicator.dataset.saveState=saveStatusState();}
 function scheduleTaskCloudSync(){
@@ -153,6 +182,7 @@ function render(){
   const selectAll=document.querySelector('#bulk-task-select-all');
   if(selectAll)selectAll.indeterminate=selectedTasks.size>0&&!selectAll.checked;
   if(focused){const input=document.querySelector('#search-input');input.focus();input.setSelectionRange(caret,caret);}
+  quickViews.refresh();
 }
 function renderPage(c){
   if(ui.siteMode==='cabinet')return actorCabinet.render();
@@ -552,7 +582,7 @@ function studioVacationForm(actorId=''){
   if(!current&&!available.length){toast('Все актёры уже отмечены или список актёров пуст.',true);return;}
   const selected=actor||available[0];
   const picker=current?`<div class="studio-vacation-picked">${actorPickAvatar(actor||{name:actorId})}<strong>${e(actor?.name||actorId)}</strong></div>`:
-    `<select name="actorId" id="vacation-owner-actor" required aria-label="Выбери актёра">${available.map(a=>`<option value="${e(a.id)}">${e(a.name)}${a.telegram?' @'+e(a.telegram):''}</option>`).join('')}</select>`;
+    `<select name="actorId" id="vacation-owner-actor" required aria-label="Выбери актёра">${available.map(a=>`<option value="${e(a.id)}" ${preferredActorId===a.id?'selected':''}>${e(a.name)}${a.telegram?' @'+e(a.telegram):''}</option>`).join('')}</select>`;
   const body=`<div class="form-grid">
     ${field('Актёр *',picker,'Выбирай из своей базы: регистрация в Actor не нужна.',true)}
     ${current?'':field('Первый день *',input('startDate',today(),'date',`required min="${today()}"`),'Сегодня или день начала будущего отпуска.')}
@@ -612,7 +642,7 @@ function renderVacationReview(){
   return html;
 }
 
-function vacationReviewTransferForm(projectId,episodeId,roleId){
+function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId=''){
   if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error)throw Error('Обнови данные об отпусках из Cloud.');
   const row=vacationReviewRows(state,cloud.vacations||[]).find(({p,ep,r})=>p.id===projectId&&ep.id===episodeId&&r.id===roleId);
   if(!row)throw Error('Роль уже не требует пересмотра.');
