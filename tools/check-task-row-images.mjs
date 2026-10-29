@@ -18,7 +18,7 @@ const visuals=new Function('e','projectArt','safeCover','safeRoleImage','icon','
     p=>p.cover?'<img class="project-poster" src="'+escapeHTML(p.cover)+'">':'<span class="mini-emblem">★</span>',
     validImage,validImage,
     kind=>'<svg>'+kind+'</svg>',
-    (p,ep)=>'Сезон '+p.season+' · Серия '+ep.number
+    (p,ep)=>'Сезон '+p.season+' · Серия '+String(ep.number).padStart(2,'0')
 );
 const cover='data:image/png;base64,AQID';
 const avatar='data:image/webp;base64,AQID';
