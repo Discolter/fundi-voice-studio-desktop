@@ -145,6 +145,17 @@ export function episodeRoleCharacterOptions(roles) {
   }
   return [...characters.values()].sort((a,b)=>a.label.localeCompare(b.label,'ru',{sensitivity:'base',numeric:true}));
 }
+// Use the image already attached to a role, including when duplicate character names
+// exist within an episode. Prefer the first *valid* image rather than a blank duplicate.
+export function episodeRoleCharacterImage(roles, characterKey) {
+  if(typeof characterKey !== 'string' || !characterKey.startsWith('character:'))return '';
+  for(const role of roles||[]) {
+    if(episodeRoleCharacterKey(role) !== characterKey)continue;
+    const image = safeRoleImage(role.image);
+    if(image)return image;
+  }
+  return '';
+}
 export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', characterKey='all', order='original'}={}) {
   const all=episodeRoleActorOptions(state,roles);
   const counts=new Map(all.map(actor=>[actor.key,actor.count]));
