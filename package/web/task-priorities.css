@@ -123,3 +123,45 @@ body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-hig
 .tasks-priority-table tbody tr.task-bulk-selected{outline:2px solid color-mix(in srgb,var(--lime,#80b1ff) 68%,transparent);outline-offset:-2px}
 .tasks-priority-table tbody tr.task-bulk-selected td.task-bulk-cell{background:color-mix(in srgb,var(--lime,#80b1ff) 11%,transparent)}
 @media(max-width:650px){.my-task-bulk-bar{gap:8px}.my-task-bulk-count{width:100%;order:-1;margin:0}}
+
+
+/* Compact picture+name pairs inside personal assignments.
+   Shared by the main task list and episode task rows; never change row height dramatically. */
+.tasks-priority-table .task-project-cell{min-width:185px}
+.tasks-priority-table .task-actor-cell{min-width:155px}
+.tasks-priority-table .task-character-cell{min-width:155px}
+.tasks-priority-table .task-identity{
+  display:flex;align-items:center;gap:9px;width:100%;min-width:0;
+  padding:0;background:transparent;border:0;text-align:left;color:inherit;
+}
+.tasks-priority-table button.task-identity:hover .task-identity-copy strong{color:var(--lime)}
+.tasks-priority-table button.task-identity:focus-visible{outline:2px solid var(--lime);outline-offset:3px;border-radius:7px}
+.tasks-priority-table .task-identity-image{
+  display:grid;place-items:center;flex:0 0 35px;width:35px;height:35px;
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  background:var(--panel2);color:var(--muted);
+}
+.tasks-priority-table .task-project-image{height:45px;flex-basis:35px;border-radius:7px}
+.tasks-priority-table .task-actor-image{border-radius:50%}
+.tasks-priority-table .task-character-image{border-radius:9px}
+.tasks-priority-table .task-identity-image>img,
+.tasks-priority-table .task-project-image .project-poster{
+  display:block;width:100%;height:100%;object-fit:cover;object-position:center;
+}
+.tasks-priority-table .task-project-image .mini-emblem{
+  display:grid;place-items:center;width:100%;height:100%;border:0;border-radius:0;
+}
+.tasks-priority-table .task-project-image .cover-art{width:29px;height:29px;position:static}
+.tasks-priority-table .task-identity-copy{display:flex;flex-direction:column;gap:3px;min-width:0;overflow:hidden}
+.tasks-priority-table .task-identity-copy strong{font-size:12px;line-height:1.3;font-weight:650;overflow-wrap:anywhere}
+.tasks-priority-table .task-identity-copy small{font-size:10px;line-height:1.35;color:var(--muted);overflow-wrap:anywhere}
+.tasks-priority-table .task-actor-initials{font-size:10px;font-weight:750;letter-spacing:.2px}
+.tasks-priority-table .task-character-placeholder{display:grid;place-items:center;opacity:.75}
+.tasks-priority-table .task-character-placeholder .icon{width:17px;height:17px}
+.tasks-priority-table .task-identity-unlinked .task-identity-copy strong{color:var(--muted)}
+.my-priority-table .tasks-priority-table .task-project-identity .task-identity-copy strong{font-size:12px}
+@media(max-width:650px){
+  .tasks-priority-table .task-identity{gap:7px}
+  .tasks-priority-table .task-identity-image{width:31px;height:31px;flex-basis:31px}
+  .tasks-priority-table .task-project-image{height:40px}
+}
