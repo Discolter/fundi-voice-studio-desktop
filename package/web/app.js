@@ -438,6 +438,7 @@ function actorPicker(role,{form=false,pid='',eid=''}={}){
     ${form?`<input type="hidden" name="actorId" value="${e(selected)}">`:''}
     <div class="actor-picker-menu" hidden>
       <input class="actor-picker-search" type="search" placeholder="Поиск по имени или @username" aria-label="Найти актёра" autocomplete="off">
+      <label class="actor-picker-show-all"><input type="checkbox" class="actor-picker-show-all-input"> Показать всех актёров</label>
       <div class="actor-picker-options" role="group" aria-label="Актёры"></div>
     </div>
   </div>`;
@@ -445,7 +446,7 @@ function actorPicker(role,{form=false,pid='',eid=''}={}){
 function fillActorPicker(picker,query=''){
   const target=picker.querySelector('.actor-picker-options');if(!target)return;
   const q=query.trim().toLocaleLowerCase('ru');
-  const found=(state.actors||[]).filter(a=>`${a.name} ${a.telegram||''}`.toLocaleLowerCase('ru').includes(q));
+  let found=(state.actors||[]).filter(a=>`${a.name} ${a.telegram||''}`.toLocaleLowerCase('ru').includes(q));
   const max=200;
   const isForm=picker.dataset.pickerScope==='form';
   let currentEp;
@@ -453,6 +454,10 @@ function fillActorPicker(picker,query=''){
   else currentEp=getEpisode(getProject(picker.dataset.id),picker.dataset.ep);
   const roleId=picker.dataset.item,role=currentEp?.roles.find(r=>r.id===roleId);
   const gender=validRoleVoice(isForm?modal.querySelector('[name=voiceGender]')?.value:role?.voiceGender);
+  const toggle=picker.querySelector('.actor-picker-show-all');
+  if(toggle)toggle.hidden=!gender;
+  const showAll=!!toggle?.querySelector('input')?.checked;
+  if(gender&&!showAll)found=found.filter(a=>a.voiceGroup===gender);
   const load=a=>episodeActorWorkload(currentEp,a.id,roleId);
   found.sort((a,b)=>(gender?Number(a.voiceGroup!==gender)-Number(b.voiceGroup!==gender):0)||
     load(a).count-load(b).count||a.name.localeCompare(b.name,'ru'));
@@ -1642,6 +1647,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='cast-scope'){const p=getProject(el.dataset.id);modal.querySelector('#cast-draft').value=castFromCurrentStatus(p.id,el.value);}
   if(el.classList.contains('episode-stage')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);ep.stage=el.value;touch(p);}
   if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
+  if(el.classList.contains('actor-picker-show-all-input')){const picker=el.closest('.actor-picker');fillActorPicker(picker,picker.querySelector('.actor-picker-search')?.value||'');return;}
   if(el.id==='role-filter'){ui.roleFilter=el.value;render();}
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
