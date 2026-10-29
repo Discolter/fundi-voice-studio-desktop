@@ -551,3 +551,31 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
   .vacation-review-actions{width:100%;flex-wrap:wrap}
   .vacation-review-actions .btn{flex:1;justify-content:center}
 }
+
+
+/* Casting assistant: episode-level repetition and workload indicators. */
+.role-voice-badge{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:6px;padding:2px 6px;margin-left:6px;color:var(--muted);font-size:10px;white-space:nowrap}
+.casting-table-button{color:var(--lime);border:1px solid color-mix(in srgb,var(--lime) 28%,transparent)}
+.casting-suggestions{padding:16px;border:1px solid var(--line);background:var(--panel2);border-radius:12px;min-width:0}
+.casting-suggestions-head{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.casting-suggestions-head strong{display:inline-flex;align-items:center;gap:8px;font-size:13px}
+.casting-suggestions-head .icon{width:16px;height:16px;color:var(--lime)}
+.casting-current{font-size:11px;color:var(--muted);margin:0 0 11px}
+.casting-suggestion-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.casting-suggestion{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);text-align:left;min-width:0}
+.casting-suggestion:hover{border-color:var(--lime);background:color-mix(in srgb,var(--lime) 5%,var(--panel))}
+.casting-suggestion-rank{align-self:flex-start;display:grid;place-items:center;flex:none;width:23px;height:23px;border-radius:7px;background:color-mix(in srgb,var(--lime) 12%,var(--panel));color:var(--lime);font-weight:700;font-size:11px}
+.casting-suggestion-content{min-width:0;display:flex;flex:1;flex-direction:column;gap:3px}
+.casting-suggestion-content strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.casting-suggestion-content small,.casting-modal-option small{color:var(--muted);font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.casting-suggestion-pick{flex:none;font-size:10px;color:var(--lime)}
+.casting-suggestions>p:last-child{margin:11px 0 0;line-height:1.6}
+.casting-intro{margin:0 0 7px}
+.casting-modal-list{display:grid;gap:8px;max-height:min(49vh,500px);overflow:auto;margin:15px 0;padding:2px 6px 2px 0}
+.casting-modal-option{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);cursor:pointer}
+.casting-modal-option:hover,.casting-modal-option:has(input:checked){border-color:var(--lime)}
+.casting-modal-option input{flex:none;width:17px;height:17px;accent-color:var(--lime)}
+.casting-modal-option span{min-width:0;display:flex;flex-direction:column;gap:3px}
+.casting-modal-option strong{font-size:12px}
+.casting-modal-option small{display:block}
+@media(max-width:650px){.casting-suggestion-list{grid-template-columns:1fr}.casting-suggestions-head{align-items:flex-start}.casting-suggestions{padding:12px}}

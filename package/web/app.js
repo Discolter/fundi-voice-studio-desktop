@@ -7,6 +7,7 @@ import {createQuickViews,roleSnapshot} from './quick-views.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole} from './vacation-review.js';
+import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
@@ -104,6 +105,7 @@ const quickViews=createQuickViews({
  openFiles:({p,ep,r})=>showStudioFiles({roleId:r.id,actorId:r.actorId,title:r.character+' · '+p.title+' · '+episodeLabel(p,ep)}),
  openActorCabinet:id=>{ui.siteMode='cabinet';actorCabinet.start();actorCabinet.action({cabinet:'actor',id});render();},
  transferRole:(pid,eid,rid,actorId)=>vacationReviewTransferForm(pid,eid,rid,actorId),
+ castingAssistant:(pid,eid,rid)=>castingAssistantForm(pid,eid,rid),
  availableActors:oldId=>availableReplacementActors(state,cloud.vacations||[],oldId),
  cloudRequest:api,refreshCloud:()=>refreshAllStudio(),
  changeRole:({p,r},{status,due,lineCount})=>{
@@ -396,9 +398,12 @@ function actorPicker(role,{form=false,pid='',eid=''}={}){
   const name=actor?.name||role.actor||'Не назначен';
   const extra=activeVacation(actor?.id)?'⛔ В отпуске — новые роли не назначать':vacationFor(actor?.id)?'◷ Отпуск запланирован':actor?.telegram?'@'+actor.telegram:legacy?'Старая запись':'Нажми, чтобы выбрать из базы';
   const id=role.id||'';
+  const relatedEpisode=!form&&pid&&eid?getEpisode(getProject(pid),eid):null;
+  const otherCount=relatedEpisode&&actor?episodeActorWorkload(relatedEpisode,actor.id,id).count:null;
+  const extraWithLoad=extra+(otherCount===null?'':' · '+otherCount+' других ролей в серии');
   return `<div class="actor-picker ${form?'actor-picker-form':'actor-picker-table'}" data-picker-scope="${form?'form':'row'}" data-id="${e(pid)}" data-ep="${e(eid)}" data-item="${e(id)}">
     <button type="button" class="actor-picker-trigger" data-action="actor-picker-toggle" aria-haspopup="true" aria-expanded="false" title="Выбрать актёра из базы">
-      ${actorPickAvatar(actor||{name:legacy?role.actor:'?'})}<span class="actor-picker-selected"><strong>${e(name)}</strong><small>${e(extra)}</small></span>${icon('chevron')}
+      ${actorPickAvatar(actor||{name:legacy?role.actor:'?'})}<span class="actor-picker-selected"><strong>${e(name)}</strong><small>${e(extraWithLoad)}</small></span>${icon('chevron')}
     </button>
     ${form?`<input type="hidden" name="actorId" value="${e(selected)}">`:''}
     <div class="actor-picker-menu" hidden>
@@ -412,7 +417,20 @@ function fillActorPicker(picker,query=''){
   const q=query.trim().toLocaleLowerCase('ru');
   const found=(state.actors||[]).filter(a=>`${a.name} ${a.telegram||''}`.toLocaleLowerCase('ru').includes(q));
   const max=200;
-  const makeCard=a=>`<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${activeVacation(a.id)?' · В отпуске — недоступен':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${activeVacation(a.id)?'⛔ В отпуске — недоступен':vacationFor(a.id)?'Отпуск запланирован':a.telegram?'@'+e(a.telegram):'Без Telegram'}</small></span></button>`;
+  const isForm=picker.dataset.pickerScope==='form';
+  let currentEp;
+  if(isForm){try{currentEp=resolveTarget(modal.querySelector('[name=target]')?.value).ep;}catch{}}
+  else currentEp=getEpisode(getProject(picker.dataset.id),picker.dataset.ep);
+  const roleId=picker.dataset.item,role=currentEp?.roles.find(r=>r.id===roleId);
+  const gender=validRoleVoice(isForm?modal.querySelector('[name=voiceGender]')?.value:role?.voiceGender);
+  const load=a=>episodeActorWorkload(currentEp,a.id,roleId);
+  found.sort((a,b)=>(gender?Number(a.voiceGroup!==gender)-Number(b.voiceGroup!==gender):0)||
+    load(a).count-load(b).count||a.name.localeCompare(b.name,'ru'));
+  const makeCard=a=>{
+    const workload=load(a),mismatch=gender&&a.voiceGroup!==gender;
+    const leave=activeVacation(a.id)?'⛔ В отпуске — недоступен':vacationFor(a.id)?'◷ Отпуск запланирован':a.telegram?'@'+a.telegram:'Без Telegram';
+    return `<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${mismatch?' · Тип голоса отличается':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${e(leave)}</small><small>${workload.count} других ролей в серии${mismatch?' · ⚠ другой тип голоса':''}</small></span></button>`;
+  };
   const groups=CAST_GROUPS.map(([cast,label])=>{
     const members=found.filter(a=>(a.castGroup||'')===cast);
     if(!members.length)return '';
@@ -436,7 +454,7 @@ function updateActorPicker(picker,id){
   }else{
     const p=getProject(picker.dataset.id),ep=getEpisode(p,picker.dataset.ep),r=ep?.roles.find(r=>r.id===picker.dataset.item);
     if(!p||!r)return;
-    r.actorId=a?.id||'';r.actor=a?.name||'';touch(p);
+    if(r.actorId!==(a?.id||'')){r.status='waiting';r.reviewSeen='';}r.actorId=a?.id||'';r.actor=a?.name||'';touch(p);
   }
   const legacy=id==='__legacy__';
   const name=a?.name||(isNew?'Новый актёр':legacy?'Старая запись':'Не назначен');
@@ -444,6 +462,7 @@ function updateActorPicker(picker,id){
   const trigger=picker.querySelector('.actor-picker-trigger');
   trigger.innerHTML=`${actorPickAvatar(a||{name:isNew?'+':'?'})}<span class="actor-picker-selected"><strong>${e(name)}</strong><small>${e(label)}</small></span>${icon('chevron')}`;
   closeActorPickers();
+  if(picker.dataset.pickerScope==='form')updateCastingSuggestions();
   if(picker.dataset.pickerScope==='row')render();
 }
 
@@ -461,7 +480,7 @@ function actorCabinetVisibilityButton(p,ep,r){
   ${!native||!cloud.connected?'disabled':''}>${icon(hidden?'restore':'eye-off')}</button>${hidden?'<small class="role-actor-hidden-label">Скрыта у актёра</small>':''}`;
 }
 function roleImageThumb(role){const image=safeRoleImage(role?.image);return image?`<button type="button" class="role-character-image" data-role-image-open aria-label="Увеличить персонажа ${e(role.character)}"><img src="${e(image)}" alt="${e(role.character)}"></button>`:'';}
-function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><td>${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
+function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><td>${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${validRoleVoice(r.voiceGender)?`<span class="role-voice-badge">${e(roleVoiceLabel(r.voiceGender))}</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions"><button type="button" class="icon-btn casting-table-button" data-action="casting-assistant" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Подобрать актёра · нагрузка в серии" aria-label="Подобрать актёра для ${e(r.character)}">${icon('users')}</button>${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
 
 function episodeTasks(p,ep){return `<div class="panel-head"><h2>Задачи</h2><button class="btn primary small" data-action="new-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Добавить</button></div>${tasksTable(ep.tasks.filter(t=>state.settings.mode!=='actor'||t.mine).map(t=>({p,ep,t})))||empty('Нет задач','new-task','Добавить задачу',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;}
 function tasksTable(rows,global=false){
@@ -645,7 +664,7 @@ function renderVacationReview(){
     const dates=`${v.startDate?'С '+e(v.startDate):'Начало неизвестно'}${v.endDate?' по '+e(v.endDate):' · без даты окончания'}`;
     html+=`<section class="vacation-review-actor"><header class="vacation-review-person">${actorPickAvatar(a)}<div><strong>${e(a.name)}</strong><small>${a.telegram?'@'+e(a.telegram)+' · ':''}${dates}</small></div>${vacationTag(actorId)}<span class="vacation-review-count">${items.length} ${items.length===1?'роль':'ролей'}</span></header><div class="vacation-review-roles">`;
     for(const {p,ep,r,due} of items){
-      const replacements=availableReplacementActors(state,cloud.vacations||[],actorId).length;
+      const replacements=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actorId}).length;
       html+=`<article class="vacation-review-role" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><div class="vacation-review-role-main"><strong>${e(r.character)}</strong><small>${e(p.title)} · ${e(episodeLabel(p,ep))}</small><div class="vacation-review-meta"><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span>${Number.isInteger(r.lineCount)?`<span>${r.lineCount} репл.</span>`:''}${due?`<span>Срок: ${e(dueLabel(due))}</span>`:''}</div></div><div class="vacation-review-actions"><button type="button" class="btn ghost small" data-qv-open="replace" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}" ${!healthy||!replacements?'disabled':''}>Сравнить кандидатов</button><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть</button><button class="btn primary small" data-action="vacation-review-transfer" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" ${!healthy||!replacements?'disabled':''} title="${!replacements?'Нет актёров вне отпуска':'Передать роль другому актёру'}">Передать роль ${icon('arrow')}</button></div></article>`;
     }
     html+='</div></section>';
@@ -657,9 +676,9 @@ function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId=
   if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error)throw Error('Обнови данные об отпусках из Cloud.');
   const row=vacationReviewRows(state,cloud.vacations||[]).find(({p,ep,r})=>p.id===projectId&&ep.id===episodeId&&r.id===roleId);
   if(!row)throw Error('Роль уже не требует пересмотра.');
-  const {p,ep,r,actor}=row,available=availableReplacementActors(state,cloud.vacations||[],actor.id);
+  const {p,ep,r,actor}=row,available=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id});
   if(!available.length)throw Error('Сейчас нет доступных актёров без действующего или запланированного отпуска.');
-  const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.</p><label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" required>${available.map(a=>`<option value="${e(a.id)}" ${preferredActorId===a.id?'selected':''}>${e(a.name)}${a.telegram?' · @'+e(a.telegram):''}${a.voiceGroup===actor.voiceGroup?' · похожая группа голоса':''}${a.actorAccess?'':' · без доступа Actor'}</option>`).join('')}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
+  const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.${validRoleVoice(r.voiceGender)?' Тип голоса персонажа: <strong>'+e(roleVoiceLabel(r.voiceGender))+'</strong>.':''}</p><label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" required>${available.map(({actor:a,episodeCount,activeCount,characters})=>`<option value="${e(a.id)}" ${preferredActorId===a.id?'selected':''}>${e(a.name)} · ${episodeCount} ролей в серии · ${activeCount} активных${characters.length?' ('+e(characters.slice(0,3).join(', '))+')':''}${a.actorAccess?'':' · без доступа Actor'}</option>`).join('')}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
   showModal('Переназначить роль',p.title+' · '+episodeLabel(p,ep),chooser,'Передать роль',async data=>{
     if(!native||!cloud.connected||cloud.error||cloud.vacationError)throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
     const transfer=reassignVacationRole(state,cloud.vacations||[],{
@@ -1015,17 +1034,74 @@ function taskForm(pid,epid,itemId){
     },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}">Удалить</button>`:''});
 }
 
+// Contextual assistant: counts always refer to this precise episode, not the anime total.
+function castingCandidateLabel(row){
+  return row.episodeCount+' ролей в серии · '+row.activeCount+' активных всего'+
+    (row.unknownLines?' · '+row.unknownLines+' без числа реплик':'');
+}
+function updateCastingSuggestions(){
+  const panel=modal.querySelector('#casting-suggestions');if(!panel)return;
+  const targetId=modal.querySelector('[name=target]')?.value||'';
+  let selection;try{selection=resolveTarget(targetId);}catch{
+    panel.innerHTML='<p class="small muted">Выбери проект и серию, чтобы увидеть рекомендуемых актёров.</p>';return;
+  }
+  const {ep}=selection;
+  const existing=ep.roles.find(r=>r.id===panel.dataset.roleId);
+  const currentId=modal.querySelector('[name=actorId]')?.value||'';
+  const gender=validRoleVoice(modal.querySelector('[name=voiceGender]')?.value);
+  const role={id:panel.dataset.roleId,voiceGender:gender};
+  const rows=rankActorsForRole(state,ep,role,cloud.vacations||[],{excludeActorId:currentId&&currentId!=='__new__'&&currentId!=='__legacy__'?currentId:''});
+  const picked=state.actors.find(a=>a.id===currentId);
+  const currentLoad=picked?episodeActorWorkload(ep,picked.id,existing?.id||role.id):null;
+  const mismatch=picked&&gender&&picked.voiceGroup!==gender;
+  panel.innerHTML='<div class="casting-suggestions-head"><strong>'+icon('users')+' Рекомендации по кастингу</strong><span class="small muted">Меньше повторов в серии — выше в списке</span></div>'+
+    (picked?'<p class="casting-current">'+e(picked.name)+': '+currentLoad.count+' других ролей в этой серии'+(mismatch?' · ⚠ Тип голоса не совпадает с ролью':'')+'</p>':'')+
+    '<div class="casting-suggestion-list">'+(rows.length?rows.slice(0,5).map((item,index)=>
+      '<button type="button" class="casting-suggestion" data-action="casting-pick" data-actor="'+e(item.actor.id)+'">'+
+      '<span class="casting-suggestion-rank">'+(index+1)+'</span><span class="casting-suggestion-content"><strong>'+e(item.actor.name)+'</strong>'+
+      '<small>'+e(castingCandidateLabel(item))+'</small>'+
+      (item.characters.length?'<small>В серии: '+e(item.characters.slice(0,3).join(', '))+(item.characters.length>3?'…':'')+'</small>':'')+
+      (!item.hasAccess?'<small>Доступ в Actor пока выключен</small>':'')+'</span><span class="casting-suggestion-pick">Выбрать</span></button>'
+    ).join(''):'<p class="small muted">Нет свободных кандидатов'+(gender?' с указанным типом голоса':'')+'. Проверь базу актёров и отпуска.</p>')+'</div>'+
+    '<p class="small muted">Исключены действующие и запланированные отпуска. Тип голоса определяется по группе актёра в базе. Это подсказка, а не автоматическое назначение.</p>';
+}
+function castingAssistantForm(projectId,episodeId,roleId){
+  const p=getProject(projectId),ep=getEpisode(p,episodeId),r=ep?.roles.find(x=>x.id===roleId);
+  if(!p||!r)throw new Error('Роль не найдена. Обнови список.');
+  const rows=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:r.actorId});
+  const voice=validRoleVoice(r.voiceGender);
+  const intro='<p class="casting-intro"><strong>'+e(r.character)+'</strong> · '+e(roleVoiceLabel(voice))+
+    ' · '+e(episodeLabel(p,ep))+'</p><p class="small muted">Сначала исполнители без ролей в этой серии, затем с меньшей нагрузкой. В отпуске кандидаты исключены. Решение принимаешь ты.</p>';
+  const list='<div class="casting-modal-list">'+rows.map((item,index)=>
+    '<label class="casting-modal-option"><input type="radio" name="actorId" value="'+e(item.actor.id)+'" '+(index===0?'checked':'')+'><span><strong>'+e(item.actor.name)+'</strong>'+
+    '<small>'+e(castingCandidateLabel(item))+(item.episodeLines?' · '+item.episodeLines+' известных реплик':'')+'</small>'+
+    (item.characters.length?'<small>Уже озвучивает: '+e(item.characters.slice(0,5).join(', '))+'</small>':'')+
+    (!item.hasAccess?'<small>Доступ в Actor пока выключен</small>':'')+'</span></label>'
+  ).join('')+'</div>';
+  showModal('Подбор актёра',p.title, intro+(rows.length?list:'<p class="small muted">Подходящих актёров вне отпуска не найдено. Проверь тип голоса и базу актёров.</p>'),
+    'Назначить выбранного',data=>{
+      const candidate=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:r.actorId}).find(x=>x.actor.id===data.actorId);
+      if(!candidate)throw new Error('Выбранный актёр больше недоступен. Обнови рекомендации.');
+      const oldActorId=r.actorId;
+      r.actorId=candidate.actor.id;r.actor=candidate.actor.name;
+      if(oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';}
+      touch(p);modal.close();render();toast('Роль «'+r.character+'» назначена: '+candidate.actor.name);
+    },{extra:'<button class="btn ghost small" type="button" data-action="edit-role" data-id="'+e(p.id)+'" data-ep="'+e(ep.id)+'" data-item="'+e(r.id)+'">Изменить роль</button>'});
+}
+
 function roleForm(pid,epid,itemId){
-  const p=pid?getProject(pid):null,ep=getEpisode(p,epid),old=ep?.roles.find(r=>r.id===itemId),r=old||{id:uid(),createdAt:new Date().toISOString(),character:'',lineCount:null,actorId:'',actor:'',mine:state.settings.mode==='actor',status:'waiting',inProject:false,folder:'',subtitle:'',notes:'',due:'',image:''};
+  const p=pid?getProject(pid):null,ep=getEpisode(p,epid),old=ep?.roles.find(r=>r.id===itemId),r=old||{id:uid(),createdAt:new Date().toISOString(),character:'',lineCount:null,actorId:'',actor:'',mine:state.settings.mode==='actor',status:'waiting',voiceGender:'',inProject:false,folder:'',subtitle:'',notes:'',due:'',image:''};
   if(!state.projects.length){projectForm();return;}
-  showModal(old?'Изменить роль':'Новая роль',pid?p.title:'',`<div class="form-grid">${targetField(pid,epid)}${field('Персонаж *',input('character',r.character,'text','required maxlength="200"'),'',true)}${roleImageEditor(r.image||'')}${field('Количество реплик',input('lineCount',r.lineCount??'','number','min="0" max="1000000" step="1" inputmode="numeric" placeholder="Не указано"'),'Необязательно. 0 — реплик нет; пустое поле — количество неизвестно.',true)}<div class="field full"><label>Актёр</label>${actorPicker(r,{form:true})}</div><div class="field full new-actor-inline" id="new-actor-inline" hidden><label for="new-actor-name">Имя нового актёра *</label><input id="new-actor-name" name="newActorName" maxlength="160" disabled></div></div><details class="disclosure form-details"><summary>Обработка, голос и субтитры</summary><div class="form-grid">${field('Обработка',`<select name="status">${options(ROLE_STAGES,roleReviewStage(r,reviewForRole(r)))}</select>`)}${field('Срок для актёра',input('due',r.due||'','date'),'Если пусто — берём срок серии.')}${field('Отметки',`<label class="check-label">${input('mine','1','checkbox',r.mine?'checked':'')}Моя роль</label>`)}${field('Папка с голосом',pathField('folder',r.folder||'','folder'),'',true)}${field('SRT / ASS персонажа',pathField('subtitle',r.subtitle||'','file'),'',true)}${field('Заметки',area('notes',r.notes),'',true)}</div></details>`,'Сохранить',data=>{
+  showModal(old?'Изменить роль':'Новая роль',pid?p.title:'',`<div class="form-grid">${targetField(pid,epid)}${field('Персонаж *',input('character',r.character,'text','required maxlength="200"'),'',true)}${roleImageEditor(r.image||'')}${field('Количество реплик',input('lineCount',r.lineCount??'','number','min="0" max="1000000" step="1" inputmode="numeric" placeholder="Не указано"'),'Необязательно. 0 — реплик нет; пустое поле — количество неизвестно.',true)}${field('Тип голоса персонажа',`<select name="voiceGender" id="role-voice-gender">${options(ROLE_VOICE_OPTIONS,validRoleVoice(r.voiceGender))}</select>`,'Используется для рекомендаций: мужские или женские голоса.')}<div class="field full"><label>Актёр</label>${actorPicker(r,{form:true})}</div><div class="field full casting-suggestions" id="casting-suggestions" data-role-id="${e(r.id)}" aria-live="polite"></div><div class="field full new-actor-inline" id="new-actor-inline" hidden><label for="new-actor-name">Имя нового актёра *</label><input id="new-actor-name" name="newActorName" maxlength="160" disabled></div></div><details class="disclosure form-details"><summary>Обработка, голос и субтитры</summary><div class="form-grid">${field('Обработка',`<select name="status">${options(ROLE_STAGES,roleReviewStage(r,reviewForRole(r)))}</select>`)}${field('Срок для актёра',input('due',r.due||'','date'),'Если пусто — берём срок серии.')}${field('Отметки',`<label class="check-label">${input('mine','1','checkbox',r.mine?'checked':'')}Моя роль</label>`)}${field('Папка с голосом',pathField('folder',r.folder||'','folder'),'',true)}${field('SRT / ASS персонажа',pathField('subtitle',r.subtitle||'','file'),'',true)}${field('Заметки',area('notes',r.notes),'',true)}</div></details>`,'Сохранить',data=>{
     const {p,ep}=resolveTarget(data.target);if(!data.character.trim())throw new Error('Укажи персонажа.');const lineCountRaw=String(data.lineCount??'').trim();if(lineCountRaw&&!/^(?:0|[1-9][0-9]{0,6})$/.test(lineCountRaw))throw new Error('Количество реплик должно быть целым числом от 0 до 1 000 000.');const lineCount=lineCountRaw===''?null:Number(lineCountRaw);if(lineCount!==null&&lineCount>1000000)throw new Error('Максимум — 1 000 000 реплик.');if(!old&&ep.roles.length>=2000)throw new Error('В серии уже 2000 ролей.');
     let actor=(state.actors||[]).find(a=>a.id===data.actorId),legacy=data.actorId==='__legacy__'?r.actor:(data.actor||'').trim();
     if(data.actorId==='__new__'){const name=(data.newActorName||'').trim();if(!name)throw new Error('Укажи имя актёра.');if(state.actors.length>=2000)throw new Error('В списке уже 2000 актёров.');actor=newActor({name});state.actors.push(actor);}
     if(!actor&&data.mine&&!legacy){const matches=state.actors.filter(a=>a.name===state.settings.name);if(matches.length===1)actor=matches[0];else if(!matches.length){actor=newActor({name:state.settings.name});state.actors.push(actor);}}
-    Object.assign(r,{character:data.character.trim(),image:safeRoleImage(data.image),lineCount,actorId:actor?.id||'',actor:actor?.name||legacy||'',status:data.status||'waiting',mine:!!data.mine,inProject:!!r.inProject,folder:trimPath(data.folder),subtitle:trimPath(data.subtitle),notes:data.notes||'',due:dateValue(data.due)});
+    const newActorId=actor?.id||'',changedActor=!!old&&r.actorId!==newActorId;
+    Object.assign(r,{character:data.character.trim(),voiceGender:validRoleVoice(data.voiceGender),image:safeRoleImage(data.image),lineCount,actorId:newActorId,actor:actor?.name||legacy||'',status:changedActor?'waiting':data.status||'waiting',reviewSeen:changedActor?'':r.reviewSeen,mine:!!data.mine,inProject:!!r.inProject,folder:trimPath(data.folder),subtitle:trimPath(data.subtitle),notes:data.notes||'',due:dateValue(data.due)});
     if(!old)ep.roles.push(r);touch(p);modal.close();render();toast('Сохранено');
   },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}">Удалить</button>`:''});
+  updateCastingSuggestions();
 }
 function actorForm(id,castGroup='',voiceGroup=''){
   const old=state.actors.find(a=>a.id===id),a=old||newActor({voiceGroup,castGroup});
@@ -1190,6 +1266,8 @@ async function action(a,d,el){
     case 'close-modal':modal.close();break;
     case 'studio-files':await showStudioFiles();break;
     case 'vacation-review-transfer':vacationReviewTransferForm(d.id,d.ep,d.item);break;
+    case 'casting-assistant':castingAssistantForm(d.id,d.ep,d.item);break;
+    case 'casting-pick':{const picker=modal.querySelector('.actor-picker-form');if(picker)updateActorPicker(picker,d.actor);break;}
     case 'refresh-all':await refreshAllStudio(el);break;
     case 'studio-vacation-new':studioVacationForm();break;
     case 'studio-vacation-edit':studioVacationForm(d.actor);break;
@@ -1501,6 +1579,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
   if(el.id==='role-order'){ui.roleOrder=el.value;render();}
+  if(modal.open&&modal.querySelector('#casting-suggestions')&&['target','voiceGender'].includes(el.name)){updateCastingSuggestions();return;}
   if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleId'].includes(el.name)){updateTaskAssignmentPickers(el.name);return;}
   if(el.id==='task-priority-filter'){ui.taskPriority=el.value;saveUI();render();}
   if(el.id==='my-role-order'){ui.myRoleOrder=validMyRoleOrder(el.value);saveUI();render();}
