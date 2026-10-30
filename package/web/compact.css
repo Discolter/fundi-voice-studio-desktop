@@ -523,9 +523,15 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .vacation-review-person small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .vacation-review-count{font-size:11px;color:var(--muted);white-space:nowrap}
 .vacation-review-role{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 18px;border-top:1px solid var(--line)}
-.vacation-review-role-main{min-width:0;display:flex;flex-direction:column;gap:6px}
-.vacation-review-role-main>strong{font-size:14px;color:var(--text);overflow-wrap:anywhere}
-.vacation-review-role-main>small{color:var(--muted);font-size:12px}
+.vacation-review-role-main{min-width:0;display:flex;align-items:center;gap:12px;flex:1 1 auto}
+.vacation-review-role-details{min-width:0;display:flex;flex-direction:column;gap:6px}
+.vacation-review-role-details>strong{font-size:14px;color:var(--text);overflow-wrap:anywhere}
+.vacation-review-role-details>small{color:var(--muted);font-size:12px}
+.vacation-review-role-art{width:54px;height:64px;flex:0 0 54px;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.vacation-review-role-art .role-character-image{display:block;width:100%;height:100%;padding:0;margin:0;border:0;border-radius:0;background:transparent;cursor:zoom-in}
+.vacation-review-role-art .role-character-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:center top}
+.vacation-review-role-image-empty{display:grid;place-items:center;width:100%;height:100%;color:var(--muted)}
+.vacation-review-role-image-empty .icon{width:22px;height:22px}
 .vacation-review-meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;color:var(--muted);font-size:11px}
 .vacation-review-meta .my-role-status{font-size:10px}
 .vacation-review-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;flex-shrink:0}
