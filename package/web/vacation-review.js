@@ -54,6 +54,52 @@ export function availableReplacementActors(state,vacations,oldActorId){
       a.name.localeCompare(b.name,'ru'));
 }
 
+
+export const REVIEW_CANDIDATE_LIMIT=50;
+
+// Shortlists live only inside the Studio workspace. They never create actor assignments.
+export function vacationReviewCandidates(state,role,vacations=[]){
+  const unavailable=currentVacations(vacations);
+  const byId=new Map((state?.actors||[]).map(a=>[a.id,a]));
+  return (Array.isArray(role?.reviewCandidates)?role.reviewCandidates:[])
+    .map(id=>byId.get(id))
+    .filter(actor=>actor&&actor.id!==role.actorId)
+    .map(actor=>({actor,vacation:unavailable.get(actor.id)||null}));
+}
+
+function reviewRow(state,vacations,{projectId,episodeId,roleId}){
+  const row=vacationReviewRows(state,vacations).find(({p,ep,r})=>
+    p.id===projectId&&ep.id===episodeId&&r.id===roleId);
+  if(!row)throw new Error('Роль больше не требует пересмотра. Обнови список.');
+  return row;
+}
+
+// Adding several candidates is an owner-only draft: no roster, status or Cloud changes.
+export function addVacationReviewCandidates(state,vacations,{projectId,episodeId,roleId,actorIds}){
+  const row=reviewRow(state,vacations,{projectId,episodeId,roleId});
+  if(!Array.isArray(actorIds)||!actorIds.length)throw new Error('Выбери хотя бы одного кандидата.');
+  const allowed=new Set(rankActorsForRole(state,row.ep,row.r,vacations,{
+    excludeActorId:row.actor.id,showAll:true
+  }).map(x=>x.actor.id));
+  const ids=[...new Set(actorIds)];
+  if(ids.some(id=>typeof id!=='string'||!allowed.has(id)))
+    throw new Error('Кандидат удалён, занят отпуском или больше недоступен. Обнови список.');
+  const current=Array.isArray(row.r.reviewCandidates)?row.r.reviewCandidates:[];
+  const combined=[...new Set([...current,...ids])];
+  if(combined.length>REVIEW_CANDIDATE_LIMIT)
+    throw new Error('Для одной роли можно сохранить не более '+REVIEW_CANDIDATE_LIMIT+' кандидатов.');
+  row.r.reviewCandidates=combined;
+  return {project:row.p,role:row.r,added:combined.length-current.length};
+}
+
+export function removeVacationReviewCandidate(state,vacations,{projectId,episodeId,roleId,actorId}){
+  const row=reviewRow(state,vacations,{projectId,episodeId,roleId});
+  const current=Array.isArray(row.r.reviewCandidates)?row.r.reviewCandidates:[];
+  if(!current.includes(actorId))throw new Error('Этого актёра уже нет среди кандидатов.');
+  row.r.reviewCandidates=current.filter(id=>id!==actorId);
+  return {project:row.p,role:row.r};
+}
+
 export function reassignVacationRole(state,vacations,{projectId,episodeId,roleId,previousActorId,newActorId,showAllActors=false}){
   const row=vacationReviewRows(state,vacations).find(({p,ep,r})=>
     p.id===projectId&&ep.id===episodeId&&r.id===roleId);
@@ -69,5 +115,6 @@ export function reassignVacationRole(state,vacations,{projectId,episodeId,roleId
   row.r.actor=target.name;
   row.r.status='waiting';
   row.r.reviewSeen=0;
+  row.r.reviewCandidates=[]; // Resolved queue: do not carry prospects to a new assignee.
   return {project:row.p,episode:row.ep,role:row.r,previousActor:row.actor,newActor:target};
 }
