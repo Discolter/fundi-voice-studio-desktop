@@ -816,7 +816,7 @@ function vacationReviewCandidateDetails(projectId,episodeId,roleId,candidateId){
   const body=`<div class="vacation-review-candidate-detail">${actorPickAvatar(actor)}<div><strong>${e(actor.name)}</strong>${actor.telegram?'<small>@'+e(actor.telegram)+'</small>':''}</div></div><p class="small muted">Пока это только кандидат. Нажми «Передать роль», чтобы выбрать его новым исполнителем, или убери из списка.</p>${vacation?'<p class="vacation-review-candidate-alert">Актёр в отпуске или его отпуск запланирован. Передача роли сейчас недоступна.</p>':''}`;
   showModal('Кандидат',r.character+' · '+p.title,body,
     vacation?'': 'Передать роль',
-    vacation?null:()=>vacationReviewTransferForm(p.id,ep.id,r.id,actor.id,true),
+    vacation?null:()=>finishVacationReviewTransfer(p.id,ep.id,r.id,r.actorId,actor.id,true),
     {extra});
 }
 
@@ -840,24 +840,29 @@ function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId=
   const {p,ep,r,actor}=row,available=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors});
   if(!rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:true}).length)throw Error('Сейчас нет доступных актёров без действующего или запланированного отпуска.');
   const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.${validRoleVoice(r.voiceGender)?' Тип голоса персонажа: <strong>'+e(roleVoiceLabel(r.voiceGender))+'</strong>.':''}</p>${validRoleVoice(r.voiceGender)?`<label class="casting-show-all"><input type="checkbox" name="showAllActors" id="review-show-all-actors" ${showAllActors?'checked':''}> Показать всех актёров</label>`:''}<label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" data-project="${e(p.id)}" data-episode="${e(ep.id)}" data-role="${e(r.id)}" required>${vacationReviewCandidateOptions(available,preferredActorId)}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
-  showModal('Переназначить роль',p.title+' · '+episodeLabel(p,ep),chooser,'Передать роль',async data=>{
-    if(!native||!cloud.connected||cloud.error||cloud.vacationError)throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
-    const transfer=reassignVacationRole(state,cloud.vacations||[],{
-      projectId:p.id,episodeId:ep.id,roleId:r.id,previousActorId:actor.id,newActorId:data.actorId,showAllActors:data.showAllActors==='on'
-    });
-    touch(transfer.project);modal.close();render();
-    toast('Роль «'+transfer.role.character+'» переназначена на '+transfer.newActor.name+'. Отправляем в Cloud…');
-    try{
-      await flushSave();
-      if(saveError)throw Error(saveError);
-      if(!await syncStudioTasks())throw Error('Согласование ролей с веб-студией не удалось.');
-      await api('cloud/sync',{replace:false});
-      await refreshCloud(true);
-      toast('Назначение отправлено в Fundi Voice Cloud.');
-    }catch(error){
-      toast('Переназначение сохранено локально, но сервер пока не подтвердил его: '+error.message+' Используй «Обновить данные».',true);
-    }
+  showModal('Переназначить роль',p.title+' · '+episodeLabel(p,ep),chooser,'Передать роль',data=>
+    finishVacationReviewTransfer(p.id,ep.id,r.id,actor.id,data.actorId,data.showAllActors==='on'));
+
+}
+
+async function finishVacationReviewTransfer(projectId,episodeId,roleId,previousActorId,newActorId,showAllActors=false){
+  if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.error||cloud.vacationError)
+    throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
+  const transfer=reassignVacationRole(state,cloud.vacations||[],{
+    projectId,episodeId,roleId,previousActorId,newActorId,showAllActors
   });
+  touch(transfer.project);modal.close();render();
+  toast('Роль «'+transfer.role.character+'» переназначена на '+transfer.newActor.name+'. Отправляем в Cloud…');
+  try{
+    await flushSave();
+    if(saveError)throw Error(saveError);
+    if(!await syncStudioTasks())throw Error('Согласование ролей с веб-студией не удалось.');
+    await api('cloud/sync',{replace:false});
+    await refreshCloud(true);
+    toast('Назначение отправлено в Fundi Voice Cloud.');
+  }catch(error){
+    toast('Переназначение сохранено локально, но сервер пока не подтвердил его: '+error.message+' Используй «Обновить данные».',true);
+  }
 }
 
 function renderVacations(){
