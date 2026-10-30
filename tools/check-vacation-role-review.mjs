@@ -73,6 +73,8 @@ for(const needle of [
 }
 assert.ok(css.includes('.vacation-review-role'));
 const reviewSection=app.slice(app.indexOf('function renderVacationReview()'),app.indexOf('function vacationReviewCandidateOptions('));
+assert.doesNotMatch(reviewSection,/Сравнить кандидатов|data-qv-open="replace"/,'Review list must not offer the comparison action');
+assert.match(reviewSection,/data-action="vacation-review-transfer"/,'Manual reassignment remains available');
 assert.match(reviewSection, /vacation-review-actions[^\n]*\$\{reaperShortcutButton\(p,ep\)\}/,
   'each review role must display the shared REAPER shortcut for its exact episode');
 assert.match(css, /\.vacation-review-actions\{[^}]*flex-wrap:wrap/,
