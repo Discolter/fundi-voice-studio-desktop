@@ -7,7 +7,7 @@ import {createQuickViews,roleSnapshot} from './quick-views.js';
 import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
-import {vacationReviewRows,availableReplacementActors,reassignVacationRole} from './vacation-review.js';
+import {vacationReviewRows,availableReplacementActors,reassignVacationRole,vacationReviewCandidates,addVacationReviewCandidates,removeVacationReviewCandidate} from './vacation-review.js';
 import {actorWorkloadRows,actorWorkloadGroups} from './actor-workload.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
@@ -495,7 +495,7 @@ function updateActorPicker(picker,id){
   }else{
     const p=getProject(picker.dataset.id),ep=getEpisode(p,picker.dataset.ep),r=ep?.roles.find(r=>r.id===picker.dataset.item);
     if(!p||!r)return;
-    applyRoleVoiceFromActor(r,state.actors.find(x=>x.id===r.actorId));if(r.actorId!==(a?.id||'')){r.status='waiting';r.reviewSeen='';}r.actorId=a?.id||'';r.actor=a?.name||'';applyRoleVoiceFromActor(r,a);touch(p);
+    applyRoleVoiceFromActor(r,state.actors.find(x=>x.id===r.actorId));if(r.actorId!==(a?.id||'')){r.status='waiting';r.reviewSeen='';r.reviewCandidates=[];}r.actorId=a?.id||'';r.actor=a?.name||'';applyRoleVoiceFromActor(r,a);touch(p);
   }
   const legacy=id==='__legacy__';
   const name=a?.name||(isNew?'Новый актёр':legacy?'Старая запись':'Не назначен');
@@ -765,18 +765,59 @@ function renderVacationReview(){
   for(const row of rows){if(!actors.has(row.actor.id))actors.set(row.actor.id,[]);actors.get(row.actor.id).push(row);}
   const active=rows.filter(row=>row.vacation.status==='active').length;
   html+=`<div class="vacation-review-overview"><div><span>Требуют внимания</span><strong>${rows.length}</strong></div><div><span>Уже в отпуске</span><strong>${active}</strong></div><div><span>Актёров</span><strong>${actors.size}</strong></div></div>`;
-  html+='<p class="vacation-review-help">Здесь только незавершённые записи: «Жду запись», «В записи», «На перезапись». Уже полученные и принятые записи не затрагиваются. Переназначение выполняется только вручную; исходные файлы остаются на месте.</p>';
+  html+='<p class="vacation-review-help">Здесь только незавершённые записи: «Жду запись», «В записи», «На перезапись». Уже полученные и принятые записи не затрагиваются. Кандидаты — предварительный список только для Studio: их добавление не меняет назначение. Передача роли выполняется вручную; исходные файлы остаются на месте.</p>';
   for(const [actorId,items] of actors){
     const a=items[0].actor,v=items[0].vacation;
     const dates=`${v.startDate?'С '+e(v.startDate):'Начало неизвестно'}${v.endDate?' по '+e(v.endDate):' · без даты окончания'}`;
     html+=`<section class="vacation-review-actor"><header class="vacation-review-person">${actorPickAvatar(a)}<div><strong>${e(a.name)}</strong><small>${a.telegram?'@'+e(a.telegram)+' · ':''}${dates}</small></div>${vacationTag(actorId)}<span class="vacation-review-count">${items.length} ${items.length===1?'роль':'ролей'}</span></header><div class="vacation-review-roles">`;
     for(const {p,ep,r,due} of items){
       const replacements=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actorId,showAll:true}).length;
-      html+=`<article class="vacation-review-role" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><div class="vacation-review-role-main"><strong>${e(r.character)}</strong><small>${e(p.title)} · ${e(episodeLabel(p,ep))}</small><div class="vacation-review-meta"><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span>${Number.isInteger(r.lineCount)?`<span>${r.lineCount} репл.</span>`:''}${due?`<span>Срок: ${e(dueLabel(due))}</span>`:''}</div></div><div class="vacation-review-actions">${reaperShortcutButton(p,ep)}<button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть</button><button class="btn primary small" data-action="vacation-review-transfer" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" ${!healthy||!replacements?'disabled':''} title="${!replacements?'Нет актёров вне отпуска':'Передать роль другому актёру'}">Передать роль ${icon('arrow')}</button></div></article>`;
+      const shortlist=vacationReviewCandidates(state,r,cloud.vacations||[]);
+      html+=`<article class="vacation-review-role" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><div class="vacation-review-role-main"><strong>${e(r.character)}</strong><small>${e(p.title)} · ${e(episodeLabel(p,ep))}</small><div class="vacation-review-meta"><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span>${Number.isInteger(r.lineCount)?`<span>${r.lineCount} репл.</span>`:''}${due?`<span>Срок: ${e(dueLabel(due))}</span>`:''}</div></div><div class="vacation-review-actions"><div class="vacation-review-candidate-group" aria-label="Кандидаты для роли ${e(r.character)}">${shortlist.map(({actor:c,vacation})=>`<button type="button" class="vacation-review-candidate-chip ${vacation?'is-unavailable':''}" data-action="vacation-review-candidate-details" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" data-actor="${e(c.id)}" title="Кандидат: ${e(c.name)}${vacation?' · в отпуске или отпуск запланирован':''}">${actorPickAvatar(c)}<span>${e(c.name)}</span></button>`).join('')}<button type="button" class="vacation-review-candidate-add" data-action="vacation-review-candidate-add" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Добавить кандидатов для ${e(r.character)}" title="Добавить нескольких кандидатов" ${!healthy||!replacements?'disabled':''}>${icon('plus')}</button></div>${reaperShortcutButton(p,ep)}<button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть</button><button class="btn primary small" data-action="vacation-review-transfer" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" ${!healthy||!replacements?'disabled':''} title="${!replacements?'Нет актёров вне отпуска':'Передать роль другому актёру'}">Передать роль ${icon('arrow')}</button></div></article>`;
     }
     html+='</div></section>';
   }
   return html;
+}
+
+
+function vacationReviewAddCandidateForm(projectId,episodeId,roleId){
+  if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error)
+    throw new Error('Обнови данные об отпусках из Cloud.');
+  const row=vacationReviewRows(state,cloud.vacations||[]).find(({p,ep,r})=>
+    p.id===projectId&&ep.id===episodeId&&r.id===roleId);
+  if(!row)throw new Error('Роль больше не требует пересмотра.');
+  const {p,ep,r,actor}=row;
+  const current=new Set((r.reviewCandidates||[]));
+  const available=rankActorsForRole(state,ep,r,cloud.vacations||[],{
+    excludeActorId:actor.id,showAll:true
+  }).filter(({actor:c})=>!current.has(c.id));
+  const items=available.map(({actor:c,episodeCount,activeCount})=>
+    `<label class="vacation-review-candidate-option" data-candidate-search="${e((c.name+' '+(c.telegram||'')).toLocaleLowerCase('ru'))}"><input type="checkbox" name="candidateActorId" value="${e(c.id)}">${actorPickAvatar(c)}<span><strong>${e(c.name)}</strong><small>${c.telegram?'@'+e(c.telegram)+' · ':''}${episodeCount} ролей в серии · ${activeCount} активных${c.voiceGroup&&validRoleVoice(r.voiceGender)&&c.voiceGroup!==r.voiceGender?' · другой тип голоса':''}</small></span></label>`).join('');
+  const body=`<div class="vacation-review-transfer"><p>Выбери одного или нескольких актёров для роли <strong>${e(r.character)}</strong>. Это только кандидаты: фактический исполнитель ${e(actor.name)} не изменится.</p>${available.length?'<input type="search" id="review-candidate-search" placeholder="Поиск по имени или @Telegram" aria-label="Поиск кандидатов">':''}<div class="vacation-review-candidate-options">${items||'<p class="small muted">Все доступные актёры уже добавлены или других кандидатов нет.</p>'}</div></div>`;
+  showModal('Добавить кандидатов',p.title+' · '+episodeLabel(p,ep),body,'Добавить выбранных',()=>{
+    const actorIds=[...modal.querySelectorAll('input[name="candidateActorId"]:checked')].map(input=>input.value);
+    const result=addVacationReviewCandidates(state,cloud.vacations||[],{
+      projectId:p.id,episodeId:ep.id,roleId:r.id,actorIds
+    });
+    touch(result.project);modal.close();render();
+    toast(result.added?'Добавлено кандидатов: '+result.added:'Все выбранные уже есть в списке.');
+  });
+}
+function vacationReviewCandidateDetails(projectId,episodeId,roleId,candidateId){
+  const row=vacationReviewRows(state,cloud.vacations||[]).find(({p,ep,r})=>
+    p.id===projectId&&ep.id===episodeId&&r.id===roleId);
+  if(!row)throw new Error('Роль больше не требует пересмотра.');
+  const item=vacationReviewCandidates(state,row.r,cloud.vacations||[])
+    .find(({actor})=>actor.id===candidateId);
+  if(!item)throw new Error('Кандидат больше не найден в списке.');
+  const {p,ep,r}=row,{actor,vacation}=item;
+  const extra=`<button type="button" class="btn ghost vacation-review-remove" data-action="vacation-review-candidate-remove" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" data-actor="${e(actor.id)}">Удалить из кандидатов</button>`;
+  const body=`<div class="vacation-review-candidate-detail">${actorPickAvatar(actor)}<div><strong>${e(actor.name)}</strong>${actor.telegram?'<small>@'+e(actor.telegram)+'</small>':''}</div></div><p class="small muted">Пока это только кандидат. Нажми «Передать роль», чтобы выбрать его новым исполнителем, или убери из списка.</p>${vacation?'<p class="vacation-review-candidate-alert">Актёр в отпуске или его отпуск запланирован. Передача роли сейчас недоступна.</p>':''}`;
+  showModal('Кандидат',r.character+' · '+p.title,body,
+    vacation?'': 'Передать роль',
+    vacation?null:()=>finishVacationReviewTransfer(p.id,ep.id,r.id,r.actorId,actor.id,true),
+    {extra});
 }
 
 function vacationReviewCandidateOptions(rows,preferred=''){
@@ -799,24 +840,29 @@ function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId=
   const {p,ep,r,actor}=row,available=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors});
   if(!rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:true}).length)throw Error('Сейчас нет доступных актёров без действующего или запланированного отпуска.');
   const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.${validRoleVoice(r.voiceGender)?' Тип голоса персонажа: <strong>'+e(roleVoiceLabel(r.voiceGender))+'</strong>.':''}</p>${validRoleVoice(r.voiceGender)?`<label class="casting-show-all"><input type="checkbox" name="showAllActors" id="review-show-all-actors" ${showAllActors?'checked':''}> Показать всех актёров</label>`:''}<label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" data-project="${e(p.id)}" data-episode="${e(ep.id)}" data-role="${e(r.id)}" required>${vacationReviewCandidateOptions(available,preferredActorId)}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
-  showModal('Переназначить роль',p.title+' · '+episodeLabel(p,ep),chooser,'Передать роль',async data=>{
-    if(!native||!cloud.connected||cloud.error||cloud.vacationError)throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
-    const transfer=reassignVacationRole(state,cloud.vacations||[],{
-      projectId:p.id,episodeId:ep.id,roleId:r.id,previousActorId:actor.id,newActorId:data.actorId,showAllActors:data.showAllActors==='on'
-    });
-    touch(transfer.project);modal.close();render();
-    toast('Роль «'+transfer.role.character+'» переназначена на '+transfer.newActor.name+'. Отправляем в Cloud…');
-    try{
-      await flushSave();
-      if(saveError)throw Error(saveError);
-      if(!await syncStudioTasks())throw Error('Согласование ролей с веб-студией не удалось.');
-      await api('cloud/sync',{replace:false});
-      await refreshCloud(true);
-      toast('Назначение отправлено в Fundi Voice Cloud.');
-    }catch(error){
-      toast('Переназначение сохранено локально, но сервер пока не подтвердил его: '+error.message+' Используй «Обновить данные».',true);
-    }
+  showModal('Переназначить роль',p.title+' · '+episodeLabel(p,ep),chooser,'Передать роль',data=>
+    finishVacationReviewTransfer(p.id,ep.id,r.id,actor.id,data.actorId,data.showAllActors==='on'));
+
+}
+
+async function finishVacationReviewTransfer(projectId,episodeId,roleId,previousActorId,newActorId,showAllActors=false){
+  if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.error||cloud.vacationError)
+    throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
+  const transfer=reassignVacationRole(state,cloud.vacations||[],{
+    projectId,episodeId,roleId,previousActorId,newActorId,showAllActors
   });
+  touch(transfer.project);modal.close();render();
+  toast('Роль «'+transfer.role.character+'» переназначена на '+transfer.newActor.name+'. Отправляем в Cloud…');
+  try{
+    await flushSave();
+    if(saveError)throw Error(saveError);
+    if(!await syncStudioTasks())throw Error('Согласование ролей с веб-студией не удалось.');
+    await api('cloud/sync',{replace:false});
+    await refreshCloud(true);
+    toast('Назначение отправлено в Fundi Voice Cloud.');
+  }catch(error){
+    toast('Переназначение сохранено локально, но сервер пока не подтвердил его: '+error.message+' Используй «Обновить данные».',true);
+  }
 }
 
 function renderVacations(){
@@ -1222,7 +1268,7 @@ function castingAssistantForm(projectId,episodeId,roleId){
       applyRoleVoiceFromActor(r,state.actors.find(a=>a.id===r.actorId));
       const oldActorId=r.actorId;
       r.actorId=candidate.actor.id;r.actor=candidate.actor.name;applyRoleVoiceFromActor(r,candidate.actor);
-      if(oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';}
+      if(oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';r.reviewCandidates=[];}
       touch(p);modal.close();render();toast('Роль «'+r.character+'» назначена: '+candidate.actor.name);
     },{extra:'<button class="btn ghost small" type="button" data-action="edit-role" data-id="'+e(p.id)+'" data-ep="'+e(ep.id)+'" data-item="'+e(r.id)+'">Изменить роль</button>'});
 }
@@ -1237,6 +1283,7 @@ function roleForm(pid,epid,itemId){
     if(!actor&&data.mine&&!legacy){const matches=state.actors.filter(a=>a.name===state.settings.name);if(matches.length===1)actor=matches[0];else if(!matches.length){actor=newActor({name:state.settings.name});state.actors.push(actor);}}
     const newActorId=actor?.id||'',changedActor=!!old&&r.actorId!==newActorId;
     Object.assign(r,{character:data.character.trim(),voiceGender:roleVoiceFromActor({voiceGender:data.voiceGender},actor),image:safeRoleImage(data.image),lineCount,actorId:newActorId,actor:actor?.name||legacy||'',status:changedActor?'waiting':data.status||'waiting',reviewSeen:changedActor?'':r.reviewSeen,mine:!!data.mine,inProject:!!r.inProject,folder:trimPath(data.folder),subtitle:trimPath(data.subtitle),notes:data.notes||'',due:dateValue(data.due)});
+    if(changedActor)r.reviewCandidates=[];
     if(!old)ep.roles.push(r);touch(p);modal.close();render();toast('Сохранено');
   },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}">Удалить</button>`:''});
   updateCastingSuggestions();
@@ -1404,6 +1451,14 @@ async function action(a,d,el){
     case 'close-modal':modal.close();break;
     case 'studio-files':await showStudioFiles();break;
     case 'vacation-review-transfer':vacationReviewTransferForm(d.id,d.ep,d.item);break;
+    case 'vacation-review-candidate-add':vacationReviewAddCandidateForm(d.id,d.ep,d.item);break;
+    case 'vacation-review-candidate-details':vacationReviewCandidateDetails(d.id,d.ep,d.item,d.actor);break;
+    case 'vacation-review-candidate-remove':{
+      const result=removeVacationReviewCandidate(state,cloud.vacations||[],{
+        projectId:d.id,episodeId:d.ep,roleId:d.item,actorId:d.actor
+      });
+      touch(result.project);modal.close();render();toast('Удалён из кандидатов');break;
+    }
     case 'casting-assistant':castingAssistantForm(d.id,d.ep,d.item);break;
     case 'casting-pick':{const picker=modal.querySelector('.actor-picker-form');if(picker)updateActorPicker(picker,d.actor);break;}
     case 'refresh-all':await refreshAllStudio(el);break;
@@ -1692,7 +1747,15 @@ document.addEventListener('dragend',endActorDrag);
 document.addEventListener('dragleave',event=>{if(actorDrag&&event.target===document.documentElement&&!event.relatedTarget)setActorDropTarget(null);});
 document.addEventListener('pointerdown',event=>{const opened=document.querySelector('.episode-unassigned-dropdown[open]');if(opened&&!opened.contains(event.target))opened.open=false;});
 document.addEventListener('pointerdown',event=>{const el=event.target.closest('button,.btn');if(!el||state?.settings.motion===false||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const rect=el.getBoundingClientRect(),ripple=document.createElement('span');ripple.className='click-ripple';ripple.style.left=(event.clientX-rect.left)+'px';ripple.style.top=(event.clientY-rect.top)+'px';el.append(ripple);setTimeout(()=>ripple.remove(),550);});
-document.addEventListener('input',event=>{if(event.target.matches?.('[data-cabinet-search]')){
+document.addEventListener('input',event=>{
+  if(event.target.id==='review-candidate-search'){
+    const query=event.target.value.trim().toLocaleLowerCase('ru');
+    modal.querySelectorAll('.vacation-review-candidate-option').forEach(row=>{
+      row.hidden=!row.dataset.candidateSearch.includes(query);
+    });
+    return;
+  }
+  if(event.target.matches?.('[data-cabinet-search]')){
     const caret=event.target.selectionStart;
     actorCabinet.search(event.target.value);
     const next=document.querySelector('[data-cabinet-search]');
