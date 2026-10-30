@@ -709,3 +709,17 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .vacation-review-remove{margin-right:auto;color:#f5a2ab!important}
 @media(max-width:920px){.vacation-review-candidate-group{max-width:100%}}
 @media(max-width:720px){.vacation-review-candidate-group{justify-content:flex-start}.vacation-review-actions{justify-content:flex-start}}
+
+/* Quick actor lookup inside the workload dashboard. */
+.workload-toolbar-left{display:flex;align-items:center;flex-wrap:wrap;gap:11px;flex:1;min-width:0}
+.workload-search-wrap{position:relative;display:flex;align-items:center;flex:0 1 330px;min-width:230px;max-width:100%}
+.workload-search-wrap>.icon{position:absolute;left:11px;width:16px;height:16px;color:var(--muted);pointer-events:none}
+#workload-search{appearance:none;width:100%;height:38px;padding:9px 38px 9px 37px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:9px;font-size:12px;transition:border-color .15s,box-shadow .15s}
+#workload-search::placeholder{color:var(--muted);opacity:.88}
+#workload-search:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 2px color-mix(in srgb,var(--lime) 15%,transparent)}
+#workload-search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.workload-search-clear{position:absolute;right:6px;display:grid;place-items:center;width:27px;height:27px;border-radius:6px;color:var(--muted);background:transparent;cursor:pointer}
+.workload-search-clear:hover{color:var(--text);background:var(--surface2)}
+.workload-search-clear>.icon{width:14px;height:14px}
+.workload-search-count{font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:750px){.workload-toolbar-left{width:100%}.workload-search-wrap{flex:1 1 100%}.workload-tools{align-items:flex-start}}
