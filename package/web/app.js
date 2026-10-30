@@ -43,7 +43,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='';
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:''};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
   ui.workloadIncludeArchive=saved.workloadIncludeArchive===true;
@@ -567,7 +567,7 @@ function actorCard(a){return `<article class="actor-card actor-compact" data-voi
 // Team-wide workload board. Every card is a read-only view of existing role assignments.
 function renderWorkload(){
   const all=actorWorkloadRows(state,{includeArchived:ui.workloadIncludeArchive});
-  const rows=actorWorkloadRows(state,{includeArchived:ui.workloadIncludeArchive,query:ui.query});
+  const rows=actorWorkloadRows(state,{includeArchived:ui.workloadIncludeArchive,query:ui.query,actorQuery:ui.workloadQuery});
   const groups=actorWorkloadGroups(rows);
   const pending=all.reduce((sum,item)=>sum+item.pending,0);
   const knownLines=all.reduce((sum,item)=>sum+item.pendingLines,0);
@@ -599,7 +599,11 @@ function renderWorkload(){
   html+='<div class="workload-dashboard-stats"><div><small>Актёров</small><strong>'+all.length+'</strong></div>'+
     '<div><small>Ролей на запись</small><strong>'+pending+'</strong></div>'+
     '<div><small>Известных реплик на запись</small><strong>'+knownLines+'</strong></div></div>';
-  html+='<div class="workload-tools"><label class="workload-scope-toggle"><input type="checkbox" id="workload-include-archive" '+(ui.workloadIncludeArchive?'checked':'')+'> Учитывать архивные проекты</label>'+
+  html+='<div class="workload-tools"><div class="workload-toolbar-left"><div class="workload-search-wrap">'+icon('search')+
+    '<input type="search" id="workload-search" value="'+e(ui.workloadQuery||'')+'" autocomplete="off" spellcheck="false" placeholder="Имя актёра или @Telegram" aria-label="Поиск актёра по имени или Telegram">'+
+    (ui.workloadQuery?'<button type="button" class="workload-search-clear" data-action="workload-search-clear" title="Очистить поиск" aria-label="Очистить поиск">'+icon('close')+'</button>':'')+'</div>'+
+    (ui.workloadQuery?'<span class="workload-search-count">Найдено: '+rows.length+' из '+all.length+'</span>':'')+
+    '<label class="workload-scope-toggle"><input type="checkbox" id="workload-include-archive" '+(ui.workloadIncludeArchive?'checked':'')+'> Учитывать архивные проекты</label></div>'+
     '<p>В расчёт нагрузки входят роли «Жду запись», «В записи» и «На перезапись». Ожидающие проверки и принятые роли показаны отдельно.</p></div>';
   if(!rows.length)return html+'<div class="workload-section-empty">По запросу актёры не найдены.</div>';
   html+=section('high','Высокая нагрузка','6 и более условных единиц нагрузки. Сюда стоит заглянуть перед новым назначением.');
@@ -1451,6 +1455,7 @@ async function action(a,d,el){
     case 'close-modal':modal.close();break;
     case 'studio-files':await showStudioFiles();break;
     case 'vacation-review-transfer':vacationReviewTransferForm(d.id,d.ep,d.item);break;
+    case 'workload-search-clear':ui.workloadQuery='';render();document.querySelector('#workload-search')?.focus({preventScroll:true});break;
     case 'vacation-review-candidate-add':vacationReviewAddCandidateForm(d.id,d.ep,d.item);break;
     case 'vacation-review-candidate-details':vacationReviewCandidateDetails(d.id,d.ep,d.item,d.actor);break;
     case 'vacation-review-candidate-remove':{
@@ -1748,6 +1753,14 @@ document.addEventListener('dragleave',event=>{if(actorDrag&&event.target===docum
 document.addEventListener('pointerdown',event=>{const opened=document.querySelector('.episode-unassigned-dropdown[open]');if(opened&&!opened.contains(event.target))opened.open=false;});
 document.addEventListener('pointerdown',event=>{const el=event.target.closest('button,.btn');if(!el||state?.settings.motion===false||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const rect=el.getBoundingClientRect(),ripple=document.createElement('span');ripple.className='click-ripple';ripple.style.left=(event.clientX-rect.left)+'px';ripple.style.top=(event.clientY-rect.top)+'px';el.append(ripple);setTimeout(()=>ripple.remove(),550);});
 document.addEventListener('input',event=>{
+  if(event.target.id==='workload-search'){
+    const search=event.target,start=search.selectionStart,end=search.selectionEnd;
+    ui.workloadQuery=search.value;
+    render();
+    const next=document.querySelector('#workload-search');
+    if(next){next.focus({preventScroll:true});next.setSelectionRange(start,end);}
+    return;
+  }
   if(event.target.id==='review-candidate-search'){
     const query=event.target.value.trim().toLocaleLowerCase('ru');
     modal.querySelectorAll('.vacation-review-candidate-option').forEach(row=>{
