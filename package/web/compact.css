@@ -528,7 +528,7 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .vacation-review-role-main>small{color:var(--muted);font-size:12px}
 .vacation-review-meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;color:var(--muted);font-size:11px}
 .vacation-review-meta .my-role-status{font-size:10px}
-.vacation-review-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.vacation-review-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;flex-shrink:0}
 .vacation-review-actions .btn:disabled{opacity:.45;cursor:not-allowed}
 .vacation-review-warning{display:flex;gap:12px;align-items:flex-start;padding:16px;margin-bottom:18px;border:1px solid rgba(235,170,81,.4);background:rgba(194,127,42,.08);border-radius:12px;color:var(--text)}
 .vacation-review-warning>.icon{flex:0 0 20px;width:20px;height:20px;color:#e6af70}

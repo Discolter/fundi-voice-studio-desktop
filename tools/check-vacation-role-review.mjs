@@ -72,5 +72,10 @@ for(const needle of [
   assert.ok(app.includes(needle),'Missing review UI wiring: '+needle);
 }
 assert.ok(css.includes('.vacation-review-role'));
+const reviewSection=app.slice(app.indexOf('function renderVacationReview()'),app.indexOf('function vacationReviewCandidateOptions('));
+assert.match(reviewSection, /vacation-review-actions[^\n]*\$\{reaperShortcutButton\(p,ep\)\}/,
+  'each review role must display the shared REAPER shortcut for its exact episode');
+assert.match(css, /\.vacation-review-actions\{[^}]*flex-wrap:wrap/,
+  'review actions must wrap on narrow screens');
 assert.ok(workflow.includes('node ./tools/check-vacation-role-review.mjs'));
 console.log('PASS: derived vacation review queue, actor eligibility and safe manual handoff');
