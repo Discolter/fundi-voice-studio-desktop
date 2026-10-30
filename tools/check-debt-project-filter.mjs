@@ -44,4 +44,14 @@ assert.match(app,/if\(ui\.debtProject!=='all'&&!allProjects\.some/,'Deleted or a
 assert.match(visual,/select\.id === 'debt-project-filter'/);
 assert.match(visual,/Поиск аниме/);
 assert.match(css,/debt-project-filter/);
+const debtView=app.slice(app.indexOf('function renderDebts()'),app.indexOf('function renderDetail()'));
+assert.match(debtView,/class="debt-project-thumbnail"[^\n]*data-action="open-project"[^\n]*data-ep="\$\{e\(ep\.id\)\}"/,'Poster opens the exact anime episode');
+assert.match(debtView,/class="debt-character-thumbnail"[^\n]*data-qv-open="role"/,'Character portrait opens the role');
+assert.match(debtView,/characterImage=safeRoleImage\(r\.image\)/,'Use safe saved character portraits');
+assert.match(debtView,/\$\{projectArt\(p\)\}/,'Project thumbnail uses saved cover or existing placeholder');
+assert.match(debtView,/debt-character-placeholder/,'Characters without portraits have a visible fallback');
+assert.match(debtView,/class="debt-card-buttons">\$\{reaperShortcutButton\(p,ep\)\}/,'REAPER shortcut is tied to this debt episode');
+assert.match(css,/\.debt-card-visuals\{/);
+assert.match(css,/\.debt-character-thumbnail>img\{[^}]*object-fit:cover/);
+assert.match(css,/\.debt-card-buttons\{[^}]*flex-wrap:wrap/);
 console.log('PASS: debts scoped to anime, actor, status, search; actor stats and picker; project dropdown');

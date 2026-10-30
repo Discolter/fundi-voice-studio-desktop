@@ -110,6 +110,7 @@ assert.match(css,/body\.qv-has-pinned \.main/);
 assert.match(css,/prefers-reduced-motion/);
 assert.match(source,/data-qv-open="actor"/);
 assert.match(source,/data-qv-open="role"/);
-assert.match(source,/data-qv-open="replace"/);
+const reviewRows=source.slice(source.indexOf('function renderVacationReview()'),source.indexOf('function vacationReviewCandidateOptions('));
+assert.doesNotMatch(reviewRows,/data-qv-open="replace"/,'Review rows do not expose the removed comparison button');
 delete globalThis.document;
 console.log('PASS: Studio quick views cover debts, editable roles, cloud, replacement comparison, pinning, context menus and original editing callbacks');
