@@ -676,3 +676,36 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .debt-card-buttons>.btn{white-space:nowrap}
 @media(max-width:1080px){.debt-card-actions{flex-wrap:wrap}.debt-card-buttons{justify-content:flex-end}}
 @media(max-width:760px){.debt-card-role{width:100%}.debt-card-actions{align-items:flex-start}.debt-card-buttons{justify-content:flex-start}}
+
+/* Candidate chips: owner-only planning; real assignments are unchanged. */
+.vacation-review-actions{flex-shrink:1;min-width:0}
+.vacation-review-candidate-group{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:5px;min-width:0;max-width:min(530px,52vw)}
+.vacation-review-candidate-chip,.vacation-review-candidate-add{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;transition:border-color .15s,background .15s}
+.vacation-review-candidate-chip{padding:3px 7px 3px 4px;font-size:11px;max-width:170px}
+.vacation-review-candidate-chip>span:last-child{max-width:112px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.vacation-review-candidate-chip .actor-pick-avatar{width:22px;height:22px;flex:0 0 22px;font-size:8px;border-radius:6px}
+.vacation-review-candidate-chip:hover,.vacation-review-candidate-add:hover{border-color:var(--lime);background:var(--surface)}
+.vacation-review-candidate-chip.is-unavailable{opacity:.7;border-color:rgba(233,124,132,.5)}
+.vacation-review-candidate-add{width:31px;padding:0;border-style:dashed;border-color:color-mix(in srgb,var(--lime) 55%,var(--line));color:var(--lime)}
+.vacation-review-candidate-add>.icon{width:16px;height:16px}
+.vacation-review-candidate-add:disabled{cursor:not-allowed;opacity:.4}
+.vacation-review-candidate-options{display:grid;gap:7px;max-height:360px;overflow:auto;overscroll-behavior:contain;padding:2px}
+.vacation-review-candidate-option{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);cursor:pointer}
+.vacation-review-candidate-option:hover{border-color:var(--lime)}
+.vacation-review-candidate-option:has(input:checked){border-color:var(--lime);background:color-mix(in srgb,var(--lime) 8%,var(--surface))}
+.vacation-review-candidate-option[hidden]{display:none}
+.vacation-review-candidate-option input[type=checkbox]{flex:0 0 auto;accent-color:var(--lime);width:16px;height:16px}
+.vacation-review-candidate-option .actor-pick-avatar{width:32px;height:32px;flex:0 0 32px}
+.vacation-review-candidate-option>span:last-child{min-width:0;display:grid;gap:3px}
+.vacation-review-candidate-option strong{font-size:12px;color:var(--text)}
+.vacation-review-candidate-option small{font-size:10px;color:var(--muted);line-height:1.5}
+#review-candidate-search{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font-size:12px}
+.vacation-review-candidate-detail{display:flex;align-items:center;gap:12px;margin:3px 0 16px}
+.vacation-review-candidate-detail .actor-pick-avatar{width:48px;height:48px;flex:0 0 48px}
+.vacation-review-candidate-detail>div{display:grid;gap:4px}
+.vacation-review-candidate-detail strong{font-size:16px;color:var(--text)}
+.vacation-review-candidate-detail small{color:var(--muted)}
+.vacation-review-candidate-alert{font-size:12px;color:#f4a5ac}
+.vacation-review-remove{margin-right:auto;color:#f5a2ab!important}
+@media(max-width:920px){.vacation-review-candidate-group{max-width:100%}}
+@media(max-width:720px){.vacation-review-candidate-group{justify-content:flex-start}.vacation-review-actions{justify-content:flex-start}}
