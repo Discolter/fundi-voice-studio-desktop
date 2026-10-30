@@ -495,7 +495,7 @@ function updateActorPicker(picker,id){
   }else{
     const p=getProject(picker.dataset.id),ep=getEpisode(p,picker.dataset.ep),r=ep?.roles.find(r=>r.id===picker.dataset.item);
     if(!p||!r)return;
-    applyRoleVoiceFromActor(r,state.actors.find(x=>x.id===r.actorId));if(r.actorId!==(a?.id||'')){r.status='waiting';r.reviewSeen='';}r.actorId=a?.id||'';r.actor=a?.name||'';applyRoleVoiceFromActor(r,a);touch(p);
+    applyRoleVoiceFromActor(r,state.actors.find(x=>x.id===r.actorId));if(r.actorId!==(a?.id||'')){r.status='waiting';r.reviewSeen='';r.reviewCandidates=[];}r.actorId=a?.id||'';r.actor=a?.name||'';applyRoleVoiceFromActor(r,a);touch(p);
   }
   const legacy=id==='__legacy__';
   const name=a?.name||(isNew?'Новый актёр':legacy?'Старая запись':'Не назначен');
@@ -1268,7 +1268,7 @@ function castingAssistantForm(projectId,episodeId,roleId){
       applyRoleVoiceFromActor(r,state.actors.find(a=>a.id===r.actorId));
       const oldActorId=r.actorId;
       r.actorId=candidate.actor.id;r.actor=candidate.actor.name;applyRoleVoiceFromActor(r,candidate.actor);
-      if(oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';}
+      if(oldActorId!==r.actorId){r.status='waiting';r.reviewSeen='';r.reviewCandidates=[];}
       touch(p);modal.close();render();toast('Роль «'+r.character+'» назначена: '+candidate.actor.name);
     },{extra:'<button class="btn ghost small" type="button" data-action="edit-role" data-id="'+e(p.id)+'" data-ep="'+e(ep.id)+'" data-item="'+e(r.id)+'">Изменить роль</button>'});
 }
