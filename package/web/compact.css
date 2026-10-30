@@ -656,3 +656,23 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .workload-section-empty{margin:0 0 14px;border:1px dashed var(--line);padding:20px;border-radius:10px;color:var(--muted);font-size:12px}
 .workload-explainer{border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:11px;line-height:1.8}
 @media(max-width:750px){.workload-dashboard-stats{gap:7px}.workload-dashboard-stats>div{padding:12px}.workload-dashboard-stats strong{font-size:20px}.workload-grid{grid-template-columns:1fr}}
+
+/* Debt cards: project poster, character portrait and exact-episode REAPER shortcut. */
+.debt-card-role{display:flex;flex-direction:row;align-items:center;gap:12px}
+.debt-card-visuals{display:flex;align-items:center;gap:7px;flex:none}
+.debt-project-thumbnail,.debt-character-thumbnail{display:grid;place-items:center;flex:none;padding:0;overflow:hidden;background:var(--surface2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+.debt-project-thumbnail{width:40px;height:52px;border-radius:7px}
+.debt-character-thumbnail{width:52px;height:52px;border-radius:10px}
+.debt-project-thumbnail:hover,.debt-character-thumbnail:hover{border-color:var(--brand1);filter:brightness(1.1)}
+.debt-project-thumbnail:focus-visible,.debt-character-thumbnail:focus-visible{outline:2px solid var(--brand1);outline-offset:2px}
+.debt-project-thumbnail .project-poster,.debt-project-thumbnail .mini-emblem{display:grid;place-items:center;width:100%;height:100%;margin:0;border:0;border-radius:0;object-fit:cover}
+.debt-project-thumbnail .mini-emblem .cover-art{width:27px;height:27px}
+.debt-character-thumbnail>img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.debt-character-placeholder{display:grid;place-items:center;width:100%;height:100%;color:var(--muted)}
+.debt-character-placeholder .icon{width:22px;height:22px}
+.debt-card-role-copy{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.debt-card-role-copy>.qv-inline-trigger{align-self:flex-start;max-width:100%;text-align:left;font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.debt-card-buttons{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.debt-card-buttons>.btn{white-space:nowrap}
+@media(max-width:1080px){.debt-card-actions{flex-wrap:wrap}.debt-card-buttons{justify-content:flex-end}}
+@media(max-width:760px){.debt-card-role{width:100%}.debt-card-actions{align-items:flex-start}.debt-card-buttons{justify-content:flex-start}}
