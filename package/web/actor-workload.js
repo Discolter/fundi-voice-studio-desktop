@@ -3,7 +3,18 @@
 export const VOICE_WORK_STAGES=Object.freeze(['waiting','recording','retake']);
 export const IN_REVIEW_STAGES=Object.freeze(['received','processing','processed']);
 const knownLines=role=>Number.isInteger(role?.lineCount)&&role.lineCount>=0?role.lineCount:null;
-export function actorWorkloadRows(state,{includeArchived=false,query=''}={}){
+
+// Local workload search matches actor display names and Telegram handles.
+// The @ is optional; a partial name/username is enough.
+export function matchesWorkloadActor(actor,query=''){
+  const raw=String(query||'').trim().toLocaleLowerCase('ru');
+  const value=raw.replace(/^@+/,'');
+  if(!value)return true;
+  const name=String(actor?.name||'').toLocaleLowerCase('ru');
+  const telegram=String(actor?.telegram||'').replace(/^@+/,'').toLocaleLowerCase('ru');
+  return name.startsWith(value)||telegram.startsWith(value)||name.includes(value)||telegram.includes(value);
+}
+export function actorWorkloadRows(state,{includeArchived=false,query='',actorQuery=''}={}){
   const people=(state?.actors||[]).map(actor=>({
     actor,pending:0,pendingLines:0,pendingUnknown:0,inReview:0,accepted:0,
     total:0,allLines:0,allUnknown:0,projects:new Set(),assignments:[]}));
@@ -23,8 +34,8 @@ export function actorWorkloadRows(state,{includeArchived=false,query=''}={}){
     item.assignments.push({projectId:project.id,episodeId:episode.id,roleId:role.id,character:role.character,status:role.status,lineCount:lines});
   }
   const q=String(query||'').trim().toLocaleLowerCase('ru');
-  return people.filter(item=>!q||[item.actor.name,item.actor.telegram||'',item.actor.notes||'']
-    .some(text=>text.toLocaleLowerCase('ru').includes(q))).map(item=>{
+  return people.filter(item=>(!q||[item.actor.name,item.actor.telegram||'',item.actor.notes||'']
+    .some(text=>text.toLocaleLowerCase('ru').includes(q)))&&matchesWorkloadActor(item.actor,actorQuery)).map(item=>{
     // 50 known lines approximate one small assignment. The workload index is deliberately
     // transparent and shows both source metrics, without treating accepted roles as work.
     const score=Math.max(item.pending,Math.ceil(item.pendingLines/50));
