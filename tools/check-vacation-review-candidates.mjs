@@ -64,4 +64,8 @@ for(const marker of [
 ])assert.ok(app.includes(marker),'Missing shortlist UI: '+marker);
 assert.match(app,/vacation-review-actions[^\n]*vacation-review-candidate-group[^\n]*reaperShortcutButton\(p,ep\)/,'Candidates must appear before REAPER shortcut');
 assert.ok(css.includes('.vacation-review-candidate-option[hidden]'));
+assert.match(app,/vacation-review-role-art">\$\{roleImageThumb\(r\)\|\|/,'review cards reuse saved character portraits');
+assert.ok(app.includes('vacation-review-role-image-empty'),'review has a fallback for missing character artwork');
+assert.ok(css.includes('.vacation-review-role-art .role-character-image img'),'review uses portrait thumbnails');
+
 console.log('PASS: multi-select shortlists, persistence, safe handoff, removal and Studio UI');
