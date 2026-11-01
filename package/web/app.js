@@ -10,6 +10,7 @@ import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
 import {roleImageFromClipboard} from './role-image-clipboard.js';
+import {matchingCharacterRoles,assignedCharacterActors,addActorsToCharacter} from './multi-actor-roles.js';
 import {parseAssCharacters,decodeAssFile,normalizeAssCharacter,matchAssRole,applyAssCastImport,previousAssEpisode} from './ass-role-import.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole,vacationReviewCandidates,addVacationReviewCandidates,removeVacationReviewCandidate} from './vacation-review.js';
 import {actorWorkloadRows,actorWorkloadGroups} from './actor-workload.js';
@@ -544,7 +545,13 @@ function actorCabinetVisibilityButton(p,ep,r){
   ${!native||!cloud.connected?'disabled':''}>${icon(hidden?'restore':'eye-off')}</button>${hidden?'<small class="role-actor-hidden-label">Скрыта у актёра</small>':''}`;
 }
 function roleImageThumb(role){const image=safeRoleImage(role?.image);return image?`<button type="button" class="role-character-image" data-role-image-open aria-label="Увеличить персонажа ${e(role.character)}"><img src="${e(image)}" alt="${e(role.character)}"></button>`:'';}
-function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><td>${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${validRoleVoice(r.voiceGender)?`<span class="role-voice-badge">${e(roleVoiceLabel(r.voiceGender))}</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
+function multiActorCharacterMark(ep,r){
+  const siblings=matchingCharacterRoles(ep,r);
+  return siblings.length>1
+    ?`<span class="multi-actor-count" title="Один персонаж, отдельные записи и статусы у каждого исполнителя">${icon('users')} ${siblings.length} исполн.</span>`
+    :'';
+}
+function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${rows.map(({p,ep,r})=>`<tr class="role-row status-${e(r.status)} ${matchingCharacterRoles(ep,r).length>1?'multi-actor-role-row':''}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><td>${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${multiActorCharacterMark(ep,r)}${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${validRoleVoice(r.voiceGender)?`<span class="role-voice-badge">${e(roleVoiceLabel(r.voiceGender))}</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn multi-actor-add-btn" data-action="multi-role-actors" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Назначить несколько актёров на этого персонажа" aria-label="Добавить актёров на персонажа ${e(r.character)}">${icon('users')}</button><button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
 
 function episodeTasks(p,ep){return `<div class="panel-head"><h2>Задачи</h2><button class="btn primary small" data-action="new-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Добавить</button></div>${tasksTable(ep.tasks.filter(t=>state.settings.mode!=='actor'||t.mine).map(t=>({p,ep,t})))||empty('Нет задач','new-task','Добавить задачу',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;}
 // Compact visual identity cells for task assignments; always derive from live project/role/actor data.
@@ -1331,6 +1338,39 @@ function castingAssistantForm(projectId,episodeId,roleId){
     },{extra:'<button class="btn ghost small" type="button" data-action="edit-role" data-id="'+e(p.id)+'" data-ep="'+e(ep.id)+'" data-item="'+e(r.id)+'">Изменить роль</button>'});
 }
 
+function multiRoleActorsForm(pid,epid,roleId){
+  const p=getProject(pid),ep=getEpisode(p,epid),r=ep?.roles.find(role=>role.id===roleId);
+  if(!p||!r)throw Error('Роль не найдена. Обнови таблицу.');
+  const assigned=assignedCharacterActors(ep,r);
+  const actors=[...(state.actors||[])].sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  if(!actors.length){toast('Сначала добавь актёров во вкладке «Актёры».',true);return;}
+  const existing=matchingCharacterRoles(ep,r);
+  const items=actors.map(actor=>{
+    const already=assigned.has(actor.id),onLeave=!!activeVacation(actor.id);
+    const status=already?'Уже назначен':onLeave?'⛔ В отпуске':actor.telegram?'@'+actor.telegram:'В базе актёров';
+    const query=(actor.name+' '+(actor.telegram||'')).toLocaleLowerCase('ru');
+    return `<label class="multi-actor-person" data-actor-search="${e(query)}">
+      <input type="checkbox" name="extra-actor-${e(actor.id)}" ${already?'checked disabled':onLeave?'disabled':''}>
+      ${actorPickAvatar(actor)}<span><strong>${e(actor.name)}</strong><small>${e(status)}</small></span>
+    </label>`;
+  }).join('');
+  showModal('Несколько актёров на персонажа',p.title+' · '+episodeLabel(p,ep),
+    `<div class="multi-actor-description"><strong>${e(r.character)}</strong>
+      <p>Выбери дополнительных исполнителей. Каждому создаётся отдельное назначение с собственным статусом, записью и перезаписью. Уже назначенные актёры останутся на своих ролях.</p>
+      <small>Сейчас назначено: ${assigned.size} · карточек персонажа: ${existing.length}</small></div>
+      <input id="multi-actor-search" type="search" placeholder="Найти актёра или @username" autocomplete="off" aria-label="Поиск актёров для массовки">
+      <div class="multi-actor-list">${items}</div>
+      <p class="small muted">Чтобы убрать старое назначение, используй отдельное редактирование роли. Принятые записи не удаляются автоматически.</p>`,
+    'Добавить выбранных',values=>{
+      const fresh=getProject(pid),target=getEpisode(fresh,epid),base=target?.roles.find(role=>role.id===roleId);
+      if(!fresh||!base)throw Error('Персонаж больше не существует.');
+      const selected=(state.actors||[]).filter(actor=>values['extra-actor-'+actor.id]).map(actor=>actor.id);
+      const blocked=(state.actors||[]).filter(actor=>activeVacation(actor.id)).map(actor=>actor.id);
+      const result=addActorsToCharacter(state,target,base,selected,{unavailableActorIds:blocked});
+      touch(fresh);modal.close();render();
+      toast('Добавлено исполнителей: '+result.assigned+'. У каждого отдельный статус и запись.');
+    });
+}
 function roleForm(pid,epid,itemId){
   const p=pid?getProject(pid):null,ep=getEpisode(p,epid),old=ep?.roles.find(r=>r.id===itemId),r=old||{id:uid(),createdAt:new Date().toISOString(),character:'',lineCount:null,actorId:'',actor:'',mine:state.settings.mode==='actor',status:'waiting',voiceGender:'',inProject:false,folder:'',subtitle:'',notes:'',due:'',image:''};
   if(!state.projects.length){projectForm();return;}
@@ -1701,6 +1741,7 @@ async function action(a,d,el){
     case 'delete-task':{const t=ep.tasks.find(t=>t.id===d.item);confirmAction('Удалить задачу?',e(t.title),'Удалить',()=>{ep.tasks=ep.tasks.filter(x=>x.id!==d.item);touch(p);});break;}
     case 'new-role':roleForm(p.id,ep.id);break;
     case 'edit-role':roleForm(p.id,ep.id,d.item);break;
+    case 'multi-role-actors':multiRoleActorsForm(p.id,ep.id,d.item);break;
     case 'hide-accepted-episode':{
       if(!native||!cloud.connected)throw Error('Подключи Studio к Fundi Voice Cloud.');
       if(!p||!ep)throw Error('Выбери конкретную серию.');
@@ -1789,6 +1830,13 @@ async function action(a,d,el){
     case 'shutdown':showModal('Завершить Fundi Voice?','Все изменения будут сохранены.',`<p class="danger-note">Чтобы открыть студию снова, запусти <strong>FundiVoiceStudio.exe</strong>.</p>`,'Сохранить и закрыть',async()=>{await flushSave();if(saveError)throw new Error(saveError);await api('shutdown',{});modal.close();app.innerHTML='<div class="boot"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><p>Студия закрыта. Всё сохранено.</p><p class="small">Запусти FundiVoiceStudio.exe, когда будешь готов продолжить.</p></div>';});break;
   }
 }
+document.addEventListener('input',event=>{
+  if(event.target.id!=='multi-actor-search')return;
+  const query=event.target.value.trim().toLocaleLowerCase('ru');
+  modal.querySelectorAll('.multi-actor-person').forEach(item=>{
+    item.hidden=!item.dataset.actorSearch.includes(query);
+  });
+});
 document.addEventListener('click',event=>{
   const changesSummary=event.target.closest('.studio-vacation-changes > summary');
   if(changesSummary)vacationChangesExpanded=!changesSummary.parentElement.open;
