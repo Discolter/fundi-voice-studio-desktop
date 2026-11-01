@@ -733,3 +733,26 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 /* Direct clipboard paste into character portraits; no download necessary. */
 .role-image-editor-preview[tabindex]{cursor:copy;outline-offset:3px;transition:outline-color .15s ease,box-shadow .15s ease}
 .role-image-editor-preview[tabindex]:focus-visible{outline:2px solid var(--brand1);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand1) 12%,transparent)}
+
+/* Multiple independent actor assignments on one named crowd character. */
+.cast-table .multi-actor-role-row>td:first-child{box-shadow:inset 3px 0 0 color-mix(in srgb,var(--lime) 65%,transparent)}
+.multi-actor-count{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:3px 6px;border:1px solid color-mix(in srgb,var(--lime) 35%,var(--line));border-radius:7px;color:var(--lime);font-size:10px;font-weight:650;white-space:nowrap;vertical-align:middle}
+.multi-actor-count .icon{width:13px;height:13px}
+.multi-actor-add-btn{color:var(--lime)}
+.multi-actor-description{border:1px solid var(--line);border-radius:11px;background:var(--surface2);padding:12px 14px;margin-bottom:14px}
+.multi-actor-description>strong{display:block;font-size:14px}
+.multi-actor-description>p{margin:7px 0 5px;color:var(--muted);font-size:11px;line-height:1.65}
+.multi-actor-description>small{font-size:10px;color:var(--lime)}
+#multi-actor-search{display:block;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);color:var(--text);outline:0;font-size:12px}
+#multi-actor-search:focus{border-color:var(--lime)}
+.multi-actor-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:min(380px,45vh);overflow:auto;padding:10px 2px;align-content:start}
+.multi-actor-person{display:flex;align-items:center;gap:8px;padding:9px 10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;cursor:pointer;min-width:0}
+.multi-actor-person:hover{border-color:var(--lime)}
+.multi-actor-person:has(input:disabled){opacity:.55;cursor:default}
+.multi-actor-person[hidden]{display:none!important}
+.multi-actor-person input{flex-shrink:0;width:16px;height:16px}
+.multi-actor-person .actor-pick-avatar{flex:0 0 32px;width:32px;height:32px}
+.multi-actor-person>span:last-child{display:flex;flex-direction:column;gap:4px;min-width:0}
+.multi-actor-person strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.multi-actor-person small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)}
+@media(max-width:650px){.multi-actor-list{grid-template-columns:1fr}}
