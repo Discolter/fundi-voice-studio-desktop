@@ -9,6 +9,7 @@ import {createQuickViews,roleSnapshot} from './quick-views.js';
 import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
+import {roleImageFromClipboard} from './role-image-clipboard.js';
 import {parseAssCharacters,decodeAssFile,normalizeAssCharacter,matchAssRole,applyAssCastImport,previousAssEpisode} from './ass-role-import.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole,vacationReviewCandidates,addVacationReviewCandidates,removeVacationReviewCandidate} from './vacation-review.js';
 import {actorWorkloadRows,actorWorkloadGroups} from './actor-workload.js';
@@ -1050,10 +1051,10 @@ async function loadProjectCover(file){
 function roleImageEditor(value){
   const image=safeRoleImage(value);
   return `<div class="field full"><label>Изображение персонажа</label><div class="role-image-editor">
-    <div class="role-image-editor-preview" id="role-image-preview">${image?`<img src="${e(image)}" alt="Предпросмотр персонажа">`:icon('file')}</div>
+    <div class="role-image-editor-preview" id="role-image-preview" tabindex="0" aria-label="Сюда можно вставить изображение персонажа через Ctrl+V" title="Скопируй изображение на сайте и нажми Ctrl+V">${image?`<img src="${e(image)}" alt="Предпросмотр персонажа">`:icon('file')}</div>
     <div class="role-image-editor-actions"><button class="btn ghost small" type="button" data-action="choose-role-image">${icon('upload')}Загрузить изображение</button>
     <button class="text-button" type="button" data-action="remove-role-image">Убрать</button>
-    <small>JPG, PNG или WebP. Картинка синхронизируется с приложением и сайтом назначенного актёра.</small></div></div>
+    <small>Скопируй изображение на сайте («Копировать изображение»), открой эту форму и нажми <strong>Ctrl+V</strong>. Без скачивания файла. JPG, PNG, WebP · изображение попадёт к актёрам после сохранения и синхронизации.</small></div></div>
     <input type="hidden" name="image" value="${e(image)}"><input type="file" id="role-image-input" accept="image/png,image/jpeg,image/webp" hidden></div>`;
 }
 async function loadRoleImage(file){
@@ -1078,9 +1079,10 @@ async function loadRoleImage(file){
     if(result)break;
   }
   if(!result)throw new Error('Не удалось уменьшить изображение до безопасного размера.');
-  if(targetInput!==modal.querySelector('#role-image-input'))return;
+  if(targetInput!==modal.querySelector('#role-image-input'))return false;
   modal.querySelector('[name=image]').value=result;
   modal.querySelector('#role-image-preview').innerHTML=`<img src="${e(result)}" alt="Предпросмотр персонажа">`;
+  return true;
 }
 const defaultFolderKeys=()=>state.settings.folderTemplate||['source','voices','render','video','audio','subs','characterSubs','premiere'];
 function episodeNumber(value){if(value===undefined||value===null||value==='')return '';const n=Number(value);if(!Number.isInteger(n)||n<1||n>9999)throw new Error('Номер серии — целое число от 1 до 9999.');return String(n);}
@@ -1935,6 +1937,26 @@ document.addEventListener('change',event=>{
   const checkbox=event.target.closest?.('input[data-vacation-indefinite]');if(!checkbox)return;
   const date=checkbox.closest('form')?.querySelector('input[name=endDate]');if(!date)return;
   date.disabled=checkbox.checked;date.required=!checkbox.checked;
+});
+// Pasting copied image bytes in a role editor uses the same compression/sync path
+// as selecting a local file. Text and copied image URLs keep their native behavior.
+modal.addEventListener('paste',event=>{
+  if(!modal.open||!modal.querySelector('#role-image-input'))return;
+  const file=roleImageFromClipboard(event.clipboardData);
+  if(!file)return;
+  event.preventDefault();
+  const current=modal.querySelector('#role-image-input');
+  const submit=modal.querySelector('#modal-form button[type="submit"]');
+  if(submit)submit.disabled=true;
+  loadRoleImage(file).then(inserted=>{
+    if(inserted&&current===modal.querySelector('#role-image-input'))
+      toast('Изображение вставлено из буфера. Нажми «Сохранить».');
+  }).catch(err=>{
+    if(current===modal.querySelector('#role-image-input'))formError(err);
+  }).finally(()=>{
+    if(submit?.isConnected&&current===modal.querySelector('#role-image-input'))
+      submit.disabled=false;
+  });
 });
 modal.addEventListener('submit',async event=>{event.preventDefault();if(!modalSubmit)return;const form=event.target,data=Object.fromEntries(new FormData(form)),submit=form.querySelector('[type=submit]'),handler=modalSubmit;submit.disabled=true;try{await handler(data);}catch(err){formError(err);}finally{if(submit.isConnected)submit.disabled=false;}});
 modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)modal.close();}});
