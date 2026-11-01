@@ -210,6 +210,18 @@ export function episodeLabel(p, ep) { return `${p.season ? `Сезон ${p.seaso
 export function newEpisode(input={}) {
   return { id: uid(), number:num(input.number), title:str(input.title,120), stage:'unset', due:'', notes:'', paths:{}, resources:[], tasks:[], roles:[], ...input };
 }
+// Carry forward actors and character portraits, not previous episode recordings.
+export function cloneEpisodeCast(sourceEpisode){
+  return (Array.isArray(sourceEpisode?.roles)?sourceEpisode.roles:[]).map(role=>({
+    id:uid(),createdAt:new Date().toISOString(),
+    character:str(role.character,200).trim(),voiceGender:str(role.voiceGender,20),
+    image:safeRoleImage(role.image),lineCount:null,
+    actorId:str(role.actorId,80),actor:str(role.actor,200),mine:!!role.mine,
+    status:'waiting',inProject:false,folder:'',subtitle:'',notes:'',due:'',
+    reviewSeen:'',reviewCandidates:[]
+  })).filter(role=>role.character);
+}
+
 export function newProject(input={}) {
   return {id:uid(), title:'Новый проект', alias:'', season:'', color:'lime', symbol:'spark', cover:'',priority:'normal', root:'', notes:'', favorite:false, archived:false, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), lastOpened:'', episodes:[newEpisode()], ...input};
 }
