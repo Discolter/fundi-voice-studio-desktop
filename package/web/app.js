@@ -9,6 +9,7 @@ import {createQuickViews,roleSnapshot} from './quick-views.js';
 import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
+import {parseAssCharacters,decodeAssFile,normalizeAssCharacter,matchAssRole,applyAssCastImport,previousAssEpisode} from './ass-role-import.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole,vacationReviewCandidates,addVacationReviewCandidates,removeVacationReviewCandidate} from './vacation-review.js';
 import {actorWorkloadRows,actorWorkloadGroups} from './actor-workload.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
@@ -430,7 +431,16 @@ function episodeRoles(p,ep){
   const rows=filterEpisodeRoles(state,all,{status:ui.roleFilter||'all',actorKey:ui.roleActor||'all',characterKey:ui.roleCharacter||'all',order:ui.roleOrder||'original'}).map(r=>({p,ep,r}));
   const actorOptions=[['all','Все актёры'],...actorChoices.map(a=>[a.key,`${a.label}${vacationOptionSuffix(a.key.startsWith('id:')?a.key.slice(3):'')} (${a.count})`])];
   const characterOptions=[['all','Все персонажи'],...characterChoices.map(c=>[c.key,`${c.label} (${c.count})`])];
-  return `<div class="panel-head"><div class="role-count">${ep.roles.length} ролей</div><div class="btn-row">${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
+  if(!ep.roles.length){
+    return `<div class="panel-head"><div class="role-count">0 ролей</div><div class="btn-row"><button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль вручную</button>${ep.stage==='done'?'':`<button class="btn ghost small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}</div></div>
+      <section class="ass-import-empty"><span class="ass-import-symbol">${icon('file')}</span>
+      <h2>В этой серии пока нет персонажей</h2>
+      <p>Импортируй ASS/SSA субтитры. Studio создаст роли по полю Name/Actor и предложит актёров из предыдущей серии.</p>
+      <button type="button" class="btn primary" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать из ASS</button>
+      <small>Поддерживаются .ass и .ssa · файл обрабатывается локально</small></section>`;
+  }
+
+  return `<div class="panel-head"><div class="role-count">${ep.roles.length} ролей</div><div class="btn-row">${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импорт из ASS</button><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${ep.roles.length&&!ep.roles.some(r=>r.actorId||r.actor)?`<div class="ass-unassigned-tip">Пока никому не назначены роли. Можно заполнить список из ASS и автоматически подобрать совпадения с предыдущей серией. <button type="button" class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать ASS</button></div>`:''}${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
 }
 const actorLabel=a=>a.name+(a.telegram?' @'+a.telegram:'');
 // Встроенный визуальный выбор актёра: карточки загружаются в список только при открытии.
@@ -1434,6 +1444,39 @@ function episodePaths(pid,epid){
   });
 }
 
+function showAssImportPreview(pid,epid,fileName,parsed){
+  const p=getProject(pid),ep=p?.episodes.find(x=>x.id===epid);
+  if(!p||!ep)throw Error('Серия была удалена. Открой её заново.');
+  const previous=previousAssEpisode(p,ep),names=new Set(parsed.characters.map(c=>c.key));
+  const missing=ep.roles.filter(role=>!names.has(normalizeAssCharacter(role.character)));
+  const candidates=parsed.characters.map((entry,index)=>{
+    const {existing,actor}=matchAssRole(state,p,ep,entry);
+    const status=existing?.actorId||existing?.actor?'Уже в серии: '+(existing.actor||state.actors.find(a=>a.id===existing.actorId)?.name||'актёр назначен')
+      :actor?'Автоназначение: '+actor.name:'Пока без актёра';
+    return `<label class="ass-import-person"><input type="checkbox" name="ass-include-${index}" checked><span class="ass-import-person-name"><strong>${e(entry.name)}</strong><small>${e(status)}</small></span><span class="ass-import-lines">${entry.lineCount} репл.</span></label>`;
+  }).join('');
+  const warnings=parsed.unlabeled||parsed.invalid?`<p class="ass-import-warning">Внимание: ${parsed.unlabeled} реплик без имени и ${parsed.invalid} строк с неверным форматом не создадут роли. Их можно исправить в ASS и импортировать повторно.</p>`:'';
+  const prior=previous?`<p class="small muted">Назначения ищем в ${e(episodeLabel(p,previous))}. Совпадения определяются по имени персонажа, без приблизительных догадок.</p>`:'<p class="small muted">Предыдущая серия не найдена. Новым ролям актёры не назначаются автоматически.</p>';
+  const replace=ep.roles.length?`<label class="ass-import-replace"><input type="checkbox" name="ass-remove-missing">Убрать из списка роли, которых нет в ASS (${missing.length})<small>Не отмечено по умолчанию, чтобы случайно не удалить существующие назначения. Роли с уже начатой работой и поручениями защищены.</small></label>`:'';
+  showModal('Импорт персонажей из ASS',p.title+' · '+episodeLabel(p,ep),
+    `<div class="ass-import-intro"><strong>${e(fileName)}</strong><p>Найдено ${parsed.characters.length} персонажей в ${parsed.dialogueCount} диалогах.</p>${prior}${warnings}</div><div class="ass-import-list">${candidates}</div>${replace}`,
+    'Импортировать роли',values=>{
+      const fresh=getProject(pid),target=fresh?.episodes.find(x=>x.id===epid);
+      if(!fresh||!target)throw Error('Серия больше не существует.');
+      const selected=parsed.characters.map((_,i)=>values['ass-include-'+i]?i:null).filter(i=>i!==null);
+      const result=applyAssCastImport(state,fresh,target,parsed.characters,{
+        selected,removeMissing:!!values['ass-remove-missing']
+      });
+      touch(fresh);modal.close();ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';render();
+      toast('ASS импортирован: новых ролей '+result.added+', совпадений '+result.reused+', автоназначений '+result.inherited+'.');
+    });
+}
+async function importAssRolesFile(file,pid,epid){
+  const text=await decodeAssFile(file);
+  const parsed=parseAssCharacters(text);
+  showAssImportPreview(pid,epid,file.name,parsed);
+}
+
 async function importRoles(pid,epid){
   const p=getProject(pid),ep=getEpisode(p,epid);
   if(!native){showModal('Персонажи из папки «Озвучка»','Импорт папок доступен в Windows-версии.',`<a class="btn primary" href="Fundi-Voice-Windows.zip" download>${icon('download')}Скачать для Windows</a>`);return;}
@@ -1627,6 +1670,11 @@ async function action(a,d,el){
       if(!native){toast('Подбор существующих папок доступен в Windows-версии.');break;}
       const root=trimPath(modal.querySelector('[name=p-root]').value);if(!root)throw new Error('Сначала укажи папку серии.');
       el.disabled=true;try{const data=await api('detect',{path:root});let count=0;for(const [key,path] of Object.entries(data.paths)){const input=modal.querySelector(`[name=p-${key}]`);if(input&&!input.value){input.value=path;count++;}}toast(`Подобрано путей: ${count}. Проверь и сохрани структуру.`);}finally{el.disabled=false;}break;
+    }
+    case 'import-ass-roles':{
+      const input=document.querySelector('#ass-roles-file');
+      if(!input||!p||!ep)break;
+      input.dataset.project=p.id;input.dataset.episode=ep.id;input.value='';input.click();break;
     }
     case 'import-roles':await importRoles(p.id,ep.id);break;
     case 'role-folder':{const r=ep.roles.find(r=>r.id===d.item);if(r.folder)await openPath(r.folder);else roleForm(p.id,ep.id,r.id);break;}
@@ -1891,6 +1939,14 @@ document.addEventListener('change',event=>{
 modal.addEventListener('submit',async event=>{event.preventDefault();if(!modalSubmit)return;const form=event.target,data=Object.fromEntries(new FormData(form)),submit=form.querySelector('[type=submit]'),handler=modalSubmit;submit.disabled=true;try{await handler(data);}catch(err){formError(err);}finally{if(submit.isConnected)submit.disabled=false;}});
 modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)modal.close();}});
 document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&(event.key.toLowerCase()==='k'||event.code==='KeyK')){event.preventDefault();document.querySelector('#search-input')?.focus();document.querySelector('#search-input')?.select();}if((event.key.toLowerCase()==='n'||event.code==='KeyN')&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&!modal.open&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){event.preventDefault();projectForm();}});
+document.querySelector('#ass-roles-file').addEventListener('change',async event=>{
+  const input=event.target,file=input.files?.[0],pid=input.dataset.project,epid=input.dataset.episode;
+  input.value='';
+  if(!file)return;
+  try{await importAssRolesFile(file,pid,epid);}catch(error){
+    toast('Импорт ASS: '+(error.message||String(error)),true);
+  }
+});
 document.querySelector('#import-file').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{if(file.size>8*1024*1024)throw new Error('Резервная копия должна быть меньше 8 МБ.');const imported=normalizeState(JSON.parse(await file.text()));showModal('Загрузить резервную копию?',`${imported.projects.length} проектов · ${imported.trash.length} в корзине`,`<p class="danger-note">Карточки в текущем рабочем пространстве будут заменены данными из <strong>${e(file.name)}</strong>. Перед заменой скачай текущую копию, если она нужна.</p><button type="button" class="btn ghost" data-action="export">${icon('download')}Скачать текущую копию</button>`,'Загрузить копию',async()=>{if(native)await api('state',imported);state=imported;persist();ui.page='projects';ui.query='';ui.filter='all';ui.actorFilter='';ui.actorExpanded=[];saveUI();modal.close();render();toast('Рабочее пространство восстановлено');});}catch(err){toast(err instanceof SyntaxError?'Не удалось прочитать JSON. Выбери резервную копию Fundi Voice.':err.message,true);}});
 window.addEventListener('beforeunload',event=>{if(native&&saving){event.preventDefault();event.returnValue='';}});
 window.addEventListener('storage',event=>{if(!native&&event.key===STORAGE&&event.newValue){try{state=normalizeState(JSON.parse(event.newValue));if(!modal.open)render();else toast('Данные обновлены в другой вкладке. Закрой форму, чтобы увидеть изменения.');}catch{}}});
