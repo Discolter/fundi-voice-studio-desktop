@@ -22,6 +22,7 @@ export function parseAssCharacters(text){
       const name=labels.indexOf('name')>=0?labels.indexOf('name'):labels.indexOf('actor');
       if(name<0)throw Error('В разделе [Events] нет колонки Name/Actor. Неоткуда взять имена персонажей.');
       if(labels.indexOf('text')<0)throw Error('В разделе [Events] отсутствует колонка Text.');
+      if(labels.at(-1)!=='text')throw Error('В ASS колонка Text должна быть последней в Format.');
       if(labels.length<3)throw Error('Повреждён формат событий ASS.');
       format={count:labels.length,name};continue;
     }
@@ -110,6 +111,8 @@ export function applyAssCastImport(state,project,episode,entries,{selected=null,
   if(!choices.length)throw Error('Отметь хотя бы одного персонажа.');
   const keys=new Set(choices.map(entry=>normalizeAssCharacter(entry.name)));
   if(keys.size!==choices.length)throw Error('В списке персонажей есть повторяющиеся имена.');
+  const duplicates=choices.filter(entry=>episode.roles.filter(role=>normalizeAssCharacter(role.character)===entry.key).length>1);
+  if(duplicates.length)throw Error('В серии есть несколько карточек одного персонажа: '+duplicates.map(x=>x.name).join(', ')+'. Объедини их вручную до импорта.');
   const missing=episode.roles.filter(role=>!keys.has(normalizeAssCharacter(role.character)));
   if(removeMissing){
     const protectedRoles=missing.filter(role=>role.status!=='waiting'||episode.tasks?.some(task=>task.roleId===role.id));
@@ -117,13 +120,14 @@ export function applyAssCastImport(state,project,episode,entries,{selected=null,
   }
   if((removeMissing?episode.roles.length-missing.length:episode.roles.length)+choices.length>4000)
     throw Error('Слишком много ролей.');
-  const updated=removeMissing?episode.roles.filter(role=>keys.has(normalizeAssCharacter(role.character))):[...episode.roles];
+  // If full replacement is explicitly requested, restore exact ASS first-appearance order.
+  const updated=removeMissing?[]:[...episode.roles];
   let added=0,reused=0,inherited=0;
   for(const entry of choices){
     const {existing,previous,actor}=matchAssRole(state,project,episode,entry);
     if(existing){
       const index=updated.findIndex(role=>role.id===existing.id);
-      if(index>=0){
+      if(index>=0||removeMissing){
         const saved={...existing,lineCount:entry.lineCount};
         if(!saved.actorId&&!saved.actor&&actor){
           saved.actorId=actor.id;saved.actor=actor.name;
@@ -132,7 +136,8 @@ export function applyAssCastImport(state,project,episode,entries,{selected=null,
           saved.image=saved.image||safeRoleImage(previous?.image);
           inherited++;
         }
-        updated[index]=saved;reused++;continue;
+        if(index>=0)updated[index]=saved;else updated.push(saved);
+        reused++;continue;
       }
     }
     updated.push({id:uid(),createdAt:new Date().toISOString(),character:entry.name,lineCount:entry.lineCount,
