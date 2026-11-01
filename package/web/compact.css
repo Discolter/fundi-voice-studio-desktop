@@ -729,3 +729,7 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .workload-search-clear>.icon{width:14px;height:14px}
 .workload-search-count{font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:750px){.workload-toolbar-left{width:100%}.workload-search-wrap{flex:1 1 100%}.workload-tools{align-items:flex-start}}
+
+/* Direct clipboard paste into character portraits; no download necessary. */
+.role-image-editor-preview[tabindex]{cursor:copy;outline-offset:3px;transition:outline-color .15s ease,box-shadow .15s ease}
+.role-image-editor-preview[tabindex]:focus-visible{outline:2px solid var(--brand1);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand1) 12%,transparent)}
