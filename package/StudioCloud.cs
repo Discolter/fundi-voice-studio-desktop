@@ -33,7 +33,7 @@ namespace FundiVoice {
         }
         bool Connected(){return JsonData.S(connection,"token")!=""&&JsonData.S(connection,"server")!="";}
         public object Status(){
-            lock(gate)return new{connected=Connected(),server=JsonData.S(connection,"server"),lastSync=JsonData.S(connection,"lastSync"),
+            lock(gate)return new{connected=Connected(),server=JsonData.S(connection,"server"),lastSync=JsonData.S(connection,"lastSync"),lastStatus=lastStatus==DateTime.MinValue?"":lastStatus.ToString("o"),roleSyncReady=roleSyncReady,
                 pending=pending.Count>0,busy=busy,error=error,conflict=conflict,revision=JsonData.N(connection,"revision"),actors=accounts,
                 reviewApiAvailable=reviewApiAvailable,reviews=reviews,hiddenRoles=hiddenRoles,mailbox=mailbox.View(),
                 fileApiAvailable=fileApiAvailable,files=recordingFiles,usedBytes=usedBytes,quotaBytes=quotaBytes,fileError=fileError,unreadFiles=unreadFiles,transfer=transfers.View(),
