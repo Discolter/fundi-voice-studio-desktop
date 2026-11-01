@@ -21,7 +21,7 @@ assert.equal(normalizeAssCharacter('Ёж–Ёж'),normalizeAssCharacter('еж-е
 const ssa='[Events]\nFormat: Marked, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text\nDialogue: Marked=0,0:00:00.00,0:00:02.00,Default,Папа,0,0,0,,Здравствуй, сын';
 assert.equal(parseAssCharacters(ssa).characters[0].name,'Папа');
 assert.throws(()=>parseAssCharacters('[Events]\nFormat: Layer,Start,End,Style,Text\nDialogue: 0,0:00,0:01,Default,Hello'),/Name\/Actor/);
-assert.throws(()=>parseAssCharacters('[Events]\nFormat: Layer,Name,Text\nDialogue: 0,0,hey'),/пустое поле/);
+assert.throws(()=>parseAssCharacters('[Events]\nFormat: Layer,Name,Text\nDialogue: 0,,hey'),/пустое поле/);
 assert.throws(()=>parseAssCharacters('[Script Info]\nTitle: No'),/\[Events\]/);
 const cp1251=Uint8Array.from([0xcf,0xf0,0xe8,0xe2,0xe5,0xf2]);
 const file={name:'episode.ass',size:cp1251.length,arrayBuffer:async()=>cp1251.buffer};
