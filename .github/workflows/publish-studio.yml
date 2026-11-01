@@ -129,6 +129,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Recovery bottom navigation regression failed' }
           node ./tools/check-episode-unassigned.mjs
           if($LASTEXITCODE -ne 0){ throw 'Unassigned episode actors check failed' }
+          node ./tools/check-ass-role-import.mjs
+          if($LASTEXITCODE -ne 0){ throw 'ASS import and automatic casting tests failed' }
           node ./tools/check-episode-cloud-status.mjs
           if($LASTEXITCODE -ne 0){ throw 'Episode and Cloud status regression failed' }
           if($LASTEXITCODE -ne 0){ throw 'Unassigned episode actors regression failed' }
