@@ -23,6 +23,79 @@ export function buildTaskSnapshot(state){
     actors:(state.actors||[]).map(a=>({id:a.id,name:a.name}))
   };
 }
+
+const studioMirrorThumbs=new WeakMap();
+// Produce compact previews for the actor-only Studio mirror. Never send file paths,
+// raw voice files, notes or full-size locally stored artwork to the actor catalog.
+async function studioMirrorPreview(owner,source,width,height,maxLength){
+  if(typeof source!=='string'||source.length>720000||
+     !/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(source))return '';
+  const old=studioMirrorThumbs.get(owner);
+  if(old?.source===source)return old.preview;
+  const preview=await new Promise(resolve=>{
+    const img=new Image();
+    img.onerror=()=>resolve('');
+    img.onload=()=>{
+      try{
+        const ratio=Math.min(width/img.naturalWidth,height/img.naturalHeight,1);
+        if(!Number.isFinite(ratio)||ratio<=0){resolve('');return;}
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(img.naturalWidth*ratio));
+        canvas.height=Math.max(1,Math.round(img.naturalHeight*ratio));
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        const webp=canvas.toDataURL('image/webp',0.72);
+        resolve(webp.length<=maxLength?webp:'');
+      }catch{resolve('');}
+    };
+    img.src=source;
+  });
+  studioMirrorThumbs.set(owner,{source,preview});
+  return preview;
+}
+export async function addStudioMirrorToSnapshot(state,snapshot){
+  // Images share a fixed budget: catalog sync remains smaller than the server's
+  // 2.4MB snapshot limit even for large anime casts.
+  let budget=1150000;
+  const use=async(entity,source,w,h,limit)=>{
+    if(budget<=limit/2)return '';
+    const image=await studioMirrorPreview(entity,source,w,h,limit);
+    if(image.length>budget)return '';
+    budget-=image.length;
+    return image;
+  };
+  const actors=new Map((state.actors||[]).map(a=>[a.id,a]));
+  for(const p of snapshot.projects||[]){
+    const original=(state.projects||[]).find(item=>item.id===p.id);
+    if(!original)continue;
+    p.color=original.color||'lime';
+    p.favorite=!!original.favorite;
+    p.cover=await use(original,original.cover,168,240,65000);
+    for(const ep of p.episodes||[]){
+      const source=(original.episodes||[]).find(item=>item.id===ep.id);
+      if(!source)continue;
+      ep.stage=source.stage||'unset';
+      ep.due=source.due||'';
+    }
+  }
+  for(const actor of snapshot.actors||[]){
+    const original=actors.get(actor.id);
+    actor.avatar=original?await use(original,original.avatar||original.avatarPreview,48,48,14000):'';
+  }
+  for(const p of snapshot.projects||[]){
+    const original=(state.projects||[]).find(item=>item.id===p.id);
+    for(const ep of p.episodes||[]){
+      const originalEp=(original?.episodes||[]).find(item=>item.id===ep.id);
+      for(const r of ep.roles||[]){
+        const originalRole=(originalEp?.roles||[]).find(item=>item.id===r.id);
+        if(!originalRole)continue;
+        r.voiceGender=originalRole.voiceGender||'';
+        r.image=await use(originalRole,originalRole.image,72,96,19000);
+      }
+    }
+  }
+  return snapshot;
+}
+
 const key=t=>t.id;
 const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
 export function mergeTaskSnapshots(local,baseline,remote){
