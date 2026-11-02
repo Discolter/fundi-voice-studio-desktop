@@ -360,7 +360,7 @@ export function actorPublicFeed(state, actorId, {preview=false}={}) {
       roleId:r.id,
       projectId:p.id, projectTitle:p.title, season:p.season,
       episodeId:ep.id, episodeNumber:ep.number, episodeTitle:ep.title,
-      character:r.character, image:safeRoleImage(r.image), lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null, status:r.status,
+      character:r.character, roleTier:validRoleTier(r.roleTier), image:safeRoleImage(r.image), lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null, status:r.status,
       createdAt:r.createdAt||'',projectCreatedAt:p.createdAt||'',
       due:effectiveRoleDue(r,ep)
     }))));
