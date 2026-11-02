@@ -74,6 +74,8 @@ jobs:
           node ./tools/check-visual-task-filters.mjs
           if($LASTEXITCODE -ne 0){ throw 'Visual assignment filters regression failed' }
           node --test ./tools/check-cloud-task-sync.mjs
+          node ./tools/check-actor-studio-preview.mjs
+          if($LASTEXITCODE -ne 0){throw 'Actor Studio preview metadata regression failed'}
           if($LASTEXITCODE -ne 0){ throw 'Cloud task synchronization regression failed' }
           node ./tools/check-cloud-download.mjs
           if($LASTEXITCODE -ne 0){ throw 'Cloud download path test failed' }
