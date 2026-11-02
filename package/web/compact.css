@@ -756,3 +756,29 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .multi-actor-person strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
 .multi-actor-person small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)}
 @media(max-width:650px){.multi-actor-list{grid-template-columns:1fr}}
+
+
+/* Casting importance: independent from the recording/processing status.
+   Group headers remain readable in all Studio themes. */
+.cast-table tbody tr.role-tier-divider td{
+  padding:11px 15px;
+  background:color-mix(in srgb,var(--tier-accent) 9%,var(--surface, #151a22));
+  border-top:1px solid color-mix(in srgb,var(--tier-accent) 30%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--tier-accent) 18%,transparent);
+  border-left:3px solid var(--tier-accent);
+  text-align:left;
+}
+.cast-table tbody tr.role-tier-divider-main{--tier-accent:#7bafff}
+.cast-table tbody tr.role-tier-divider-supporting{--tier-accent:#caa56a}
+.cast-table tbody tr.role-tier-divider-extras{--tier-accent:#8b96a6}
+.role-tier-divider-content{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.role-tier-divider-content strong{font-size:12px;font-weight:750;letter-spacing:.015em;color:var(--text)}
+.role-tier-divider-content span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cast-table .row-select.role-tier{min-width:135px;max-width:168px;font-weight:650}
+.cast-table .row-select.role-tier-main{color:#7bafff}
+.cast-table .row-select.role-tier-supporting{color:#caa56a}
+.cast-table .row-select.role-tier-extras{color:#9eabb9}
+@media(max-width:960px){
+  .cast-table .row-select.role-tier{min-width:119px;max-width:138px;font-size:10px}
+  .cast-table tbody tr.role-tier-divider td{padding:10px 12px}
+}

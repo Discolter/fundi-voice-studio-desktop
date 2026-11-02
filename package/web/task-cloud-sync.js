@@ -15,7 +15,7 @@ export function buildTaskSnapshot(state){
       id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,createdAt:p.createdAt||'',
       episodes:(p.episodes||[]).map(ep=>({
         id:ep.id,number:String(ep.number||''),title:ep.title||'',
-        roles:(ep.roles||[]).map(r=>({id:r.id,character:r.character,actorId:r.actorId||'',actor:r.actor||'',
+        roles:(ep.roles||[]).map(r=>({id:r.id,character:r.character,roleTier:['main','supporting','extras'].includes(r.roleTier)?r.roleTier:'supporting',actorId:r.actorId||'',actor:r.actor||'',
           lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0?r.lineCount:null,
           status:r.status||'waiting',createdAt:r.createdAt||''}))
       }))

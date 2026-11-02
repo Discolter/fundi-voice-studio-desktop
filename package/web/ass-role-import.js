@@ -1,4 +1,4 @@
-import {uid,safeRoleImage} from './core.js';
+import {uid,safeRoleImage,validRoleTier} from './core.js';
 
 // ASS/SSA dialogue "Name" (also called "Actor" by some subtitle editors).
 // Preserve names and their original spelling; use conservative matching for casting.
@@ -146,7 +146,7 @@ export function applyAssCastImport(state,project,episode,entries,{selected=null,
       }
     }
     updated.push({id:uid(),createdAt:new Date().toISOString(),character:entry.name,lineCount:entry.lineCount,
-      actorId:actor?.id||'',actor:actor?.name||'',voiceGender:previous?.voiceGender||'',
+      actorId:actor?.id||'',actor:actor?.name||'',roleTier:validRoleTier(previous?.roleTier),voiceGender:previous?.voiceGender||'',
       image:safeRoleImage(previous?.image),mine:!!previous?.mine&&!!actor,status:'waiting',
       inProject:false,folder:'',subtitle:'',notes:'',due:'',reviewSeen:'',reviewCandidates:[]});
     if(actor)inherited++;

@@ -17,7 +17,8 @@ assert.ok(css.includes('tbody td:nth-child(3) .text-button{font-size:14px'), 'la
 assert.ok(app.includes('getVacation:vacationFor'), 'visual filter reads vacation status');
 assert.ok(visual.includes("d.vacation?.status==='active'"), 'vacation filter highlight');
 assert.ok(app.includes("episode-unassigned-person ${vacationFor(actor.id)?'on-vacation':''}"), 'unassigned filter highlight');
-assert.ok(app.includes('В отпуске — недоступен'), 'roster actor picker clearly shows absence');
+assert.ok(app.includes('В отпуске · можно назначить'), 'roster shows leave but permits manual assignment');
+assert.ok(!app.includes('disabled aria-disabled="true"'), 'active leave does not disable actor picker options');
 assert.ok(app.includes('studio-vacation-delete-event'), 'owner can delete individual event');
 assert.ok(app.includes('studio-vacation-delete-history'), 'owner can delete ended vacation history');
 assert.ok(app.includes("['active','planned'].includes(item.status)"), 'active vacations cannot be deleted via UI');
