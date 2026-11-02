@@ -561,7 +561,7 @@ function roleTierSortedRows(rows){
 function roleTierDivider(rows,index){
   const tier=validRoleTier(rows[index].r.roleTier);
   if(index>0&&validRoleTier(rows[index-1].r.roleTier)===tier)return '';
-  const title=ROLE_TIERS.find(([key])=>key===tier)?.[1]||'Второстепенная';
+  const title=tier==='main'?'Главные роли':tier==='extras'?'Массовка':'Второстепенные роли';
   const count=rows.filter(({r})=>validRoleTier(r.roleTier)===tier).length;
   return `<tr class="role-tier-divider role-tier-divider-${e(tier)}"><td colspan="6"><div class="role-tier-divider-content"><strong>${e(title)}</strong><span>${count} ${count===1?'роль':count%10>=2&&count%10<=4&&(count%100<12||count%100>14)?'роли':'ролей'}</span></div></td></tr>`;
 }
