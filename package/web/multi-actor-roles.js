@@ -1,4 +1,4 @@
-import {uid,safeRoleImage} from './core.js';
+import {uid,safeRoleImage,validRoleTier} from './core.js';
 import {validRoleVoice} from './casting-assistant.js';
 import {normalizeAssCharacter} from './ass-role-import.js';
 
@@ -36,7 +36,7 @@ export function addActorsToCharacter(state,episode,baseRole,actorIds,{unavailabl
   const newRoles=toAdd.map((id,index)=>{
     const actor=roster.get(id);
     const role={id:uid(),createdAt:now,character:baseRole.character,actorId:id,actor:actor.name,
-      voiceGender:validRoleVoice(baseRole.voiceGender)||validRoleVoice(actor.voiceGroup),
+      roleTier:validRoleTier(baseRole.roleTier),voiceGender:validRoleVoice(baseRole.voiceGender)||validRoleVoice(actor.voiceGroup),
       image:safeRoleImage(baseRole.image),lineCount:null,
       mine:false,status:'waiting',inProject:false,folder:'',subtitle:'',notes:'',due:baseRole.due||'',
       reviewSeen:'',reviewCandidates:[]};
