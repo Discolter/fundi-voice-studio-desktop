@@ -25,43 +25,53 @@ export function buildTaskSnapshot(state){
 }
 
 const studioMirrorThumbs=new WeakMap();
+const mirrorSource=source=>typeof source==='string'&&source.length<=720000&&
+  /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(source);
 // Produce compact previews for the actor-only Studio mirror. Never send file paths,
 // raw voice files, notes or full-size locally stored artwork to the actor catalog.
 async function studioMirrorPreview(owner,source,width,height,maxLength){
-  if(typeof source!=='string'||source.length>720000||
-     !/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(source))return '';
+  if(!source)return '';
+  if(!mirrorSource(source))throw Error('Не удалось подготовить картинку: неподдерживаемый формат.');
   const old=studioMirrorThumbs.get(owner);
-  if(old?.source===source)return old.preview;
-  const preview=await new Promise(resolve=>{
+  const size=width+':'+height+':'+maxLength;
+  if(old?.source===source&&old.size===size)return old.preview;
+  const preview=await new Promise((resolve,reject)=>{
     const img=new Image();
-    img.onerror=()=>resolve('');
+    const timer=setTimeout(()=>reject(Error('Подготовка картинки заняла слишком много времени. Повтори обновление.')),8000);
+    img.onerror=()=>{clearTimeout(timer);reject(Error('Не удалось прочитать одну из картинок. Загрузи её заново.'));};
     img.onload=()=>{
+      clearTimeout(timer);
       try{
         const ratio=Math.min(width/img.naturalWidth,height/img.naturalHeight,1);
-        if(!Number.isFinite(ratio)||ratio<=0){resolve('');return;}
+        if(!Number.isFinite(ratio)||ratio<=0)throw Error('Некорректный размер картинки.');
         const canvas=document.createElement('canvas');
-        canvas.width=Math.max(1,Math.round(img.naturalWidth*ratio));
-        canvas.height=Math.max(1,Math.round(img.naturalHeight*ratio));
-        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-        const webp=canvas.toDataURL('image/webp',0.72);
-        resolve(webp.length<=maxLength?webp:'');
-      }catch{resolve('');}
+        for(const [scale,quality] of [[1,.72],[.8,.55],[.6,.45],[.4,.35],[.25,.3],[.125,.25]]){
+          canvas.width=Math.max(1,Math.round(img.naturalWidth*ratio*scale));
+          canvas.height=Math.max(1,Math.round(img.naturalHeight*ratio*scale));
+          const context=canvas.getContext('2d');
+          if(!context)throw Error('Не удалось подготовить миниатюру картинки.');
+          context.drawImage(img,0,0,canvas.width,canvas.height);
+          for(const format of ['image/webp','image/jpeg']){
+            const value=canvas.toDataURL(format,quality);
+            if(mirrorSource(value)&&value.length<=maxLength){resolve(value);return;}
+          }
+        }
+        reject(Error('Не удалось уменьшить одну из картинок для отправки. Загрузи её заново.'));
+      }catch(error){reject(error);}
     };
     img.src=source;
   });
-  studioMirrorThumbs.set(owner,{source,preview});
+  // Failed conversions are never cached as empty images.
+  studioMirrorThumbs.set(owner,{source,size,preview});
   return preview;
 }
 export async function addStudioMirrorToSnapshot(state,snapshot){
   // Images share a fixed budget: catalog sync remains smaller than the server's
   // 2.4MB snapshot limit even for large anime casts.
-  let budget=1150000;
-  const use=async(entity,source,w,h,limit)=>{
-    if(budget<=limit/2)return '';
-    const image=await studioMirrorPreview(entity,source,w,h,limit);
-    if(image.length>budget)return '';
-    budget-=image.length;
-    return image;
+  const images=[];
+  const use=(target,field,entity,source,w,h,limit)=>{
+    target[field]='';
+    if(source)images.push({target,field,entity,source,w,h,limit});
   };
   const actors=new Map((state.actors||[]).map(a=>[a.id,a]));
   for(const p of snapshot.projects||[]){
@@ -69,7 +79,7 @@ export async function addStudioMirrorToSnapshot(state,snapshot){
     if(!original)continue;
     p.color=original.color||'lime';
     p.favorite=!!original.favorite;
-    p.cover=await use(original,original.cover,168,240,65000);
+    use(p,'cover',original,original.cover,168,240,65000);
     for(const ep of p.episodes||[]){
       const source=(original.episodes||[]).find(item=>item.id===ep.id);
       if(!source)continue;
@@ -79,7 +89,7 @@ export async function addStudioMirrorToSnapshot(state,snapshot){
   }
   for(const actor of snapshot.actors||[]){
     const original=actors.get(actor.id);
-    actor.avatar=original?await use(original,original.avatar||original.avatarPreview,48,48,14000):'';
+    use(actor,'avatar',original,original?.avatar||original?.avatarPreview,48,48,14000);
   }
   for(const p of snapshot.projects||[]){
     const original=(state.projects||[]).find(item=>item.id===p.id);
@@ -89,11 +99,38 @@ export async function addStudioMirrorToSnapshot(state,snapshot){
         const originalRole=(originalEp?.roles||[]).find(item=>item.id===r.id);
         if(!originalRole)continue;
         r.voiceGender=originalRole.voiceGender||'';
-        r.image=await use(originalRole,originalRole.image,72,96,19000);
+        use(r,'image',originalRole,originalRole.image,72,96,19000);
       }
     }
   }
+  let budget=1150000,remaining=images.length;
+  for(const item of images){
+    // Reserve room for every remaining picture, including repeated characters
+    // across episodes. Do not silently drop the tail of a large cast.
+    const limit=Math.min(item.limit,Math.floor(budget/remaining));
+    if(limit<256)throw Error('Слишком много картинок для одной синхронизации.');
+    const value=await studioMirrorPreview(item.entity,item.source,item.w,item.h,limit);
+    item.target[item.field]=value;budget-=value.length;remaining--;
+  }
   return snapshot;
+}
+
+export function verifyStudioMirrorImages(expected,received){
+  const counts={projects:0,characters:0,actors:0};
+  const check=(value,actual,type)=>{
+    if((value||'')!==(actual||''))throw Error('Облако не подтвердило сохранение всех картинок. Повтори обновление Studio.');
+    if(value)counts[type]++;
+  };
+  for(const p of expected.projects||[]){
+    const saved=(received?.projects||[]).find(x=>x.id===p.id);
+    check(p.cover,saved?.cover,'projects');
+    for(const ep of p.episodes||[]){
+      const savedEp=(saved?.episodes||[]).find(x=>x.id===ep.id);
+      for(const r of ep.roles||[])check(r.image,(savedEp?.roles||[]).find(x=>x.id===r.id)?.image,'characters');
+    }
+  }
+  for(const a of expected.actors||[])check(a.avatar,(received?.actors||[]).find(x=>x.id===a.id)?.avatar,'actors');
+  return counts;
 }
 
 const key=t=>t.id;
