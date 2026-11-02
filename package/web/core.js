@@ -4,6 +4,8 @@ export const STAGES = [
   ['unset', 'Этап не указан'], ['prep', 'Подготовка'], ['record', 'Запись'],
   ['edit', 'Монтаж'], ['mix', 'Сведение'], ['review', 'Проверка'], ['done', 'Готово']
 ];
+export const ROLE_TIERS = [['main','Главная роль'],['supporting','Второстепенная'],['extras','Массовка']];
+export const validRoleTier = value => ROLE_TIERS.some(([key])=>key===value)?value:'supporting';
 export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['done','Принято']];
 export const TASK_PRIORITIES = [['urgent','Срочно'],['high','Высокий'],['normal','Обычный'],['low','Низкий']];
 export const taskPriority = value => TASK_PRIORITIES.some(([key])=>key===value)?value:'normal';
@@ -214,7 +216,7 @@ export function newEpisode(input={}) {
 export function cloneEpisodeCast(sourceEpisode){
   return (Array.isArray(sourceEpisode?.roles)?sourceEpisode.roles:[]).map(role=>({
     id:uid(),createdAt:new Date().toISOString(),
-    character:str(role.character,200).trim(),voiceGender:str(role.voiceGender,20),
+    character:str(role.character,200).trim(),roleTier:validRoleTier(role.roleTier),voiceGender:str(role.voiceGender,20),
     image:safeRoleImage(role.image),lineCount:null,
     actorId:str(role.actorId,80),actor:str(role.actor,200),mine:!!role.mine,
     status:'waiting',inProject:false,folder:'',subtitle:'',notes:'',due:'',
@@ -258,7 +260,7 @@ export function normalizeState(raw) {
       if(matches.length===1)linked=matches[0];
       else if(matches.length===0&&raw.actors===undefined){linked=newActor({id:id(''),name});actors.push(linked);}
     }
-    return {id:id(r.id),character:str(r.character,200),voiceGender:roleVoiceFromActor(r,linked),image:safeRoleImage(r.image),lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0&&r.lineCount<=1000000?r.lineCount:null,actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:r.status==='processed'?'processing':'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),createdAt:str(r.createdAt,50),reviewSeen:str(r.reviewSeen,260),reviewCandidates:Array.isArray(r.reviewCandidates)?[...new Set(r.reviewCandidates.map(candidateId=>actorIdMap.get(candidateId)).filter(candidateId=>candidateId&&candidateId!==linked?.id))].slice(0,50):[]};
+    return {id:id(r.id),character:str(r.character,200),roleTier:validRoleTier(r.roleTier),voiceGender:roleVoiceFromActor(r,linked),image:safeRoleImage(r.image),lineCount:Number.isInteger(r.lineCount)&&r.lineCount>=0&&r.lineCount<=1000000?r.lineCount:null,actorId:linked?.id||'',actor:linked?.name||name,mine:!!r.mine,status:ROLE_STAGES.some(s=>s[0]===r.status)?r.status:r.status==='processed'?'processing':'waiting',inProject:!!r.inProject,folder:str(r.folder,2000),subtitle:str(r.subtitle,2000),notes:str(r.notes,2000),due:dateValue(r.due),createdAt:str(r.createdAt,50),reviewSeen:str(r.reviewSeen,260),reviewCandidates:Array.isArray(r.reviewCandidates)?[...new Set(r.reviewCandidates.map(candidateId=>actorIdMap.get(candidateId)).filter(candidateId=>candidateId&&candidateId!==linked?.id))].slice(0,50):[]};
   }
   function normalizeProject(p) {
     if (!p || typeof p !== 'object' || !str(p.title,160).trim()) throw new Error('У проекта должно быть название.');
