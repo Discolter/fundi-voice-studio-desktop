@@ -457,7 +457,7 @@ function actorPicker(role,{form=false,pid='',eid=''}={}){
   const actor=actorForRole(state,role),legacy=!actor&&!!role.actor;
   const selected=actor?.id|| (legacy?'__legacy__':'');
   const name=actor?.name||role.actor||'Не назначен';
-  const extra=activeVacation(actor?.id)?'⛔ В отпуске — новые роли не назначать':vacationFor(actor?.id)?'◷ Отпуск запланирован':actor?.telegram?'@'+actor.telegram:legacy?'Старая запись':'Нажми, чтобы выбрать из базы';
+  const extra=activeVacation(actor?.id)?'◷ В отпуске · назначение возможно':vacationFor(actor?.id)?'◷ Отпуск запланирован':actor?.telegram?'@'+actor.telegram:legacy?'Старая запись':'Нажми, чтобы выбрать из базы';
   const id=role.id||'';
   const relatedEpisode=!form&&pid&&eid?getEpisode(getProject(pid),eid):null;
   const otherCount=relatedEpisode&&actor?episodeActorWorkload(relatedEpisode,actor.id,id).count:null;
@@ -494,8 +494,8 @@ function fillActorPicker(picker,query=''){
     load(a).count-load(b).count||a.name.localeCompare(b.name,'ru'));
   const makeCard=a=>{
     const workload=load(a),mismatch=gender&&a.voiceGroup!==gender;
-    const leave=activeVacation(a.id)?'⛔ В отпуске — недоступен':vacationFor(a.id)?'◷ Отпуск запланирован':a.telegram?'@'+a.telegram:'Без Telegram';
-    return `<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" ${activeVacation(a.id)?'disabled aria-disabled="true"':''} title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${mismatch?' · Тип голоса отличается':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${e(leave)}</small><small>${workload.count} других ролей в серии${mismatch?' · ⚠ другой тип голоса':''}</small></span></button>`;
+    const leave=activeVacation(a.id)?'◷ В отпуске · можно назначить':vacationFor(a.id)?'◷ Отпуск запланирован':a.telegram?'@'+a.telegram:'Без Telegram';
+    return `<button type="button" class="actor-picker-option ${vacationFor(a.id)?'on-vacation':''}" data-action="actor-picker-select" data-actor-value="${e(a.id)}" title="${e(a.name)}${a.telegram?' @'+e(a.telegram):''}${mismatch?' · Тип голоса отличается':''}">${actorPickAvatar(a)}<span class="actor-picker-option-text"><strong>${e(a.name)}</strong><small>${e(leave)}</small><small>${workload.count} других ролей в серии${mismatch?' · ⚠ другой тип голоса':''}</small></span></button>`;
   };
   const groups=CAST_GROUPS.map(([cast,label])=>{
     const members=found.filter(a=>(a.castGroup||'')===cast);
@@ -512,7 +512,6 @@ function closeActorPickers(except=null){
 }
 function updateActorPicker(picker,id){
   const a=state.actors.find(a=>a.id===id),isNew=id==='__new__';
-  if(a&&activeVacation(a.id)){toast('Актёр сейчас в отпуске. Выбери другого исполнителя.',true);return;}
   if(picker.dataset.pickerScope==='form'){
     const field=picker.querySelector('[name=actorId]');field.value=id;
     const voice=modal.querySelector('[name=voiceGender]');if(a&&voice&&!validRoleVoice(voice.value))voice.value=validRoleVoice(a.voiceGroup);
@@ -525,7 +524,7 @@ function updateActorPicker(picker,id){
   }
   const legacy=id==='__legacy__';
   const name=a?.name||(isNew?'Новый актёр':legacy?'Старая запись':'Не назначен');
-  const label=a&&vacationFor(a.id)?'◷ Отпуск запланирован':a?.telegram?'@'+a.telegram:isNew?'Впиши имя ниже':'Нажми, чтобы выбрать из базы';
+  const label=a&&activeVacation(a.id)?'◷ В отпуске · роль можно назначить':a&&vacationFor(a.id)?'◷ Отпуск запланирован':a?.telegram?'@'+a.telegram:isNew?'Впиши имя ниже':'Нажми, чтобы выбрать из базы';
   const trigger=picker.querySelector('.actor-picker-trigger');
   trigger.innerHTML=`${actorPickAvatar(a||{name:isNew?'+':'?'})}<span class="actor-picker-selected"><strong>${e(name)}</strong><small>${e(label)}</small></span>${icon('chevron')}`;
   closeActorPickers();
@@ -928,7 +927,7 @@ function renderVacations(){
   const types={planned:'Отпуск запланирован',started:'Отпуск начался',updated:'Отпуск обновлён',cancelled:'Отпуск отменён',returned:'Отпуск завершён'};
   html+=`<details class="studio-vacation-section studio-vacation-changes" ${vacationChangesExpanded?'open':''}><summary class="studio-vacation-changes-summary"><h2>Изменения <span>${cloud.vacationUnread||0} новых</span></h2><span class="studio-vacation-changes-hint">${vacationChangesExpanded?'Скрыть':'Показать'}${events.length?' · '+events.length+' событий':''}</span>${icon('chevron')}</summary>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</details>`;
   html+=section('История отпусков',rows.filter(v=>!['active','planned'].includes(v.status)).slice(0,50));
-  html+='<p class="muted small">Причины видны только руководителю и самому актёру. Отпуск может назначить руководитель даже без регистрации актёра. После входа в Actor актёр увидит отпуск и сможет его изменить или завершить. Назначенные ранее роли не исчезают; актёров в отпуске нельзя выбрать для новых ролей.</p>';
+  html+='<p class="muted small">Причины видны только руководителю и самому актёру. Отпуск может назначить руководитель даже без регистрации актёра. После входа в Actor актёр увидит отпуск и сможет его изменить или завершить. Назначенные ранее роли не исчезают. Новые роли можно назначать и актёрам в отпуске — они останутся отмечены как недоступные, пока отпуск не закончится.</p>';
   return html;
 }
 function renderCloudConnection(){
@@ -1310,7 +1309,7 @@ function updateCastingSuggestions(){
       (item.characters.length?'<small>В серии: '+e(item.characters.slice(0,3).join(', '))+(item.characters.length>3?'…':'')+'</small>':'')+
       (!item.hasAccess?'<small>Доступ в Actor пока выключен</small>':'')+'</span><span class="casting-suggestion-pick">Выбрать</span></button>'
     ).join(''):'<p class="small muted">Нет свободных кандидатов'+(gender?' с указанным типом голоса':'')+'. Проверь базу актёров и отпуска.</p>')+'</div>'+
-    '<p class="small muted">Исключены действующие и запланированные отпуска. Тип голоса определяется по группе актёра в базе. Это подсказка, а не автоматическое назначение.</p>';
+    '<p class="small muted">Для рекомендаций отпуск по-прежнему исключается; вручную назначать роли можно. Тип голоса определяется по группе актёра в базе. Это подсказка, а не автоматическое назначение.</p>';
 }
 function castingModalCandidatesHTML(rows,preferredId=''){
   if(!rows.length)return '<p class="small muted">Подходящих актёров вне отпуска не найдено. Включи «Показать всех актёров» или проверь состав.</p>';
@@ -1361,10 +1360,10 @@ function multiRoleActorsForm(pid,epid,roleId){
   const existing=matchingCharacterRoles(ep,r);
   const items=actors.map(actor=>{
     const already=assigned.has(actor.id),onLeave=!!activeVacation(actor.id);
-    const status=already?'Уже назначен':onLeave?'⛔ В отпуске':actor.telegram?'@'+actor.telegram:'В базе актёров';
+    const status=already?'Уже назначен':onLeave?'◷ В отпуске · можно назначить':actor.telegram?'@'+actor.telegram:'В базе актёров';
     const query=(actor.name+' '+(actor.telegram||'')).toLocaleLowerCase('ru');
     return `<label class="multi-actor-person" data-actor-search="${e(query)}">
-      <input type="checkbox" name="extra-actor-${e(actor.id)}" ${already?'checked disabled':onLeave?'disabled':''}>
+      <input type="checkbox" name="extra-actor-${e(actor.id)}" ${already?'checked disabled':''}>
       ${actorPickAvatar(actor)}<span><strong>${e(actor.name)}</strong><small>${e(status)}</small></span>
     </label>`;
   }).join('');
@@ -1379,8 +1378,7 @@ function multiRoleActorsForm(pid,epid,roleId){
       const fresh=getProject(pid),target=getEpisode(fresh,epid),base=target?.roles.find(role=>role.id===roleId);
       if(!fresh||!base)throw Error('Персонаж больше не существует.');
       const selected=(state.actors||[]).filter(actor=>values['extra-actor-'+actor.id]).map(actor=>actor.id);
-      const blocked=(state.actors||[]).filter(actor=>activeVacation(actor.id)).map(actor=>actor.id);
-      const result=addActorsToCharacter(state,target,base,selected,{unavailableActorIds:blocked});
+      const result=addActorsToCharacter(state,target,base,selected);
       touch(fresh);modal.close();render();
       toast('Добавлено исполнителей: '+result.assigned+'. У каждого отдельный статус и запись.');
     });
