@@ -202,14 +202,31 @@ export function castText(state,p,episodeId='all') {
   const lines=[p.title+(p.season?` · Сезон ${p.season}`:''),''];
   for(const ep of episodes){
     lines.push(ep.number?`Серия ${ep.number}`:ep.title||'Распределение ролей');
-    // Для чата только Telegram и персонаж: без внутреннего имени/ника актёра.
+    // One Telegram mention per performer per episode. Preserve the first role's
+    // position, and keep each character's independent recording/review status.
+    const grouped=new Map();
     for(const r of ep.roles){
       const actor=actorForRole(state,r);
       const username=cleanTelegram(actor?.telegram||'').replace(/[^A-Za-z0-9_]/g,'');
+      const legacy=String(r.actor||'').trim();
+      const who=username?'@'+username:(actor||r.actorId||legacy?'Без @username':'Не назначен');
+      // Telegram handle is the identity shown in chat; a single performer may
+      // have multiple local actor cards. Never collapse different unnamed
+      // actors together only because they lack a Telegram username.
+      const key=username?'telegram:'+username.toLocaleLowerCase('ru'):
+        actor?.id||r.actorId?'actor:'+(actor?.id||r.actorId):
+        legacy?'legacy:'+legacy.toLocaleLowerCase('ru'):'unassigned';
       const character=String(r.character||'').replace(/[\r\n]+/g,' ').trim();
-      const who=username?'@'+username:(actor||r.actorId||r.actor?'Без @username':'Не назначен');
-      lines.push(`${who} — ${character}${castRoleStatusEmoji(r.status)}`);
+      if(!character)continue;
+      if(!grouped.has(key))grouped.set(key,{who,characters:[],seen:new Set()});
+      const entry=grouped.get(key);
+      const roleText=character+castRoleStatusEmoji(r.status);
+      if(!entry.seen.has(roleText)){
+        entry.seen.add(roleText);
+        entry.characters.push(roleText);
+      }
     }
+    for(const entry of grouped.values())lines.push(`${entry.who} - ${entry.characters.join(' | ')}`);
     if(!ep.roles.length)lines.push('Роли не добавлены');
     lines.push('');
   }
