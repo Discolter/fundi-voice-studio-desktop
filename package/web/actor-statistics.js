@@ -38,7 +38,7 @@ export function trackRoleDeliveries(state,previous,now=new Date().toISOString())
       if(delivered.has(r.status)&&!delivered.has(before.status)){
         if(!d.firstSubmittedAt){d.firstSubmittedAt=now;d.submittedDue=r.due||ep.due||'';}
         const pending=[...d.retakes].reverse().find(item=>!item.submittedAt);
-        if(pending&&before.status==='retake')pending.submittedAt=now;
+        if(pending)pending.submittedAt=now;
       }
     }
     r.delivery=d;
