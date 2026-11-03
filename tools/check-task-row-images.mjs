@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {normalizeState,seedState,newProject,taskAssignment} from '../package/web/core.js';
+import {normalizeState,seedState,newProject,taskAssignment,episodeRoleActorKey,episodeRoleActorOptions,filterEpisodeRoles} from '../package/web/core.js';
 
 const source=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');
 const css=readFileSync(new URL('../package/web/task-priorities.css',import.meta.url),'utf8');
@@ -32,6 +32,24 @@ ep.tasks=[{id:'t1',title:'Задача',actorId:'act1',roleId:'m1',priority:'nor
 workspace.projects=[p];
 const restored=normalizeState(workspace);
 const project=restored.projects[0],episode=project.episodes[0],linked=taskAssignment(restored,episode,episode.tasks[0]);
+// Exercise the production visual with real actor filtering dependencies.
+const taskProjectVisualWithActor=new Function(
+  'e','projectArt','episodeLabel','episodeRoleActorKey','episodeRoleActorOptions','state',
+  definitions+'; return taskProjectVisual;'
+)(
+  escapeHTML,
+  p=>p.cover?'<img class="project-poster" src="'+escapeHTML(p.cover)+'">':'<span class="mini-emblem">★</span>',
+  (p,ep)=>'Сезон '+p.season+' · Серия '+String(ep.number).padStart(2,'0'),
+  episodeRoleActorKey,episodeRoleActorOptions,restored
+);
+const assignedLink=taskProjectVisualWithActor(project,episode,linked);
+assert.match(assignedLink,/data-tab="roles"/);
+assert.match(assignedLink,/data-role-actor="id:act1"/);
+assert.match(taskProjectVisualWithActor(project,episode,taskAssignment(restored,episode,{title:'Без назначения'})),/data-tab="tasks"/);
+// This link must show the actor's other characters as well, regardless of status.
+episode.roles.push({id:'m2',character:'Эмилия',actorId:'act1',actor:'Кана',status:'done',lineCount:7});
+assert.equal(filterEpisodeRoles(restored,episode.roles,{actorKey:'id:act1'}).length,2);
+episode.roles.pop();
 
 const proj=visuals.taskProjectVisual(project,episode);
 assert.match(proj,/task-project-image/);
@@ -75,7 +93,7 @@ assert.doesNotMatch(visuals.taskActorVisual(updated),/javascript:/);
 assert.doesNotMatch(visuals.taskCharacterVisual(project,episode,updated,'Мэйли'),/javascript:/);
 
 const table=source.slice(source.indexOf('function tasksTable('),source.indexOf('function actorAvatar('));
-assert.match(table,/\$\{taskProjectVisual\(p,ep\)\}/);
+assert.match(table,/\$\{taskProjectVisual\(p,ep,linked\)\}/);
 assert.match(table,/\$\{taskActorVisual\(linked\)\}/);
 assert.match(table,/\$\{taskCharacterVisual\(p,ep,linked,character\)\}/);
 assert.match(table,/vacationTag\(linked\.actorId\)/);
