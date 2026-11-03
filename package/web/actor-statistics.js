@@ -74,7 +74,7 @@ export function actorDeliveryRows(state,{vacations=[],now=new Date(),query='',so
       if(status==='done')row.accepted++;
       else if(active.has(status)){
         row.waiting++;
-        if(!v&&Number.isFinite(dayEnd(due))&&dayEnd(due)<current)row.overdue++;
+        if(!v&&!vacationOverlaps(vacations,role.actorId,due+'T00:00:00',due+'T23:59:59')&&Number.isFinite(dayEnd(due))&&dayEnd(due)<current)row.overdue++;
       }else if(delivered.has(status))row.inReview++;
       if(status==='retake')row.retakes++;
       const d=normalizeDelivery(role.delivery);
@@ -104,8 +104,8 @@ export function actorDeliveryRows(state,{vacations=[],now=new Date(),query='',so
   const cmp=(a,b)=>sort==='name'?alpha(a,b):
     sort==='overdue'?b.overdue-a.overdue||alpha(a,b):
     sort==='accepted'?b.accepted-a.accepted||alpha(a,b):
-    sort==='onTime'?missing(a.onTimePercent,b.onTimePercent)||((b.onTimePercent??0)-(a.onTimePercent??0))||alpha(a,b):
-    missing(a.averageDays,b.averageDays)||((a.averageDays??0)-(b.averageDays??0))||alpha(a,b);
+    sort==='onTime'?(a.withDeadline>=3?0:1)-(b.withDeadline>=3?0:1)||missing(a.onTimePercent,b.onTimePercent)||((b.onTimePercent??0)-(a.onTimePercent??0))||alpha(a,b):
+    (a.speedCount>=3?0:1)-(b.speedCount>=3?0:1)||missing(a.averageDays,b.averageDays)||((a.averageDays??0)-(b.averageDays??0))||alpha(a,b);
   return rows.sort(cmp);
 }
 export function actorDeliverySummary(rows){
