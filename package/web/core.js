@@ -112,6 +112,12 @@ export function episodeRoleActorOptions(state, roles) {
   }
   return [...actors.values()].sort((a,b)=>(a.key==='unassigned'?1:0)-(b.key==='unassigned'?1:0)||b.count-a.count||a.label.localeCompare(b.label,'ru'));
 }
+// Count unique performers across all roles in an episode, irrespective of UI filters.
+// Reuse canonical actor keys so one actor performing multiple roles counts once;
+// legacy name-only assignments still count, but truly unassigned roles do not.
+export function episodeEngagedActorCount(state,roles){
+  return episodeRoleActorOptions(state,roles||[]).filter(item=>item.key!=='unassigned').length;
+}
 // Actors without any assigned role in the *current episode*, regardless of role status,
 // visible filters, REAPER state, or assignments in other episodes.
 export function episodeUnassignedActors(state, episode) {
