@@ -600,7 +600,7 @@ function rolesTable(rows,global=false){return !rows.length?'':`<div class="table
 
 function episodeTasks(p,ep){return `<div class="panel-head"><h2>Задачи</h2><button class="btn primary small" data-action="new-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Добавить</button></div>${tasksTable(ep.tasks.filter(t=>state.settings.mode!=='actor'||t.mine).map(t=>({p,ep,t})))||empty('Нет задач','new-task','Добавить задачу',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;}
 // Compact visual identity cells for task assignments; always derive from live project/role/actor data.
-function taskProjectVisual(p,ep,linked){
+function taskProjectVisual(p,ep,linked={}){
   const hasRole=!!linked.role;
   const actorChoices=hasRole?episodeRoleActorOptions(state,ep.roles):[];
   const roleKey=hasRole?episodeRoleActorKey(state,linked.role):'';
