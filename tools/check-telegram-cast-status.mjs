@@ -57,7 +57,7 @@ assert.equal(one.match(/@voice_actor/g)?.length,1);
 // A missing Telegram handle should not merge distinct actors sharing the placeholder.
 const noHandles={...state,actors:[{id:'a1',name:'Актёр A',telegram:''},{id:'a2',name:'Актёр B',telegram:''}]};
 const unlinked=castText(noHandles,project,'e1');
-assert.equal(unlinked.split('\\n').filter(line=>line.startsWith('Без @username - ')).length,2);
+assert.equal(unlinked.split('\n').filter(line=>line.startsWith('Без @username - ')).length,2);
 const sameUsername={...state,actors:[...state.actors,{id:'a3',name:'Третий профиль',telegram:'VOICE_ACTOR'}]};
 const matchingProfile={...project,episodes:[{id:'e3',number:'03',roles:[
   {id:'multi-1',character:'Персонаж A',actorId:'a2',status:'waiting'},
@@ -65,8 +65,8 @@ const matchingProfile={...project,episodes:[{id:'e3',number:'03',roles:[
   {id:'multi-3',character:'Персонаж A',actorId:'a2',status:'waiting'}
 ]}]};
 const grouped=castText(sameUsername,matchingProfile,'e3');
-assert.match(grouped,/@voice_actor - Персонаж A \\| Персонаж B 🔴/);
-assert.equal(grouped.split('\\n').filter(line=>line.startsWith('@')).length,1);
+assert.match(grouped,/@voice_actor - Персонаж A \| Персонаж B 🔴/);
+assert.equal(grouped.split('\n').filter(line=>line.startsWith('@')).length,1);
 assert.equal((grouped.match(/Персонаж A/g)||[]).length,1,'Duplicate exact character/status is not repeated');
 assert.equal(castText(state,{...project,episodes:[{id:'empty',number:'03',roles:[]}]},'empty').includes('Роли не добавлены'),true);
 console.log('PASS: Telegram cast is grouped by actor with independent role statuses, stable ordering and deduplication');
