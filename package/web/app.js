@@ -202,7 +202,7 @@ async function syncStudioTasks(visible=false){
     const stagesModified=applyRoleStages(state,roleMerge.stages);
     const modified=tasksModified||stagesModified;
     await api('cloud/tasks/baseline/save',{known:true,snapshot});
-    if(modified){persist();await flushSave();if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);if(!modal.open)render();}
+    if(modified){persist();await flushSave();if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);if(!modal.open&&!isActorPickerOpen())render();}
     // Only unlock pending roster publication after the reconciled disk state is saved.
     await api('cloud/roles/sync-ready',{snapshotVersion});
     taskSyncError='';updateCloudIndicator();
@@ -510,6 +510,20 @@ function fillActorPicker(picker,query=''){
     return `<div class="actor-picker-group"><div class="actor-picker-group-title">${e(label)} <span>${members.length}</span></div><div class="actor-picker-grid">${members.slice(0,max).map(makeCard).join('')}</div></div>`;
   }).join('');
   target.innerHTML=`<div class="actor-picker-special"><button type="button" class="actor-picker-option" data-action="actor-picker-select" data-actor-value="">${actorPickAvatar({name:'—'})}<span class="actor-picker-option-text"><strong>Не назначен</strong><small>Убрать актёра</small></span></button>${picker.dataset.pickerScope==='form'?`<button type="button" class="actor-picker-option" data-action="actor-picker-select" data-actor-value="__new__">${actorPickAvatar({name:'+'})}<span class="actor-picker-option-text"><strong>+ Новый актёр</strong><small>Добавить в базу</small></span></button>`:''}</div>${groups||'<p class="actor-picker-no-results">По запросу актёры не найдены</p>'}${found.length>max?'<p class="actor-picker-limit">Если не видишь актёра, начни вводить его имя в поиске.</p>':''}`;
+}
+function isActorPickerOpen(){return !!document.querySelector('.actor-picker-menu:not([hidden])');}
+function positionActorPickerMenu(picker){
+  if(!picker||picker.dataset.pickerScope!=='row')return;
+  const menu=picker.querySelector('.actor-picker-menu'),trigger=picker.querySelector('.actor-picker-trigger');
+  if(!menu||menu.hidden||!trigger)return;
+  const rect=trigger.getBoundingClientRect(),width=Math.max(230,Math.min(470,innerWidth-18));
+  const below=Math.max(60,innerHeight-rect.bottom-12),above=Math.max(60,rect.top-12);
+  const openAbove=below<270&&above>below;
+  const room=openAbove?above:below;
+  const height=Math.max(80,Math.min(390,room-6));
+  menu.style.position='fixed';menu.style.left=Math.max(9,Math.min(rect.left,innerWidth-width-9))+'px';
+  menu.style.width=width+'px';menu.style.maxHeight=height+'px';menu.style.bottom='auto';
+  menu.style.top=(openAbove?Math.max(6,rect.top-Math.min(menu.scrollHeight,height)-6):Math.min(innerHeight-height-6,rect.bottom+6))+'px';
 }
 function closeActorPickers(except=null){
   document.querySelectorAll('.actor-picker-menu:not([hidden])').forEach(menu=>{
@@ -950,7 +964,7 @@ async function refreshCloud(renderPage=false){
     cloud=next;updateCloudIndicator();const appliedReviews=applyRoleReviews(state,next.reviews||[]);if(appliedReviews)persist();updateNotificationBadge();updateFileBadge();renderTransferNotice();
     if(changed&&modal.open&&modal.dataset.view==='recordings')renderStudioFiles();
     if(renderPage&&changed&&modal.open&&modal.querySelector('.studio-notification-list'))showStudioMessages();
-    else if(renderPage&&(changed||appliedReviews)&&!modal.open&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
+    else if(renderPage&&(changed||appliedReviews)&&!modal.open&&!isActorPickerOpen()&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
   }catch{}
 }
 async function refreshAllStudio(button){
@@ -1592,13 +1606,9 @@ async function action(a,d,el){
     closeActorPickers(picker);
     menu.hidden=!opening;el.setAttribute('aria-expanded',String(opening));
     if(opening){
-      if(picker.dataset.pickerScope==='row'){
-        const rect=el.getBoundingClientRect(),width=Math.min(470,innerWidth-18);
-        menu.style.position='fixed';menu.style.left=Math.max(9,Math.min(rect.left,innerWidth-width-9))+'px';menu.style.width=width+'px';
-        if(innerHeight-rect.bottom<370&&rect.top>370){menu.style.top='auto';menu.style.bottom=(innerHeight-rect.top+6)+'px';}
-        else{menu.style.bottom='auto';menu.style.top=(rect.bottom+6)+'px';}
-      }
-      const search=menu.querySelector('.actor-picker-search');search.value='';fillActorPicker(picker);search.focus();
+      const search=menu.querySelector('.actor-picker-search');search.value='';fillActorPicker(picker);
+      positionActorPickerMenu(picker);
+      search.focus({preventScroll:true});
     }
     return;
   }
@@ -1874,7 +1884,7 @@ document.addEventListener('click',event=>{
     else if(kind==='cloud')quickViews.openCloud(quick.dataset.qvProject,quick.dataset.qvEpisode,quick.dataset.qvRole,quick.dataset.qvActor);
     return;
   }
-  if(!event.target.closest('.actor-picker'))closeActorPickers();
+  // Outside pointer-down closes actor picker. Do not close on mouseup/click after scrollbar drag.
   const el=event.target.closest('[data-action],[data-nav],[data-mode],[data-filter],[data-tab],[data-site-mode],[data-site-nav],[data-cabinet]');if(!el)return;event.preventDefault();event.stopPropagation();
   if(el.dataset.siteMode){ui.siteMode=['studio','site','cabinet'].includes(el.dataset.siteMode)?el.dataset.siteMode:'studio';if(ui.siteMode==='site')siteManager.start();if(ui.siteMode==='cabinet')actorCabinet.start();render();return;}
   if(el.dataset.cabinet){actorCabinet.action(el.dataset);return;}
@@ -1921,6 +1931,19 @@ document.addEventListener('drop',event=>{
 });
 document.addEventListener('dragend',endActorDrag);
 document.addEventListener('dragleave',event=>{if(actorDrag&&event.target===document.documentElement&&!event.relatedTarget)setActorDropTarget(null);});
+document.addEventListener('pointerdown',event=>{
+  if(isActorPickerOpen()&&!event.target.closest('.actor-picker'))closeActorPickers();
+});
+let actorPickerPositionFrame=0;
+document.addEventListener('scroll',event=>{
+  if(!isActorPickerOpen()||event.target.closest?.('.actor-picker-menu'))return;
+  if(actorPickerPositionFrame)return;
+  actorPickerPositionFrame=requestAnimationFrame(()=>{
+    actorPickerPositionFrame=0;
+    positionActorPickerMenu(document.querySelector('.actor-picker-menu:not([hidden])')?.closest('.actor-picker'));
+  });
+},true);
+window.addEventListener('resize',()=>positionActorPickerMenu(document.querySelector('.actor-picker-menu:not([hidden])')?.closest('.actor-picker')));
 document.addEventListener('pointerdown',event=>{const opened=document.querySelector('.episode-unassigned-dropdown[open]');if(opened&&!opened.contains(event.target))opened.open=false;});
 document.addEventListener('pointerdown',event=>{const el=event.target.closest('button,.btn');if(!el||state?.settings.motion===false||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const rect=el.getBoundingClientRect(),ripple=document.createElement('span');ripple.className='click-ripple';ripple.style.left=(event.clientX-rect.left)+'px';ripple.style.top=(event.clientY-rect.top)+'px';el.append(ripple);setTimeout(()=>ripple.remove(),550);});
 document.addEventListener('input',event=>{
