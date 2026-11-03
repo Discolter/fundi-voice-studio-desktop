@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {normalizeDelivery,roleDeliverySnapshot,trackRoleDeliveries,actorDeliveryRows,actorDeliverySummary} from '../package/web/actor-statistics.js';
+
+const role={id:'r1',character:'Моб',actorId:'',status:'waiting',due:'2026-11-09'};
+const state={actors:[{id:'a1',name:'Актёр А',telegram:'a'},{id:'a2',name:'Актёр Б',telegram:'b'}],
+  projects:[{id:'p1',title:'Моб Психо 100',archived:false,episodes:[{id:'ep1',due:'',roles:[role]}]}]};
+let old=roleDeliverySnapshot(state);
+role.actorId='a1';
+old=trackRoleDeliveries(state,old,'2026-11-01T10:00:00.000Z');
+assert.equal(role.delivery.assignedAt,'2026-11-01T10:00:00.000Z','assignment start tracked on actor assignment');
+role.status='received';
+old=trackRoleDeliveries(state,old,'2026-11-03T10:00:00.000Z');
+assert.equal(role.delivery.firstSubmittedAt,'2026-11-03T10:00:00.000Z');
+assert.equal(role.delivery.submittedDue,'2026-11-09');
+let rows=actorDeliveryRows(state,{now:new Date('2026-11-04T12:00:00Z')});
+assert.equal(rows.find(x=>x.actor.id==='a1').averageDays,2);
+assert.equal(rows.find(x=>x.actor.id==='a1').onTimePercent,100);
+old=trackRoleDeliveries(state,old,'2026-11-04T00:00:00Z');
+assert.equal(role.delivery.firstSubmittedAt,'2026-11-03T10:00:00.000Z','unrelated saves must not change first delivery');
+role.status='retake';
+old=trackRoleDeliveries(state,old,'2026-11-04T10:00:00Z');
+role.status='received';
+old=trackRoleDeliveries(state,old,'2026-11-05T10:00:00Z');
+rows=actorDeliveryRows(state,{now:new Date('2026-11-06T10:00:00Z')});
+let a=rows.find(x=>x.actor.id==='a1');
+assert.equal(a.retakes,1);
+assert.equal(a.averageRetakeDays,1);
+role.status='done';
+old=trackRoleDeliveries(state,old,'2026-11-06T10:00:00Z');
+a=actorDeliveryRows(state,{now:new Date('2026-11-10T10:00:00Z')}).find(x=>x.actor.id==='a1');
+assert.equal(a.accepted,1);
+assert.equal(a.overdue,0);
+
+const legacy={id:'old',character:'Рейген',actorId:'a2',status:'done',due:'2026-10-01'};
+state.projects[0].episodes[0].roles.push(legacy);
+assert.equal(actorDeliveryRows(state).find(x=>x.actor.id==='a2').averageDays,null,'no invented historical speeds');
+let summary=actorDeliverySummary(actorDeliveryRows(state));
+assert.equal(summary.accepted,2);
+assert.equal(summary.sampleCount,1);
+
+role.actorId='a2';role.status='waiting';
+old=trackRoleDeliveries(state,old,'2026-11-07T10:00:00Z');
+assert.equal(role.delivery.firstSubmittedAt,'','reassign clears old actor delivery times');
+assert.equal(role.delivery.assignedAt,'2026-11-07T10:00:00Z');
+role.due='2026-11-08';
+a=actorDeliveryRows(state,{now:new Date('2026-11-10T10:00:00Z')}).find(x=>x.actor.id==='a2');
+assert.equal(a.overdue,1);
+a=actorDeliveryRows(state,{now:new Date('2026-11-10T10:00:00Z'),vacations:[{actorId:'a2',status:'active',startDate:'2026-11-07',endDate:null}]}).find(x=>x.actor.id==='a2');
+assert.equal(a.overdue,0,'active vacation excludes a pending assignment from overdue');
+assert.equal(normalizeDelivery({assignedAt:'oops',retakes:[{requestedAt:'invalid'}]}).assignedAt,'');
+assert.equal(normalizeDelivery({retakes:[{requestedAt:'invalid'}]}).retakes.length,0);
+assert.equal(actorDeliveryRows(state,{query:'Актёр А'}).length,1);
+assert.equal(actorDeliveryRows(state,{sort:'accepted'})[0].actor.id,'a2');
+
+const app=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');
+const index=readFileSync(new URL('../package/web/index.html',import.meta.url),'utf8');
+const view=readFileSync(new URL('../package/web/actor-statistics-view.js',import.meta.url),'utf8');
+assert.ok(app.includes('lastDeliverySnapshot=trackRoleDeliveries(state,lastDeliverySnapshot)'));
+assert.ok(app.includes('lastDeliverySnapshot=roleDeliverySnapshot(state);render()'));
+assert.ok(app.includes("case 'actor-subtab'"));
+assert.ok(view.includes('Список актёров')&&view.includes('Статистика'));
+assert.ok(index.includes('actor-statistics.css'));
+console.log('Actor delivery statistics tests passed');
