@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
-import {seedState,newProject,normalizeState,taskRows,taskAssignment,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS} from '../package/web/core.js';
+import {seedState,newProject,normalizeState,taskRows,taskAssignment,today,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS} from '../package/web/core.js';
 
 const workspace=seedState();
 workspace.actors=[{id:'actor-a',name:'Алина',telegram:'alina'},{id:'actor-b',name:'Борис',telegram:'boris'}];
@@ -43,7 +43,11 @@ assert.deepEqual(ids({actorId:'unassigned'}),['unknown']);
 assert.deepEqual(ids({projectId:alpha.id}),['sixty']);
 assert.deepEqual(ids({projectId:alpha.id,priority:'urgent'}),[]);
 assert.deepEqual(ids({status:'done'}),['done']);
-assert.deepEqual(ids({status:'overdue'}),['hundred-fifty']);
+// Due-date tests must not expire when the calendar advances.
+const overdueIds=[['hundred-fifty','2026-10-19'],['twelve','2026-11-02'],['zero','2026-11-03'],
+  ['sixty','2026-11-05'],['ninety','2026-11-06']]
+  .filter(([,due])=>due<today()).sort((a,b)=>a[1].localeCompare(b[1])).map(([id])=>id);
+assert.deepEqual(ids({status:'overdue'}),overdueIds);
 assert.deepEqual(ids({status:'noDue'}).sort(),['actor-only','unknown']);
 assert.equal(ids({status:'open'}).includes('done'),false);
 assert.deepEqual(ids({actorId:'actor-a',lines:'small',status:'open'}),['twelve']);

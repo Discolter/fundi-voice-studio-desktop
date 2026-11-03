@@ -1,0 +1,38 @@
+/* Owner-only actor statistics: compact dashboard in the existing Actors section. */
+.actor-subtabs{display:flex;align-items:center;gap:6px;margin:4px 0 21px;padding:5px;border:1px solid var(--line);border-radius:12px;background:var(--surface);width:max-content;max-width:100%}
+.actor-subtabs button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:9px 16px;border:0;border-radius:9px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:background .17s,color .17s,transform .17s}
+.actor-subtabs button:hover{background:var(--surface2);color:var(--text)}
+.actor-subtabs button:active{transform:translateY(1px)}
+.actor-subtabs button.active{background:var(--lime);color:#102118}
+.actor-subtabs button .icon{width:15px;height:15px}
+.actor-stat-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.actor-stat-tile{min-width:0;display:flex;flex-direction:column;gap:9px;padding:17px 18px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}
+.actor-stat-tile small{font-size:11px;color:var(--muted)}
+.actor-stat-tile strong{font-size:25px;line-height:1.2;font-weight:750;color:var(--text);font-variant-numeric:tabular-nums}
+.actor-stat-tile span{font-size:10px;color:var(--muted)}
+.actor-stat-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:13px;margin:17px 0}
+.actor-stat-toolbar label{display:inline-flex;gap:10px;align-items:center;color:var(--muted);font-size:12px}
+.actor-stat-toolbar select{min-width:195px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--text)}
+.actor-stat-archive{cursor:pointer}
+.actor-stat-archive input{accent-color:var(--lime);width:15px;height:15px}
+.actor-stat-table-wrap{border:1px solid var(--line);border-radius:13px;background:var(--surface);overflow-x:auto}
+.actor-stat-table{width:100%;border-collapse:collapse;min-width:790px}
+.actor-stat-table th{padding:14px 15px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--line)}
+.actor-stat-table td{padding:14px 15px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text);vertical-align:middle;font-variant-numeric:tabular-nums}
+.actor-stat-table tbody tr:last-child td{border-bottom:0}
+.actor-stat-table tbody tr:hover td{background:color-mix(in srgb,var(--lime) 4%,transparent)}
+.actor-stat-table td>strong{font-size:13px}
+.actor-stat-table td>small{display:block;margin-top:5px;color:var(--muted);font-size:10px}
+.actor-stat-person{display:flex;align-items:center;gap:10px;max-width:225px;padding:0;background:transparent;border:0;text-align:left;color:var(--text);cursor:pointer}
+.actor-stat-person>span:last-child{min-width:0;display:block}
+.actor-stat-person strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.actor-stat-person small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px;color:var(--muted);font-size:10px}
+.actor-stat-person:hover strong{color:var(--lime)}
+.actor-stat-avatar{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;overflow:hidden;background:var(--surface2);color:var(--lime);font-weight:700}
+.actor-stat-avatar img{width:100%;height:100%;object-fit:cover}
+.actor-stat-percent{display:inline-flex;font-weight:750;font-size:13px;min-width:38px}
+.actor-stat-percent.good{color:#55c994}.actor-stat-percent.medium{color:#e9b96d}.actor-stat-percent.late,.actor-stat-warning{color:#ef808a}.actor-stat-percent.unknown{color:var(--muted)}
+.actor-stat-note{margin:14px 0;color:var(--muted);font-size:11px;line-height:1.6;max-width:960px}
+.actor-stat-empty{padding:42px 20px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:1000px){.actor-stat-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:580px){.actor-subtabs{width:100%}.actor-subtabs button{flex:1;padding:9px 6px;font-size:11px}.actor-stat-overview{gap:8px}.actor-stat-tile{padding:11px 12px}.actor-stat-tile strong{font-size:22px}.actor-stat-toolbar{align-items:flex-start}.actor-stat-toolbar label{width:100%;justify-content:space-between}.actor-stat-toolbar select{min-width:0;max-width:60%}}

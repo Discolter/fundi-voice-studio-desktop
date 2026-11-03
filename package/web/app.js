@@ -14,6 +14,8 @@ import {matchingCharacterRoles,assignedCharacterActors,addActorsToCharacter} fro
 import {parseAssCharacters,decodeAssFile,normalizeAssCharacter,matchAssRole,applyAssCastImport,previousAssEpisode} from './ass-role-import.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole,vacationReviewCandidates,addVacationReviewCandidates,removeVacationReviewCandidate} from './vacation-review.js';
 import {actorWorkloadRows,actorWorkloadGroups} from './actor-workload.js';
+import {roleDeliverySnapshot,trackRoleDeliveries} from './actor-statistics.js';
+import {actorSubtabs,renderActorStatistics} from './actor-statistics-view.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog} from './task-cloud-sync.js';
@@ -44,11 +46,12 @@ const STORAGE='fundi-voice-workspace-v1', UIKEY='fundi-voice-ui-v1';
 let lastScreen='',projectWizard=null,actorDrag=null;
 const ACTOR_DRAG_TYPE='application/x-fundi-voice-actor';
 let state, native=false, token='', info={}, saving=false, saveError='', saveTimer, saveChain=Promise.resolve(),modalSubmit=null,scanResults=[];
+let lastDeliverySnapshot=new Map();
 let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:'',actors:[]},cloudWizard=null;
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:''};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:''};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
   ui.workloadIncludeArchive=saved.workloadIncludeArchive===true;
@@ -57,6 +60,9 @@ try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.la
   ui.taskLines=validTaskLineFilter(saved.taskLines);
   ui.taskActor=typeof saved.taskActor==='string'&&saved.taskActor.length<=80?saved.taskActor:'all';
   ui.actorRegistrationFilter=['all','yes','no'].includes(saved.actorRegistrationFilter)?saved.actorRegistrationFilter:'all';
+  ui.actorSubtab=saved.actorSubtab==='stats'?'stats':'list';
+  ui.actorStatSort=['speed','onTime','overdue','accepted','name'].includes(saved.actorStatSort)?saved.actorStatSort:'speed';
+  ui.actorStatIncludeArchive=saved.actorStatIncludeArchive!==false;
   ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
   ui.debtProject=typeof saved.debtProject==='string'&&saved.debtProject.length<=80?saved.debtProject:'all';
 }catch{}
@@ -196,7 +202,7 @@ async function syncStudioTasks(visible=false){
     const stagesModified=applyRoleStages(state,roleMerge.stages);
     const modified=tasksModified||stagesModified;
     await api('cloud/tasks/baseline/save',{known:true,snapshot});
-    if(modified){persist();await flushSave();if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);if(!modal.open)render();}
+    if(modified){persist();await flushSave();if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);if(!modal.open&&!isActorPickerOpen())render();}
     // Only unlock pending roster publication after the reconciled disk state is saved.
     await api('cloud/roles/sync-ready',{snapshotVersion});
     taskSyncError='';updateCloudIndicator();
@@ -211,6 +217,7 @@ async function syncStudioTasks(visible=false){
   }finally{taskSyncBusy=false;}
 }
 function persist(){
+  lastDeliverySnapshot=trackRoleDeliveries(state,lastDeliverySnapshot);
   state.updatedAt=new Date().toISOString();
   try{localStorage.setItem(STORAGE,JSON.stringify(state));if(!native)saveError='';}catch{if(!native){saveError='Хранилище браузера недоступно. Сохрани резервную копию в настройках.';toast(saveError,true);}}
   if(native){clearTimeout(saveTimer);saving=true;saveTimer=setTimeout(flushSave,220);scheduleTaskCloudSync();}updateSaveStatus();
@@ -220,7 +227,7 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive}));}catch{}}
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive}));}catch{}}
 function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(['vacations','review'].includes(page)&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles'){selectedTasks.clear();const p=getProject(id);if(!p)return;ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);}
 
@@ -504,6 +511,20 @@ function fillActorPicker(picker,query=''){
   }).join('');
   target.innerHTML=`<div class="actor-picker-special"><button type="button" class="actor-picker-option" data-action="actor-picker-select" data-actor-value="">${actorPickAvatar({name:'—'})}<span class="actor-picker-option-text"><strong>Не назначен</strong><small>Убрать актёра</small></span></button>${picker.dataset.pickerScope==='form'?`<button type="button" class="actor-picker-option" data-action="actor-picker-select" data-actor-value="__new__">${actorPickAvatar({name:'+'})}<span class="actor-picker-option-text"><strong>+ Новый актёр</strong><small>Добавить в базу</small></span></button>`:''}</div>${groups||'<p class="actor-picker-no-results">По запросу актёры не найдены</p>'}${found.length>max?'<p class="actor-picker-limit">Если не видишь актёра, начни вводить его имя в поиске.</p>':''}`;
 }
+function isActorPickerOpen(){return !!document.querySelector('.actor-picker-menu:not([hidden])');}
+function positionActorPickerMenu(picker){
+  if(!picker||picker.dataset.pickerScope!=='row')return;
+  const menu=picker.querySelector('.actor-picker-menu'),trigger=picker.querySelector('.actor-picker-trigger');
+  if(!menu||menu.hidden||!trigger)return;
+  const rect=trigger.getBoundingClientRect(),width=Math.max(230,Math.min(470,innerWidth-18));
+  const below=Math.max(60,innerHeight-rect.bottom-12),above=Math.max(60,rect.top-12);
+  const openAbove=below<270&&above>below;
+  const room=openAbove?above:below;
+  const height=Math.max(80,Math.min(390,room-6));
+  menu.style.position='fixed';menu.style.left=Math.max(9,Math.min(rect.left,innerWidth-width-9))+'px';
+  menu.style.width=width+'px';menu.style.maxHeight=height+'px';menu.style.bottom='auto';
+  menu.style.top=(openAbove?Math.max(6,rect.top-Math.min(menu.scrollHeight,height)-6):Math.min(innerHeight-height-6,rect.bottom+6))+'px';
+}
 function closeActorPickers(except=null){
   document.querySelectorAll('.actor-picker-menu:not([hidden])').forEach(menu=>{
     const picker=menu.closest('.actor-picker');if(picker===except)return;
@@ -655,11 +676,12 @@ function renderWorkload(){
   return html+'<p class="workload-explainer">Для ориентировочной оценки одна роль = 1 единица, каждые 50 известных реплик = 1 единица. Используется большее из двух значений, чтобы одна большая роль не выглядела маленькой нагрузкой. Это подсказка, а не автоматическое решение о кастинге. Данные обновляются вместе с ролями Studio.</p>';
 }
 function renderActors(){
+  if(ui.actorSubtab==='stats')return renderActorStatistics(state,cloud,ui,{e,icon,options,heading,vacationTag});
   const q=ui.query.trim().toLocaleLowerCase('ru');
   const actors=(state.actors||[]).filter(a=>`${a.name} ${a.telegram} ${a.notes}`.toLocaleLowerCase('ru').includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
   const voices=[['male','Мужские актёры'],['female','Женские актёры'],['','Не указано']];
   const opened=(key,count)=>q&&count>0||ui.actorExpanded.includes(key)?' open':'';
-  let html=heading('Актёры','',`<button class="btn primary" data-action="new-actor">${icon('plus')}Добавить актёра</button>`);
+  let html=heading('Актёры','',`<button class="btn primary" data-action="new-actor">${icon('plus')}Добавить актёра</button>`)+actorSubtabs(ui,icon);
   if(q&&!actors.length)return html+empty('Ничего не найдено','clear-search','Сбросить поиск');
   return html+CAST_GROUPS.map(([cast,label])=>{
     const members=actors.filter(a=>(a.castGroup||'')===cast);if(!members.length&&!cast)return '';
@@ -942,7 +964,7 @@ async function refreshCloud(renderPage=false){
     cloud=next;updateCloudIndicator();const appliedReviews=applyRoleReviews(state,next.reviews||[]);if(appliedReviews)persist();updateNotificationBadge();updateFileBadge();renderTransferNotice();
     if(changed&&modal.open&&modal.dataset.view==='recordings')renderStudioFiles();
     if(renderPage&&changed&&modal.open&&modal.querySelector('.studio-notification-list'))showStudioMessages();
-    else if(renderPage&&(changed||appliedReviews)&&!modal.open&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
+    else if(renderPage&&(changed||appliedReviews)&&!modal.open&&!isActorPickerOpen()&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
   }catch{}
 }
 async function refreshAllStudio(button){
@@ -1584,13 +1606,9 @@ async function action(a,d,el){
     closeActorPickers(picker);
     menu.hidden=!opening;el.setAttribute('aria-expanded',String(opening));
     if(opening){
-      if(picker.dataset.pickerScope==='row'){
-        const rect=el.getBoundingClientRect(),width=Math.min(470,innerWidth-18);
-        menu.style.position='fixed';menu.style.left=Math.max(9,Math.min(rect.left,innerWidth-width-9))+'px';menu.style.width=width+'px';
-        if(innerHeight-rect.bottom<370&&rect.top>370){menu.style.top='auto';menu.style.bottom=(innerHeight-rect.top+6)+'px';}
-        else{menu.style.bottom='auto';menu.style.top=(rect.bottom+6)+'px';}
-      }
-      const search=menu.querySelector('.actor-picker-search');search.value='';fillActorPicker(picker);search.focus();
+      const search=menu.querySelector('.actor-picker-search');search.value='';fillActorPicker(picker);
+      positionActorPickerMenu(picker);
+      search.focus({preventScroll:true});
     }
     return;
   }
@@ -1778,6 +1796,7 @@ async function action(a,d,el){
       break;
     }
     case 'delete-role':{const r=ep.roles.find(r=>r.id===d.item);confirmAction('Удалить роль?',`<strong>${e(r.character)}</strong> будет убран из состава этой серии.`,'Удалить роль',()=>{ep.roles=ep.roles.filter(x=>x.id!==d.item);touch(p);});break;}
+    case 'actor-subtab':ui.actorSubtab=d.value==='stats'?'stats':'list';saveUI();render();break;
     case 'layout-grid':ui.layout='grid';saveUI();render();break;
     case 'layout-table':ui.layout='table';saveUI();render();break;
     case 'clear-search':ui.query='';ui.filter='all';render();break;
@@ -1865,7 +1884,7 @@ document.addEventListener('click',event=>{
     else if(kind==='cloud')quickViews.openCloud(quick.dataset.qvProject,quick.dataset.qvEpisode,quick.dataset.qvRole,quick.dataset.qvActor);
     return;
   }
-  if(!event.target.closest('.actor-picker'))closeActorPickers();
+  // Outside pointer-down closes actor picker. Do not close on mouseup/click after scrollbar drag.
   const el=event.target.closest('[data-action],[data-nav],[data-mode],[data-filter],[data-tab],[data-site-mode],[data-site-nav],[data-cabinet]');if(!el)return;event.preventDefault();event.stopPropagation();
   if(el.dataset.siteMode){ui.siteMode=['studio','site','cabinet'].includes(el.dataset.siteMode)?el.dataset.siteMode:'studio';if(ui.siteMode==='site')siteManager.start();if(ui.siteMode==='cabinet')actorCabinet.start();render();return;}
   if(el.dataset.cabinet){actorCabinet.action(el.dataset);return;}
@@ -1912,6 +1931,19 @@ document.addEventListener('drop',event=>{
 });
 document.addEventListener('dragend',endActorDrag);
 document.addEventListener('dragleave',event=>{if(actorDrag&&event.target===document.documentElement&&!event.relatedTarget)setActorDropTarget(null);});
+document.addEventListener('pointerdown',event=>{
+  if(isActorPickerOpen()&&!event.target.closest('.actor-picker'))closeActorPickers();
+});
+let actorPickerPositionFrame=0;
+document.addEventListener('scroll',event=>{
+  if(!isActorPickerOpen()||event.target.closest?.('.actor-picker-menu'))return;
+  if(actorPickerPositionFrame)return;
+  actorPickerPositionFrame=requestAnimationFrame(()=>{
+    actorPickerPositionFrame=0;
+    positionActorPickerMenu(document.querySelector('.actor-picker-menu:not([hidden])')?.closest('.actor-picker'));
+  });
+},true);
+window.addEventListener('resize',()=>positionActorPickerMenu(document.querySelector('.actor-picker-menu:not([hidden])')?.closest('.actor-picker')));
 document.addEventListener('pointerdown',event=>{const opened=document.querySelector('.episode-unassigned-dropdown[open]');if(opened&&!opened.contains(event.target))opened.open=false;});
 document.addEventListener('pointerdown',event=>{const el=event.target.closest('button,.btn');if(!el||state?.settings.motion===false||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const rect=el.getBoundingClientRect(),ripple=document.createElement('span');ripple.className='click-ripple';ripple.style.left=(event.clientX-rect.left)+'px';ripple.style.top=(event.clientY-rect.top)+'px';el.append(ripple);setTimeout(()=>ripple.remove(),550);});
 document.addEventListener('input',event=>{
@@ -1963,7 +1995,9 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='episode-select'){ui.episode=el.value;ui.roleFilter='all';ui.roleActor='all';ui.roleCharacter='all';render();}
   if(el.id==='cast-scope'){const p=getProject(el.dataset.id);modal.querySelector('#cast-draft').value=castFromCurrentStatus(p.id,el.value);}
   if(el.classList.contains('episode-stage')){const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);ep.stage=el.value;touch(p);}
-  if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
+  if(el.id==='actor-stat-sort'){ui.actorStatSort=['speed','onTime','overdue','accepted','name'].includes(el.value)?el.value:'speed';saveUI();render();return;}
+   if(el.id==='actor-stat-include-archive'){ui.actorStatIncludeArchive=el.checked;saveUI();render();return;}
+   if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
   if(el.id==='casting-suggestions-show-all'){updateCastingSuggestions();return;}
   if(el.id==='casting-modal-show-all'){updateCastingModalCandidates();return;}
   if(el.id==='review-show-all-actors'){refreshVacationReviewCandidates();return;}
@@ -2030,7 +2064,7 @@ document.querySelector('#ass-roles-file').addEventListener('change',async event=
     toast('Импорт ASS: '+(error.message||String(error)),true);
   }
 });
-document.querySelector('#import-file').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{if(file.size>8*1024*1024)throw new Error('Резервная копия должна быть меньше 8 МБ.');const imported=normalizeState(JSON.parse(await file.text()));showModal('Загрузить резервную копию?',`${imported.projects.length} проектов · ${imported.trash.length} в корзине`,`<p class="danger-note">Карточки в текущем рабочем пространстве будут заменены данными из <strong>${e(file.name)}</strong>. Перед заменой скачай текущую копию, если она нужна.</p><button type="button" class="btn ghost" data-action="export">${icon('download')}Скачать текущую копию</button>`,'Загрузить копию',async()=>{if(native)await api('state',imported);state=imported;persist();ui.page='projects';ui.query='';ui.filter='all';ui.actorFilter='';ui.actorExpanded=[];saveUI();modal.close();render();toast('Рабочее пространство восстановлено');});}catch(err){toast(err instanceof SyntaxError?'Не удалось прочитать JSON. Выбери резервную копию Fundi Voice.':err.message,true);}});
+document.querySelector('#import-file').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;try{if(file.size>8*1024*1024)throw new Error('Резервная копия должна быть меньше 8 МБ.');const imported=normalizeState(JSON.parse(await file.text()));showModal('Загрузить резервную копию?',`${imported.projects.length} проектов · ${imported.trash.length} в корзине`,`<p class="danger-note">Карточки в текущем рабочем пространстве будут заменены данными из <strong>${e(file.name)}</strong>. Перед заменой скачай текущую копию, если она нужна.</p><button type="button" class="btn ghost" data-action="export">${icon('download')}Скачать текущую копию</button>`,'Загрузить копию',async()=>{if(native)await api('state',imported);state=imported;lastDeliverySnapshot=roleDeliverySnapshot(state);persist();ui.page='projects';ui.query='';ui.filter='all';ui.actorFilter='';ui.actorExpanded=[];saveUI();modal.close();render();toast('Рабочее пространство восстановлено');});}catch(err){toast(err instanceof SyntaxError?'Не удалось прочитать JSON. Выбери резервную копию Fundi Voice.':err.message,true);}});
 window.addEventListener('beforeunload',event=>{if(native&&saving){event.preventDefault();event.returnValue='';}});
 window.addEventListener('storage',event=>{if(!native&&event.key===STORAGE&&event.newValue){try{state=normalizeState(JSON.parse(event.newValue));if(!modal.open)render();else toast('Данные обновлены в другой вкладке. Закрой форму, чтобы увидеть изменения.');}catch{}}});
 
@@ -2052,7 +2086,7 @@ async function boot(){
       const params=new URLSearchParams(location.hash.slice(1));token=params.get('key')||sessionStorage.getItem('fundi-key')||'';
       if(token){sessionStorage.setItem('fundi-key',token);history.replaceState(null,'',location.pathname);native=true;try{info=await api('info');const data=await api('state');if(data.state)state=normalizeState(data.state);else state=seedState();}catch(err){saveError=err.message;}}
     }
-    render();ensureActorPreviews().catch(()=>{});
+    lastDeliverySnapshot=roleDeliverySnapshot(state);render();ensureActorPreviews().catch(()=>{});
     // Cloud fetches and web role reconciliation continue independently of the startup screen.
     void finishStartupCloud().catch(err=>toast('Не удалось проверить облачную синхронизацию: '+err.message,true));
     if(native){

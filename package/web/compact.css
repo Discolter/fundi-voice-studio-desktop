@@ -782,3 +782,8 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
   .cast-table .row-select.role-tier{min-width:119px;max-width:138px;font-size:10px}
   .cast-table tbody tr.role-tier-divider td{padding:10px 12px}
 }
+
+/* Keep role casting menu scroll contained, even with hundreds of actors. */
+.actor-picker-menu:not([hidden]){overscroll-behavior:contain;scrollbar-width:thin;touch-action:pan-y}
+.actor-picker-table:has(.actor-picker-menu:not([hidden])){z-index:120}
+.actor-picker-menu .actor-picker-options{min-height:0}
