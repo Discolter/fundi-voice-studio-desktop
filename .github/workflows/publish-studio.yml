@@ -144,6 +144,8 @@ jobs:
           if($LASTEXITCODE -ne 0){ throw 'Actor picker stability regression tests failed' }
           node ./tools/check-multi-actor-roles.mjs
           if($LASTEXITCODE -ne 0){ throw 'Multi-actor casting regression tests failed' }
+          node ./tools/check-episode-actor-count.mjs
+          if($LASTEXITCODE -ne 0){ throw 'Episode actor counter regression tests failed' }
           if($LASTEXITCODE -ne 0){ throw 'ASS import and automatic casting tests failed' }
           node ./tools/check-episode-cloud-status.mjs
           if($LASTEXITCODE -ne 0){ throw 'Episode and Cloud status regression failed' }
