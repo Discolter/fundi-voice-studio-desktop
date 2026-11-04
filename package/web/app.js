@@ -1721,7 +1721,13 @@ async function action(a,d,el){
       const found=findNotificationRole(message);if(!found)throw new Error('Роль уже удалена из Studio.');
       cloud=await api('cloud/messages/read',{id:message.id});updateNotificationBadge();
       if(a==='notification-reply'){if(!found.assigned)throw new Error('Роль уже назначена другому актёру.');reviewRoleForm(found.p.id,found.ep.id,found.r.id);}
-      else{modal.close();openProject(found.p.id,found.ep.id,'roles');}
+      else{
+        modal.close();
+        // Keep the submission actor in focus, even if this particular role was reassigned.
+        // openProject validates the key and falls back to all roles when the actor has none here.
+        const actorKey=message.actorId?'id:'+message.actorId:episodeRoleActorKey(state,found.r);
+        openProject(found.p.id,found.ep.id,'roles',actorKey);
+      }
       break;
     }
     case 'new-project':projectForm();break;
