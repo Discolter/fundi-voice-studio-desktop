@@ -70,14 +70,24 @@ const app=readFileSync('package/web/app.js','utf8');
 const quick=readFileSync('package/web/quick-views.js','utf8');
 const css=readFileSync('package/web/compact.css','utf8');
 for(const needle of [
- 'function castingAssistantForm(', 'function updateCastingSuggestions()',
+ 'function castingAssistantForm(',
  'id="role-voice-gender"', 'voiceGender:roleVoiceFromActor({voiceGender:data.voiceGender},actor)',
  'case \'casting-assistant\':castingAssistantForm(d.id,d.ep,d.item)',
- 'case \'casting-pick\':',
- 'rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors})',
- 'updateCastingSuggestions();'
+ 'rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors})'
 ])assert.ok(app.includes(needle),'Studio casting UI missing: '+needle);
 assert.ok(quick.includes("data-q=\"casting-assistant\"")||quick.includes("btn('casting-assistant'"));
+
+// Editing a role must remain compact: no injected inline candidate list or its old event handlers.
+const roleEditor=app.slice(app.indexOf('function roleForm('),app.indexOf('function actorForm('));
+assert.ok(roleEditor.includes('actorPicker(r,{form:true})'),'Manual actor picker must remain in the role editor');
+assert.ok(roleEditor.includes('name="voiceGender"'),'Voice type must still be editable');
+for(const removed of ['id="casting-suggestions"','Рекомендации по кастингу','casting-suggestion-list','updateCastingSuggestions']){
+  assert.ok(!roleEditor.includes(removed),'Inline casting UI must not be rendered: '+removed);
+}
+assert.ok(!app.includes('function updateCastingSuggestions()'),'Unused inline updater must be removed');
+assert.ok(!app.includes("case 'casting-pick':"),'Unused inline quick pick must be removed');
+assert.ok(!app.includes("if(el.id==='casting-suggestions-show-all')"),'Unused inline filter event must be removed');
+
 assert.ok(!app.includes('class="icon-btn casting-table-button"'),'Workload dashboard replaces per-row casting shortcut');
 
 assert.ok(css.includes('.casting-suggestion-list'));
