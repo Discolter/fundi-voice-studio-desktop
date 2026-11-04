@@ -432,6 +432,17 @@ export function taskAssignment(state,ep,t) {
   const actorName=actor?.name||role?.actor||'';
   return {role,actor,actorId,actorName,character:role?.character||'',lineCount:Number.isInteger(role?.lineCount)&&role.lineCount>=0?role.lineCount:null};
 }
+// A task can change a role's production stage only when it still refers to the
+// exact episode role and that role has a real, assigned actor in this workspace.
+// Actor-only notes, role-only notes, deleted profiles and stale assignments are read-only.
+export function taskRoleStatusTarget(state,ep,task){
+  if(!task?.roleId)return null;
+  const linked=taskAssignment(state,ep,task);
+  const role=linked.role;
+  if(!role?.id||!role.actorId||!linked.actor||linked.actor.id!==role.actorId)return null;
+  if(task.actorId&&task.actorId!==role.actorId)return null;
+  return role;
+}
 // Common task projection: original episode records only; no duplicate rows or migrations.
 // includeArchived is enabled by the Studio personal dashboard to include every project.
 export function taskRows(state,{mine=false,query='',includeArchived=false,priority='all',order='due',status='all',lines='all',actorId='all',projectId='all'}={}) {
