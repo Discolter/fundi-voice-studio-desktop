@@ -165,3 +165,20 @@ body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-hig
   .tasks-priority-table .task-identity-image{width:31px;height:31px;flex-basis:31px}
   .tasks-priority-table .task-project-image{height:40px}
 }
+
+
+/* 1.8.79: edit the actual character/actor role stage from My Tasks.
+   No actionable stage is shown for free-form notes or stale links. */
+.tasks-priority-table .task-role-stage-cell{min-width:158px}
+.tasks-priority-table .task-role-stage-cell .fv-role-status{min-width:140px;max-width:178px}
+.tasks-priority-table .task-role-stage-cell .fv-select-trigger{
+  min-height:37px;padding:5px 8px;border-radius:9px;
+  font-size:11px;font-weight:650;white-space:nowrap
+}
+.tasks-priority-table .task-role-stage-cell .fv-option-name{
+  font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.tasks-priority-table .task-role-stage-unlinked{
+  display:inline-flex;align-items:center;min-height:37px;color:var(--muted);
+  padding:0 10px;font-size:13px
+}
