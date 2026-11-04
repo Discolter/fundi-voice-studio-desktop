@@ -35,7 +35,7 @@ const css=readFileSync(resolve(root,'package/web/compact.css'),'utf8');
 const form=app.slice(app.indexOf('function taskForm('),app.indexOf('function roleForm('));
 assert.ok(form.includes('taskTemplateField(t.title)'), 'Both task entry points must use the shared template picker');
 for(const fragment of [
-  'function taskTemplateMenuHTML(){','function taskTemplateField(title){','name="title"',
+  'function taskTemplateMenuHTML(){','function taskTemplateField(title){','input(\'title\',title',
   'id="task-title-input"','data-action="task-template-add"','data-action="task-template-toggle"',
   'data-action="task-template-use"','data-action="task-template-remove"',
   'case \'task-template-add\':','case \'task-template-toggle\':',
