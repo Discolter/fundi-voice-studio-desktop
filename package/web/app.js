@@ -20,7 +20,7 @@ import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,appl
 import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
-import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,filterEpisodeRoles,removeActor,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
+import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,filterEpisodeRoles,removeActor,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
@@ -1298,12 +1298,41 @@ function updateTaskAssignmentPickers(source) {
   form.querySelector('#task-actor-slot').innerHTML=`<select name="actorId" aria-label="Актёр для задачи">${taskActorChoices(actorId)}</select>`;
   form.querySelector('#task-role-slot').innerHTML=`<select name="roleId" aria-label="Персонаж для задачи">${taskRoleChoices(ep,actorId,roleId)}</select>`;
 }
+// Task title quick phrases: shared by the episode task form and the My Tasks form.
+function taskTemplateMenuHTML(){
+  const templates=normalizeTaskTemplates(state.settings.taskTemplates);
+  return '<div class="task-template-menu-heading">Готовые фразы</div>'+
+    (templates.length?templates.map((phrase,i)=>
+      '<div class="task-template-option">'+
+        '<button type="button" class="task-template-select" data-action="task-template-use" data-template-index="'+i+'" title="'+e(phrase)+'">'+e(phrase)+'</button>'+
+        '<button type="button" class="task-template-remove" data-action="task-template-remove" data-template-index="'+i+'" aria-label="Удалить шаблон: '+e(phrase)+'" title="Удалить шаблон">'+icon('close')+'</button>'+
+      '</div>').join(''):
+      '<p class="task-template-empty">Список пуст. Напиши фразу и нажми +, чтобы сохранить её.</p>');
+}
+function taskTemplateField(title){
+  return field('Что нужно сделать *',
+    '<div class="task-template-wrap"><div class="task-template-line">'+
+      input('title',title,'text','id="task-title-input" required maxlength="500" placeholder="Например, проверить уровни голосов"')+
+      '<button type="button" class="task-template-button" data-action="task-template-add" title="Сохранить написанную фразу как шаблон" aria-label="Добавить шаблон">'+icon('plus')+'</button>'+
+      '<button type="button" class="task-template-button" data-action="task-template-toggle" title="Выбрать готовую фразу" aria-label="Открыть шаблоны задач" aria-expanded="false" aria-controls="task-template-menu">'+icon('chevron')+'</button>'+
+    '</div><div class="task-template-menu" id="task-template-menu" hidden>'+taskTemplateMenuHTML()+'</div></div>','',true);
+}
+function updateTaskTemplateMenu(){
+  const menu=modal.querySelector('#task-template-menu');
+  if(menu)menu.innerHTML=taskTemplateMenuHTML();
+}
+function closeTaskTemplateMenu(){
+  const menu=modal.querySelector('#task-template-menu');
+  if(menu)menu.hidden=true;
+  const toggle=modal.querySelector('[data-action="task-template-toggle"]');
+  if(toggle)toggle.setAttribute('aria-expanded','false');
+}
 function taskForm(pid,epid,itemId){
   const p=pid?getProject(pid):null,ep=getEpisode(p,epid),old=ep?.tasks.find(t=>t.id===itemId);
   const t=old||{id:uid(),title:'',due:'',mine:state.settings.mode==='actor',done:false,priority:'normal',actorId:'',roleId:''};
   if(!state.projects.length){projectForm();return;}
   showModal(old?'Изменить задачу':'Новая задача',pid?`${p.title} / ${episodeLabel(p,ep)}`:'Выбери серию и запиши следующий шаг.',
-    `<div class="form-grid">${targetField(pid,epid)}${field('Что нужно сделать *',input('title',t.title,'text','required maxlength="500" placeholder="Например, проверить уровни голосов"'),'',true)}${taskAssignmentFields(ep,t)}${field('Дедлайн',input('due',t.due,'date'))}${field('Приоритет',`<select name="priority" aria-label="Приоритет задачи">${options(TASK_PRIORITIES,taskPriority(t.priority))}</select>`)}${state.settings.mode==='actor'?field('Ответственный',`<label class="check-label">${input('mine','1','checkbox',t.mine?'checked':'')}Моя задача</label>`):'<p class="task-sync-hint">Задача автоматически появится в разделе «Мои задачи» → «Мои поручения».</p>'}${old?field('Состояние',`<label class="check-label">${input('done','1','checkbox',t.done?'checked':'')}Выполнена</label>`):''}</div>`,
+    `<div class="form-grid">${targetField(pid,epid)}${taskTemplateField(t.title)}${taskAssignmentFields(ep,t)}${field('Дедлайн',input('due',t.due,'date'))}${field('Приоритет',`<select name="priority" aria-label="Приоритет задачи">${options(TASK_PRIORITIES,taskPriority(t.priority))}</select>`)}${state.settings.mode==='actor'?field('Ответственный',`<label class="check-label">${input('mine','1','checkbox',t.mine?'checked':'')}Моя задача</label>`):'<p class="task-sync-hint">Задача автоматически появится в разделе «Мои задачи» → «Мои поручения».</p>'}${old?field('Состояние',`<label class="check-label">${input('done','1','checkbox',t.done?'checked':'')}Выполнена</label>`):''}</div>`,
     'Сохранить',data=>{
       const {p,ep}=resolveTarget(data.target);
       if(!data.title.trim())throw new Error('Опиши задачу.');
@@ -1761,6 +1790,35 @@ async function action(a,d,el){
       break;
     }
     case 'reset-task-filters':ui.taskPriority='all';ui.taskOrder='priority';ui.taskStatus='all';ui.taskLines='all';ui.taskActor='all';ui.taskProject='all';saveUI();render();break;
+    case 'task-template-toggle':{
+      const menu=modal.querySelector('#task-template-menu');if(!menu)break;
+      menu.hidden=!menu.hidden;
+      el.setAttribute('aria-expanded',String(!menu.hidden));
+      break;
+    }
+    case 'task-template-add':{
+      const title=modal.querySelector('#task-title-input');
+      if(!title)break;
+      try{
+        state.settings.taskTemplates=addTaskTemplate(state.settings.taskTemplates,title.value);
+      }catch(error){toast(error.message,true);title.focus();break;}
+      persist();updateTaskTemplateMenu();toast('Шаблон задачи сохранён');
+      break;
+    }
+    case 'task-template-use':{
+      const title=modal.querySelector('#task-title-input'),templates=normalizeTaskTemplates(state.settings.taskTemplates);
+      const index=Number(d.templateIndex);
+      if(!title||!Number.isInteger(index)||index<0||index>=templates.length)break;
+      title.value=templates[index];closeTaskTemplateMenu();title.focus();
+      break;
+    }
+    case 'task-template-remove':{
+      const templates=normalizeTaskTemplates(state.settings.taskTemplates),index=Number(d.templateIndex);
+      if(!Number.isInteger(index)||index<0||index>=templates.length)break;
+      state.settings.taskTemplates=removeTaskTemplate(templates,index);
+      persist();updateTaskTemplateMenu();toast('Шаблон удалён');
+      break;
+    }
     case 'new-task':taskForm(p?.id,ep?.id);break;
     case 'edit-task':taskForm(p.id,ep.id,d.item);break;
     case 'toggle-task':{const t=ep.tasks.find(t=>t.id===d.item);t.done=!t.done;touch(p);render();break;}
@@ -1880,6 +1938,7 @@ document.addEventListener('click',event=>{
     else if(kind==='cloud')quickViews.openCloud(quick.dataset.qvProject,quick.dataset.qvEpisode,quick.dataset.qvRole,quick.dataset.qvActor);
     return;
   }
+  if(modal.open&&!event.target.closest?.('.task-template-wrap'))closeTaskTemplateMenu();
   // Outside pointer-down closes actor picker. Do not close on mouseup/click after scrollbar drag.
   const el=event.target.closest('[data-action],[data-nav],[data-mode],[data-filter],[data-tab],[data-site-mode],[data-site-nav],[data-cabinet]');if(!el)return;event.preventDefault();event.stopPropagation();
   if(el.dataset.siteMode){ui.siteMode=['studio','site','cabinet'].includes(el.dataset.siteMode)?el.dataset.siteMode:'studio';if(ui.siteMode==='site')siteManager.start();if(ui.siteMode==='cabinet')actorCabinet.start();render();return;}

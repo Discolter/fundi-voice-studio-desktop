@@ -251,8 +251,39 @@ export function cloneEpisodeCast(sourceEpisode){
 export function newProject(input={}) {
   return {id:uid(), title:'Новый проект', alias:'', season:'', color:'lime', symbol:'spark', cover:'',priority:'normal', root:'', notes:'', favorite:false, archived:false, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), lastOpened:'', episodes:[newEpisode()], ...input};
 }
+// Reusable task phrases belong to the Studio workspace, not to individual episodes.
+export const DEFAULT_TASK_TEMPLATES=Object.freeze(['Записать','Дописать','Обработать','Проверить уровни голосов']);
+export function normalizeTaskTemplates(value){
+  if(!Array.isArray(value))return [...DEFAULT_TASK_TEMPLATES];
+  const phrases=[],seen=new Set();
+  for(const item of value.slice(0,200)){
+    if(typeof item!=='string')continue;
+    const phrase=item.trim().replace(/\s+/g,' ');
+    if(!phrase||phrase.length>500)continue;
+    const key=phrase.toLocaleLowerCase('ru');
+    if(seen.has(key))continue;
+    seen.add(key);phrases.push(phrase);
+    if(phrases.length>=60)break;
+  }
+  return phrases;
+}
+export function addTaskTemplate(templates,text){
+  const phrase=typeof text==='string'?text.trim().replace(/\s+/g,' '):'';
+  if(!phrase)throw new Error('Сначала впиши текст задачи, чтобы сохранить шаблон.');
+  if(phrase.length>500)throw new Error('Шаблон не должен быть длиннее 500 символов.');
+  const phrases=normalizeTaskTemplates(templates);
+  if(phrases.some(item=>item.toLocaleLowerCase('ru')===phrase.toLocaleLowerCase('ru')))
+    throw new Error('Такая фраза уже сохранена.');
+  if(phrases.length>=60)throw new Error('Можно сохранить не более 60 шаблонов.');
+  return [...phrases,phrase];
+}
+export function removeTaskTemplate(templates,index){
+  const phrases=normalizeTaskTemplates(templates);
+  return Number.isInteger(index)&&index>=0&&index<phrases.length?phrases.filter((_,i)=>i!==index):phrases;
+}
+
 export function seedState() {
-  return {schema:SCHEMA,projects:[],actors:[],trash:[],settings:{mode:'studio',name:'Студия',myTelegram:'Discolter',studioRoot:'',folderTemplate:['source','voices','render','video','audio','subs','characterSubs','premiere'],theme:'aurora',motion:true,onboardingSeen:false,workspaceVersion:2},updatedAt:new Date().toISOString()};
+  return {schema:SCHEMA,projects:[],actors:[],trash:[],settings:{mode:'studio',name:'Студия',myTelegram:'Discolter',studioRoot:'',folderTemplate:['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:[...DEFAULT_TASK_TEMPLATES],theme:'aurora',motion:true,onboardingSeen:false,workspaceVersion:2},updatedAt:new Date().toISOString()};
 }
 export const safeCover = value => typeof value==='string'&&value.length<=700000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
 export const safeRoleImage = value => typeof value==='string'&&value.length<=150000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
@@ -299,7 +330,7 @@ export function normalizeState(raw) {
     })};
   }
   const projects=raw.projects.map(normalizeProject).filter(p=>raw.settings?.workspaceVersion===2||!untouchedStarter(p)),trash=(Array.isArray(raw.trash)?raw.trash:[]).map(normalizeProject);
-  return {schema:SCHEMA,projects,actors,trash,settings:{mode:raw.settings?.mode==='actor'?'actor':'studio',name:str(raw.settings?.name,80)||'Студия',myTelegram:cleanTelegram(raw.settings?.myTelegram===undefined?'Discolter':raw.settings.myTelegram).replace(/[^a-zA-Z0-9_]/g,'').slice(0,80),studioRoot:str(raw.settings?.studioRoot,2000),folderTemplate:Array.isArray(raw.settings?.folderTemplate)?expandFolderKeys(raw.settings.folderTemplate):['source','voices','render','video','audio','subs','characterSubs','premiere'],theme:THEMES.some(([key])=>key===raw.settings?.theme)?raw.settings.theme:'aurora',motion:raw.settings?.motion!==false,onboardingSeen:raw.settings?.onboardingSeen===true,workspaceVersion:2},updatedAt:str(raw.updatedAt,50)};
+  return {schema:SCHEMA,projects,actors,trash,settings:{mode:raw.settings?.mode==='actor'?'actor':'studio',name:str(raw.settings?.name,80)||'Студия',myTelegram:cleanTelegram(raw.settings?.myTelegram===undefined?'Discolter':raw.settings.myTelegram).replace(/[^a-zA-Z0-9_]/g,'').slice(0,80),studioRoot:str(raw.settings?.studioRoot,2000),folderTemplate:Array.isArray(raw.settings?.folderTemplate)?expandFolderKeys(raw.settings.folderTemplate):['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:normalizeTaskTemplates(raw.settings?.taskTemplates),theme:THEMES.some(([key])=>key===raw.settings?.theme)?raw.settings.theme:'aurora',motion:raw.settings?.motion!==false,onboardingSeen:raw.settings?.onboardingSeen===true,workspaceVersion:2},updatedAt:str(raw.updatedAt,50)};
 }
 export function projectProgress(p) {
   const steps = ['prep','record','edit','mix','review','done'];
