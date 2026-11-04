@@ -560,7 +560,6 @@ function updateActorPicker(picker,id){
   const trigger=picker.querySelector('.actor-picker-trigger');
   trigger.innerHTML=`${actorPickAvatar(a||{name:isNew?'+':'?'})}<span class="actor-picker-selected"><strong>${e(name)}</strong><small>${e(label)}</small></span>${icon('chevron')}`;
   closeActorPickers();
-  if(picker.dataset.pickerScope==='form')updateCastingSuggestions();
   if(picker.dataset.pickerScope==='row')render();
 }
 
@@ -1326,34 +1325,6 @@ function castingCandidateLabel(row){
   return row.episodeCount+' ролей в серии · '+row.activeCount+' активных всего'+
     (row.unknownLines?' · '+row.unknownLines+' без числа реплик':'');
 }
-function updateCastingSuggestions(){
-  const panel=modal.querySelector('#casting-suggestions');if(!panel)return;
-  const targetId=modal.querySelector('[name=target]')?.value||'';
-  let selection;try{selection=resolveTarget(targetId);}catch{
-    panel.innerHTML='<p class="small muted">Выбери проект и серию, чтобы увидеть рекомендуемых актёров.</p>';return;
-  }
-  const {ep}=selection;
-  const existing=ep.roles.find(r=>r.id===panel.dataset.roleId);
-  const currentId=modal.querySelector('[name=actorId]')?.value||'';
-  const gender=validRoleVoice(modal.querySelector('[name=voiceGender]')?.value);
-  const showAll=!!panel.querySelector('#casting-suggestions-show-all')?.checked;
-  const role={id:panel.dataset.roleId,voiceGender:gender};
-  const rows=rankActorsForRole(state,ep,role,cloud.vacations||[],{excludeActorId:currentId&&currentId!=='__new__'&&currentId!=='__legacy__'?currentId:'',showAll});
-  const picked=state.actors.find(a=>a.id===currentId);
-  const currentLoad=picked?episodeActorWorkload(ep,picked.id,existing?.id||role.id):null;
-  const mismatch=picked&&gender&&picked.voiceGroup!==gender;
-  panel.innerHTML=(gender?'<label class="casting-show-all"><input type="checkbox" id="casting-suggestions-show-all" '+(showAll?'checked':'')+'> Показать всех актёров</label>':'')+
-    '<div class="casting-suggestions-head"><strong>'+icon('users')+' Рекомендации по кастингу</strong><span class="small muted">Меньше повторов в серии — выше в списке</span></div>'+
-    (picked?'<p class="casting-current">'+e(picked.name)+': '+currentLoad.count+' других ролей в этой серии'+(mismatch?' · ⚠ Тип голоса не совпадает с ролью':'')+'</p>':'')+
-    '<div class="casting-suggestion-list">'+(rows.length?rows.slice(0,5).map((item,index)=>
-      '<button type="button" class="casting-suggestion" data-action="casting-pick" data-actor="'+e(item.actor.id)+'">'+
-      '<span class="casting-suggestion-rank">'+(index+1)+'</span><span class="casting-suggestion-content"><strong>'+e(item.actor.name)+'</strong>'+
-      '<small>'+e(castingCandidateLabel(item))+'</small>'+
-      (item.characters.length?'<small>В серии: '+e(item.characters.slice(0,3).join(', '))+(item.characters.length>3?'…':'')+'</small>':'')+
-      (!item.hasAccess?'<small>Доступ в Actor пока выключен</small>':'')+'</span><span class="casting-suggestion-pick">Выбрать</span></button>'
-    ).join(''):'<p class="small muted">Нет свободных кандидатов'+(gender?' с указанным типом голоса':'')+'. Проверь базу актёров и отпуска.</p>')+'</div>'+
-    '<p class="small muted">Для рекомендаций отпуск по-прежнему исключается; вручную назначать роли можно. Тип голоса определяется по группе актёра в базе. Это подсказка, а не автоматическое назначение.</p>';
-}
 function castingModalCandidatesHTML(rows,preferredId=''){
   if(!rows.length)return '<p class="small muted">Подходящих актёров вне отпуска не найдено. Включи «Показать всех актёров» или проверь состав.</p>';
   const chosen=rows.some(x=>x.actor.id===preferredId)?preferredId:rows[0].actor.id;
@@ -1429,7 +1400,7 @@ function multiRoleActorsForm(pid,epid,roleId){
 function roleForm(pid,epid,itemId){
   const p=pid?getProject(pid):null,ep=getEpisode(p,epid),old=ep?.roles.find(r=>r.id===itemId),r=old||{id:uid(),createdAt:new Date().toISOString(),character:'',lineCount:null,actorId:'',actor:'',mine:state.settings.mode==='actor',status:'waiting',roleTier:'supporting',voiceGender:'',inProject:false,folder:'',subtitle:'',notes:'',due:'',image:''};
   if(!state.projects.length){projectForm();return;}
-  showModal(old?'Изменить роль':'Новая роль',pid?p.title:'',`<div class="form-grid">${targetField(pid,epid)}${field('Персонаж *',input('character',r.character,'text','required maxlength="200"'),'',true)}${roleImageEditor(r.image||'')}${field('Количество реплик',input('lineCount',r.lineCount??'','number','min="0" max="1000000" step="1" inputmode="numeric" placeholder="Не указано"'),'Необязательно. 0 — реплик нет; пустое поле — количество неизвестно.',true)}${field('Категория роли',`<select name="roleTier">${options(ROLE_TIERS,validRoleTier(r.roleTier))}</select>`,'Главные персонажи выше, затем второстепенные, массовка внизу. Импортированные ASS-роли изначально второстепенные.')}${field('Тип голоса персонажа',`<select name="voiceGender" id="role-voice-gender">${options(ROLE_VOICE_OPTIONS,roleVoiceFromActor(r,state.actors.find(a=>a.id===r.actorId)))}</select>`,'Используется для рекомендаций: мужские или женские голоса.')}<div class="field full"><label>Актёр</label>${actorPicker(r,{form:true})}</div><div class="field full casting-suggestions" id="casting-suggestions" data-role-id="${e(r.id)}" aria-live="polite"></div><div class="field full new-actor-inline" id="new-actor-inline" hidden><label for="new-actor-name">Имя нового актёра *</label><input id="new-actor-name" name="newActorName" maxlength="160" disabled></div></div><details class="disclosure form-details"><summary>Обработка, голос и субтитры</summary><div class="form-grid">${field('Обработка',`<select name="status">${options(ROLE_STAGES,roleReviewStage(r,reviewForRole(r)))}</select>`)}${field('Срок для актёра',input('due',r.due||'','date'),'Если пусто — берём срок серии.')}${field('Отметки',`<label class="check-label">${input('mine','1','checkbox',r.mine?'checked':'')}Моя роль</label>`)}${field('Папка с голосом',pathField('folder',r.folder||'','folder'),'',true)}${field('SRT / ASS персонажа',pathField('subtitle',r.subtitle||'','file'),'',true)}${field('Заметки',area('notes',r.notes),'',true)}</div></details>`,'Сохранить',data=>{
+  showModal(old?'Изменить роль':'Новая роль',pid?p.title:'',`<div class="form-grid">${targetField(pid,epid)}${field('Персонаж *',input('character',r.character,'text','required maxlength="200"'),'',true)}${roleImageEditor(r.image||'')}${field('Количество реплик',input('lineCount',r.lineCount??'','number','min="0" max="1000000" step="1" inputmode="numeric" placeholder="Не указано"'),'Необязательно. 0 — реплик нет; пустое поле — количество неизвестно.',true)}${field('Категория роли',`<select name="roleTier">${options(ROLE_TIERS,validRoleTier(r.roleTier))}</select>`,'Главные персонажи выше, затем второстепенные, массовка внизу. Импортированные ASS-роли изначально второстепенные.')}${field('Тип голоса персонажа',`<select name="voiceGender" id="role-voice-gender">${options(ROLE_VOICE_OPTIONS,roleVoiceFromActor(r,state.actors.find(a=>a.id===r.actorId)))}</select>`,'Мужской или женский голос персонажа.')}<div class="field full"><label>Актёр</label>${actorPicker(r,{form:true})}</div><div class="field full new-actor-inline" id="new-actor-inline" hidden><label for="new-actor-name">Имя нового актёра *</label><input id="new-actor-name" name="newActorName" maxlength="160" disabled></div></div><details class="disclosure form-details"><summary>Обработка, голос и субтитры</summary><div class="form-grid">${field('Обработка',`<select name="status">${options(ROLE_STAGES,roleReviewStage(r,reviewForRole(r)))}</select>`)}${field('Срок для актёра',input('due',r.due||'','date'),'Если пусто — берём срок серии.')}${field('Отметки',`<label class="check-label">${input('mine','1','checkbox',r.mine?'checked':'')}Моя роль</label>`)}${field('Папка с голосом',pathField('folder',r.folder||'','folder'),'',true)}${field('SRT / ASS персонажа',pathField('subtitle',r.subtitle||'','file'),'',true)}${field('Заметки',area('notes',r.notes),'',true)}</div></details>`,'Сохранить',data=>{
     const {p,ep}=resolveTarget(data.target);if(!data.character.trim())throw new Error('Укажи персонажа.');const lineCountRaw=String(data.lineCount??'').trim();if(lineCountRaw&&!/^(?:0|[1-9][0-9]{0,6})$/.test(lineCountRaw))throw new Error('Количество реплик должно быть целым числом от 0 до 1 000 000.');const lineCount=lineCountRaw===''?null:Number(lineCountRaw);if(lineCount!==null&&lineCount>1000000)throw new Error('Максимум — 1 000 000 реплик.');if(!old&&ep.roles.length>=2000)throw new Error('В серии уже 2000 ролей.');
     let actor=(state.actors||[]).find(a=>a.id===data.actorId),legacy=data.actorId==='__legacy__'?r.actor:(data.actor||'').trim();
     if(data.actorId==='__new__'){const name=(data.newActorName||'').trim();if(!name)throw new Error('Укажи имя актёра.');if(state.actors.length>=2000)throw new Error('В списке уже 2000 актёров.');actor=newActor({name});state.actors.push(actor);}
@@ -1439,7 +1410,6 @@ function roleForm(pid,epid,itemId){
     if(changedActor)r.reviewCandidates=[];
     if(!old)ep.roles.push(r);for(const sibling of matchingCharacterRoles(ep,r))sibling.roleTier=r.roleTier;touch(p);modal.close();render();toast('Сохранено');
   },{extra:old?`<button type="button" class="btn danger small" style="margin-right:auto" data-action="delete-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}">Удалить</button>`:''});
-  updateCastingSuggestions();
 }
 function actorForm(id,castGroup='',voiceGroup=''){
   const old=state.actors.find(a=>a.id===id),a=old||newActor({voiceGroup,castGroup});
@@ -1651,7 +1621,6 @@ async function action(a,d,el){
       touch(result.project);modal.close();render();toast('Удалён из кандидатов');break;
     }
     case 'casting-assistant':castingAssistantForm(d.id,d.ep,d.item);break;
-    case 'casting-pick':{const picker=modal.querySelector('.actor-picker-form');if(picker)updateActorPicker(picker,d.actor);break;}
     case 'refresh-all':await refreshAllStudio(el);break;
     case 'studio-vacation-new':studioVacationForm();break;
     case 'studio-vacation-edit':studioVacationForm(d.actor);break;
@@ -2025,7 +1994,6 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='actor-stat-sort'){ui.actorStatSort=['speed','onTime','overdue','accepted','name'].includes(el.value)?el.value:'speed';saveUI();render();return;}
    if(el.id==='actor-stat-include-archive'){ui.actorStatIncludeArchive=el.checked;saveUI();render();return;}
    if(el.id==='actor-registration-filter'){ui.actorRegistrationFilter=['all','yes','no'].includes(el.value)?el.value:'all';saveUI();render();}
-  if(el.id==='casting-suggestions-show-all'){updateCastingSuggestions();return;}
   if(el.id==='casting-modal-show-all'){updateCastingModalCandidates();return;}
   if(el.id==='review-show-all-actors'){refreshVacationReviewCandidates();return;}
   if(el.classList.contains('actor-picker-show-all-input')){const picker=el.closest('.actor-picker');fillActorPicker(picker,picker.querySelector('.actor-picker-search')?.value||'');return;}
@@ -2034,7 +2002,6 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='role-actor-filter'){ui.roleActor=el.value;render();}
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
   if(el.id==='role-order'){ui.roleOrder=el.value;render();}
-  if(modal.open&&modal.querySelector('#casting-suggestions')&&['target','voiceGender'].includes(el.name)){updateCastingSuggestions();return;}
   if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleId'].includes(el.name)){updateTaskAssignmentPickers(el.name);return;}
   if(el.id==='task-priority-filter'){ui.taskPriority=el.value;saveUI();render();}
   if(el.id==='my-role-order'){ui.myRoleOrder=validMyRoleOrder(el.value);saveUI();render();}
