@@ -47,6 +47,8 @@ jobs:
           node ./tools/check-studio-module-delivery.mjs
           if($LASTEXITCODE -ne 0){ throw 'Desktop JavaScript module delivery failed' }
           node ./tools/check-navigation-history.mjs
+          node ./tools/check-notification-role-navigation.mjs
+          if($LASTEXITCODE -ne 0){ throw 'Notification actor role navigation regression failed' }
           if($LASTEXITCODE -ne 0){ throw 'Studio navigation history regression failed' }
           if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
           node --check ./package/web/site-manager.js
