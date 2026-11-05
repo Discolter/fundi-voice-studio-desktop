@@ -48,9 +48,9 @@ const begin=app.indexOf('function renderCard(p){');
 const end=app.indexOf('// Collapsible project strips',begin);
 assert.ok(begin>=0&&end>begin,'Project card function exists');
 const renderSource=app.slice(begin,end);
-const display=new Function('latestEpisodeRoleProgress','e','episodeLabel','projectArt','badge','ageBadge','icon','dueClass','dueLabel',
+const display=new Function('latestEpisodeRoleProgress','latestProjectEpisode','e','episodeLabel','projectArt','badge','ageBadge','icon','dueClass','dueLabel',
   renderSource+'; return renderCard;')(
-  latestEpisodeRoleProgress,
+  latestEpisodeRoleProgress,latestProjectEpisode,
   value=>String(value).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])),
   (_p,ep)=>'Серия '+ep.number,
   ()=>'🖼',()=>'<span>Запись</span>',()=>'<span>11 дней</span>',
