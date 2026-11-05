@@ -31,7 +31,7 @@ export function rankActorsForRole(state,episode,role,vacations=[],{excludeActorI
     .filter(v=>['active','planned'].includes(v?.status)).map(v=>v.actorId));
   const candidates=[];
   for(const actor of state?.actors||[]){
-    if(actor.id===excludeActorId||unavailable.has(actor.id))continue;
+    if(actor.id===excludeActorId||actor.retiredAt||unavailable.has(actor.id))continue;
     // Strict voice-type match for recommendations; manual casting remains possible.
     if(gender&&!showAll&&actor.voiceGroup!==gender)continue;
     const inEpisode=episodeActorWorkload(episode,actor.id,role?.id);
