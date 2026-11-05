@@ -848,25 +848,27 @@ let vacationChangesExpanded=false;
 function renderVacationReview(){
   const rows=vacationReviewRows(state,cloud.vacations||[]);
   const healthy=native&&cloud.connected&&cloud.vacationApiAvailable&&!cloud.vacationError&&!cloud.error;
-  let html=heading('Пересмотр','Роли, которые стоит переназначить из-за отпуска актёров',
+  let html=heading('Пересмотр','Переназначения из-за отпусков и удалённых актёров',
     native&&cloud.connected?`<button class="btn ghost small" data-action="refresh-all">${icon('refresh')}Обновить данные</button>`:'');
-  if(!healthy)html+=`<div class="vacation-review-warning">${icon('vacation')}<div><strong>Не удалось подтвердить актуальные отпуска</strong><p>${e(!cloud.connected?'Подключи Fundi Voice Cloud во вкладке «Доступ актёров».':cloud.vacationError||cloud.error||'Данные об отпусках ещё загружаются. Нажми «Обновить данные».')} Передача ролей недоступна до обновления статусов.</p></div></div>`;
+  if(!healthy)html+=`<div class="vacation-review-warning">${icon('vacation')}<div><strong>Не удалось подтвердить актуальные отпуска</strong><p>${e(!cloud.connected?'Подключи Fundi Voice Cloud во вкладке «Доступ актёров».':cloud.vacationError||cloud.error||'Данные об отпусках ещё загружаются. Нажми «Обновить данные».')} Роли актёров в отпуске пока недоступны для передачи. Роли удалённых актёров можно переназначить локально.</p></div></div>`;
   if(!rows.length){
-    return html+`<div class="vacation-review-empty">${icon('check')}<strong>${healthy?'Ролей на пересмотр нет':'Нет подтверждённых ролей на пересмотр'}</strong><p>${healthy?'Если у актёра появится отпуск, его ожидающие запись или перезапись роли автоматически появятся здесь.':'После получения статусов из Cloud здесь отобразятся незавершённые назначения актёров в отпуске.'}</p></div>`;
+    return html+`<div class="vacation-review-empty">${icon('check')}<strong>${healthy?'Ролей на пересмотр нет':'Нет подтверждённых ролей на пересмотр'}</strong><p>${healthy?'При отпуске или исключении актёра его роли автоматически появятся здесь.':'Назначения исключённых актёров видны даже без Cloud. Отпуска появятся после синхронизации.'}</p></div>`;
   }
   const actors=new Map();
   for(const row of rows){if(!actors.has(row.actor.id))actors.set(row.actor.id,[]);actors.get(row.actor.id).push(row);}
   const active=rows.filter(row=>row.vacation.status==='active').length;
-  html+=`<div class="vacation-review-overview"><div><span>Требуют внимания</span><strong>${rows.length}</strong></div><div><span>Уже в отпуске</span><strong>${active}</strong></div><div><span>Актёров</span><strong>${actors.size}</strong></div></div>`;
-  html+='<p class="vacation-review-help">Здесь только незавершённые записи: «Жду запись», «В записи», «На перезапись». Уже полученные и принятые записи не затрагиваются. Кандидаты — предварительный список только для Studio: их добавление не меняет назначение. Передача роли выполняется вручную; исходные файлы остаются на месте.</p>';
+  const retired=rows.filter(row=>row.vacation.status==='removed').length;
+  html+=`<div class="vacation-review-overview"><div><span>Требуют внимания</span><strong>${rows.length}</strong></div><div><span>Удалённые актёры</span><strong>${retired}</strong></div><div><span>Уже в отпуске</span><strong>${active}</strong></div><div><span>Актёров</span><strong>${actors.size}</strong></div></div>`;
+  html+='<p class="vacation-review-help">Для отпусков здесь только незавершённые записи. Удалённые актёры показываются со всеми своими ролями, включая принятые и архивные, пока их не передадут другому исполнителю. Кандидаты — предварительный список только для Studio: их добавление не меняет назначение. Передача роли выполняется вручную; исходные файлы остаются на месте.</p>';
   for(const [actorId,items] of actors){
     const a=items[0].actor,v=items[0].vacation;
-    const dates=`${v.startDate?'С '+e(v.startDate):'Начало неизвестно'}${v.endDate?' по '+e(v.endDate):' · без даты окончания'}`;
+    const dates=v.status==='removed'?'Исключён из состава'+(v.startDate?' · '+e(v.startDate):''):`${v.startDate?'С '+e(v.startDate):'Начало неизвестно'}${v.endDate?' по '+e(v.endDate):' · без даты окончания'}`;
     html+=`<section class="vacation-review-actor"><header class="vacation-review-person">${actorPickAvatar(a)}<div><strong>${e(a.name)}</strong><small>${a.telegram?'@'+e(a.telegram)+' · ':''}${dates}</small></div>${vacationTag(actorId)}<span class="vacation-review-count">${items.length} ${items.length===1?'роль':'ролей'}</span></header><div class="vacation-review-roles">`;
     for(const {p,ep,r,due} of items){
       const replacements=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actorId,showAll:true}).length;
       const shortlist=vacationReviewCandidates(state,r,cloud.vacations||[]);
-      html+=`<article class="vacation-review-role" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><div class="vacation-review-role-main"><div class="vacation-review-role-art">${roleImageThumb(r)||`<span class="vacation-review-role-image-empty" title="Иллюстрация персонажа не загружена">${icon('file')}</span>`}</div><div class="vacation-review-role-details"><strong>${e(r.character)}</strong><small>${e(p.title)} · ${e(episodeLabel(p,ep))}</small><div class="vacation-review-meta"><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span>${Number.isInteger(r.lineCount)?`<span>${r.lineCount} репл.</span>`:''}${due?`<span>Срок: ${e(dueLabel(due))}</span>`:''}</div></div></div><div class="vacation-review-actions"><div class="vacation-review-candidate-group" aria-label="Кандидаты для роли ${e(r.character)}">${shortlist.map(({actor:c,vacation})=>`<button type="button" class="vacation-review-candidate-chip ${vacation?'is-unavailable':''}" data-action="vacation-review-candidate-details" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" data-actor="${e(c.id)}" title="Кандидат: ${e(c.name)}${vacation?' · в отпуске или отпуск запланирован':''}">${actorPickAvatar(c)}<span>${e(c.name)}</span></button>`).join('')}<button type="button" class="vacation-review-candidate-add" data-action="vacation-review-candidate-add" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Добавить кандидатов для ${e(r.character)}" title="Добавить нескольких кандидатов" ${!healthy||!replacements?'disabled':''}>${icon('plus')}</button></div>${reaperShortcutButton(p,ep)}<button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть</button><button class="btn primary small" data-action="vacation-review-transfer" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" ${!healthy||!replacements?'disabled':''} title="${!replacements?'Нет актёров вне отпуска':'Передать роль другому актёру'}">Передать роль ${icon('arrow')}</button></div></article>`;
+      const actionable=healthy||v.status==='removed';
+      html+=`<article class="vacation-review-role" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><div class="vacation-review-role-main"><div class="vacation-review-role-art">${roleImageThumb(r)||`<span class="vacation-review-role-image-empty" title="Иллюстрация персонажа не загружена">${icon('file')}</span>`}</div><div class="vacation-review-role-details"><strong>${e(r.character)}</strong><small>${e(p.title)} · ${e(episodeLabel(p,ep))}</small><div class="vacation-review-meta"><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span>${Number.isInteger(r.lineCount)?`<span>${r.lineCount} репл.</span>`:''}${due?`<span>Срок: ${e(dueLabel(due))}</span>`:''}</div></div></div><div class="vacation-review-actions"><div class="vacation-review-candidate-group" aria-label="Кандидаты для роли ${e(r.character)}">${shortlist.map(({actor:c,vacation})=>`<button type="button" class="vacation-review-candidate-chip ${vacation?'is-unavailable':''}" data-action="vacation-review-candidate-details" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" data-actor="${e(c.id)}" title="Кандидат: ${e(c.name)}${vacation?' · в отпуске или отпуск запланирован':''}">${actorPickAvatar(c)}<span>${e(c.name)}</span></button>`).join('')}<button type="button" class="vacation-review-candidate-add" data-action="vacation-review-candidate-add" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Добавить кандидатов для ${e(r.character)}" title="Добавить нескольких кандидатов" ${!actionable||!replacements?'disabled':''}>${icon('plus')}</button></div>${reaperShortcutButton(p,ep)}<button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть</button><button class="btn primary small" data-action="vacation-review-transfer" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" ${!actionable||!replacements?'disabled':''} title="${!replacements?'Нет актёров вне отпуска':'Передать роль другому актёру'}">Передать роль ${icon('arrow')}</button></div></article>`;
     }
     html+='</div></section>';
   }
@@ -875,11 +877,11 @@ function renderVacationReview(){
 
 
 function vacationReviewAddCandidateForm(projectId,episodeId,roleId){
-  if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error)
-    throw new Error('Обнови данные об отпусках из Cloud.');
   const row=vacationReviewRows(state,cloud.vacations||[]).find(({p,ep,r})=>
     p.id===projectId&&ep.id===episodeId&&r.id===roleId);
   if(!row)throw new Error('Роль больше не требует пересмотра.');
+  if(row.vacation.status!=='removed'&&(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error))
+    throw new Error('Обнови данные об отпусках из Cloud.');
   const {p,ep,r,actor}=row;
   const current=new Set((r.reviewCandidates||[]));
   const available=rankActorsForRole(state,ep,r,cloud.vacations||[],{
@@ -927,9 +929,9 @@ function refreshVacationReviewCandidates(){
   select.innerHTML=vacationReviewCandidateOptions(available,current);
 }
 function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId='',showAllActors=false){
-  if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error)throw Error('Обнови данные об отпусках из Cloud.');
   const row=vacationReviewRows(state,cloud.vacations||[]).find(({p,ep,r})=>p.id===projectId&&ep.id===episodeId&&r.id===roleId);
   if(!row)throw Error('Роль уже не требует пересмотра.');
+  if(row.vacation.status!=='removed'&&(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.vacationError||cloud.error))throw Error('Обнови данные об отпусках из Cloud.');
   const {p,ep,r,actor}=row,available=rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:showAllActors});
   if(!rankActorsForRole(state,ep,r,cloud.vacations||[],{excludeActorId:actor.id,showAll:true}).length)throw Error('Сейчас нет доступных актёров без действующего или запланированного отпуска.');
   const chooser=`<div class="vacation-review-transfer"><p>Сейчас роль <strong>${e(r.character)}</strong> назначена ${e(actor.name)}. Выбери другого актёра из базы, которому можно передать запись.${validRoleVoice(r.voiceGender)?' Тип голоса персонажа: <strong>'+e(roleVoiceLabel(r.voiceGender))+'</strong>.':''}</p>${validRoleVoice(r.voiceGender)?`<label class="casting-show-all"><input type="checkbox" name="showAllActors" id="review-show-all-actors" ${showAllActors?'checked':''}> Показать всех актёров</label>`:''}<label for="review-next-actor">Новый исполнитель</label><select id="review-next-actor" name="actorId" data-project="${e(p.id)}" data-episode="${e(ep.id)}" data-role="${e(r.id)}" required>${vacationReviewCandidateOptions(available,preferredActorId)}</select><p class="small muted">После передачи статус роли станет «Жду запись». Персонаж, количество реплик, срок, заметки и старые записи сохранятся; новый актёр получит назначение при синхронизации.</p></div>`;
@@ -939,13 +941,15 @@ function vacationReviewTransferForm(projectId,episodeId,roleId,preferredActorId=
 }
 
 async function finishVacationReviewTransfer(projectId,episodeId,roleId,previousActorId,newActorId,showAllActors=false){
-  if(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.error||cloud.vacationError)
+  const removed=!!state.actors.find(a=>a.id===previousActorId)?.retiredAt;
+  if(!removed&&(!native||!cloud.connected||!cloud.vacationApiAvailable||cloud.error||cloud.vacationError))
     throw Error('Не удалось проверить доступность актёров. Обнови Cloud.');
   const transfer=reassignVacationRole(state,cloud.vacations||[],{
     projectId,episodeId,roleId,previousActorId,newActorId,showAllActors
   });
   touch(transfer.project);modal.close();render();
-  toast('Роль «'+transfer.role.character+'» переназначена на '+transfer.newActor.name+'. Отправляем в Cloud…');
+  toast('Роль «'+transfer.role.character+'» переназначена на '+transfer.newActor.name+'.'+(native&&cloud.connected?' Отправляем в Cloud…':' Сохранено локально.'));
+  if(!native||!cloud.connected)return;
   try{
     await flushSave();
     if(saveError)throw Error(saveError);
