@@ -362,8 +362,9 @@ export function projectProgress(p) {
   const steps = ['prep','record','edit','mix','review','done'];
   return Math.round(p.episodes.reduce((n,ep)=>n+Math.max(0,steps.indexOf(ep.stage)+1)/steps.length,0)/Math.max(1,p.episodes.length)*100);
 }
-// Project cards report voice work on the most recent episode by episode NUMBER,
-// independently of the first unfinished episode used by navigation.
+// Latest numbered episode can be newly created and still empty.
+// Project cards should report the most recent episode WITH roles, not erase
+// previously accepted work when a new blank episode is added.
 export function latestProjectEpisode(project){
   const weight=episode=>{
     const number=Number(episode?.number);
@@ -373,7 +374,8 @@ export function latestProjectEpisode(project){
     !latest||weight(episode)>=weight(latest)?episode:latest,null);
 }
 export function latestEpisodeRoleProgress(project){
-  const episode=latestProjectEpisode(project);
+  const staffed=(project?.episodes||[]).filter(ep=>(ep.roles||[]).length>0);
+  const episode=latestProjectEpisode(staffed.length?{episodes:staffed}:project);
   const roles=episode?.roles||[];
   const total=roles.length,accepted=roles.filter(role=>role.status==='done').length;
   const remaining=total-accepted;
