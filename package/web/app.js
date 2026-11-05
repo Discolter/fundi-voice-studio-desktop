@@ -808,7 +808,7 @@ function actorAccessPreview(id){
 function studioVacationForm(actorId=''){
   const current=actorId?vacationFor(actorId):null;
   const actor=current?state.actors.find(a=>a.id===actorId):null;
-  const available=(state.actors||[]).filter(a=>!vacationFor(a.id));
+  const available=(state.actors||[]).filter(a=>!a.retiredAt&&!vacationFor(a.id));
   if(!current&&!available.length){toast('Все актёры уже отмечены или список актёров пуст.',true);return;}
   const selected=actor||available[0];
   const picker=current?`<div class="studio-vacation-picked">${actorPickAvatar(actor||{name:actorId})}<strong>${e(actor?.name||actorId)}</strong></div>`:
@@ -822,7 +822,7 @@ function studioVacationForm(actorId=''){
   </div>`;
   showModal(current?'Изменить отпуск':'Назначить отпуск',current?actor?.name||actorId:'Для актёра без приложения или сайта',body,'Сохранить',async data=>{
     const id=current?actorId:data.actorId;
-    if(!id||!(state.actors||[]).some(a=>a.id===id))throw new Error('Выбери актёра из базы.');
+    if(!id||!(state.actors||[]).some(a=>a.id===id&&(current||!a.retiredAt)))throw new Error('Выбери действующего актёра из базы.');
     if(!current&&!data.startDate)throw new Error('Укажи дату начала.');
     if(!data.indefinite&&!data.endDate)throw new Error('Выбери дату возвращения или отметь «Бессрочно».');
     const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Europe/Madrid';
@@ -962,6 +962,14 @@ async function finishVacationReviewTransfer(projectId,episodeId,roleId,previousA
   }
 }
 
+// Display identity from Studio's actor database, not the Cloud account username.
+// Cloud vacation entries can use old/synthetic usernames that do not match Telegram.
+function studioVacationIdentity(actorId,remoteUsername=''){
+  const actor=(state.actors||[]).find(a=>a.id===actorId);
+  const label=actor?.name||String(remoteUsername||'').replace(/^@+/,'')||actorId||'Актёр';
+  const handle=actor?cleanTelegram(actor.telegram):cleanTelegram(remoteUsername);
+  return `<div class="studio-vacation-identity">${actorPickAvatar(actor||{name:label})}<div class="studio-vacation-identity-text"><strong>${e(label)}</strong>${handle?`<small>@${e(handle)}</small>`:''}${actor?.retiredAt?'<small class="studio-vacation-removed">Удалённый актёр</small>':''}</div></div>`;
+}
 function renderVacations(){
   const rows=cloud.vacations||[],events=cloud.vacationEvents||[];
   const active=rows.filter(v=>v.status==='active'),planned=rows.filter(v=>v.status==='planned');
@@ -972,10 +980,10 @@ function renderVacations(){
   html+=`<div class="studio-vacation-stats"><div><strong>${active.length}</strong><span>В отпуске</span></div><div><strong>${planned.length}</strong><span>Запланировано</span></div><div><strong>${cloud.vacationUnread||0}</strong><span>Новых событий</span></div></div>`;
   const names={active:'В отпуске',planned:'Запланирован',completed:'Завершён',ended:'Досрочный возврат',cancelled:'Отменён'};
   const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('ru-RU'):'Срок неизвестен';
-  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card ${v.status}"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong>${v.username?`<small>@${e(v.username)}</small>`:''}</div><span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} ${v.endDate?'по '+e(fmt(v.endDate)):'· Бессрочно (до ручного завершения)'}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`;}).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
+  const section=(title,items)=>`<section class="studio-vacation-section"><h2>${title}<span>${items.length}</span></h2>${items.length?`<div class="studio-vacation-list">${items.map(v=>`<article class="studio-vacation-card ${v.status}">${studioVacationIdentity(v.actorId,v.username)}<span class="studio-vacation-tag ${e(v.status)}">${e(names[v.status]||v.status)}</span><p>С ${e(fmt(v.startDate))} ${v.endDate?'по '+e(fmt(v.endDate)):'· Бессрочно (до ручного завершения)'}</p>${v.reason?`<p class="studio-vacation-reason">Причина: ${e(v.reason)}</p>`:''}${['active','planned'].includes(v.status)?`<div class="studio-vacation-actions"><button class="btn ghost small" data-action="studio-vacation-edit" data-actor="${e(v.actorId)}">Изменить</button><button class="btn ghost small" data-action="studio-vacation-end" data-actor="${e(v.actorId)}">${v.status==='planned'?'Отменить':'Завершить'}</button></div>`:`<div class="studio-vacation-actions"><button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-history" data-vacation="${e(v.vacationId)}">Удалить из истории</button></div>`}</article>`).join('')}</div>`:'<p class="muted small">Пока никого нет.</p>'}</section>`;
   html+=section('Сейчас в отпуске',active)+section('Предстоящие отпуска',planned);
   const types={planned:'Отпуск запланирован',started:'Отпуск начался',updated:'Отпуск обновлён',cancelled:'Отпуск отменён',returned:'Отпуск завершён'};
-  html+=`<details class="studio-vacation-section studio-vacation-changes" ${vacationChangesExpanded?'open':''}><summary class="studio-vacation-changes-summary"><h2>Изменения <span>${cloud.vacationUnread||0} новых</span></h2><span class="studio-vacation-changes-hint">${vacationChangesExpanded?'Скрыть':'Показать'}${events.length?' · '+events.length+' событий':''}</span>${icon('chevron')}</summary>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>{const actor=state.actors.find(a=>a.id===v.actorId);return `<article class="studio-vacation-card event"><div><strong>${e(actor?.name||v.username||v.actorId)}</strong><small>${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small></div><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`;}).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</details>`;
+  html+=`<details class="studio-vacation-section studio-vacation-changes" ${vacationChangesExpanded?'open':''}><summary class="studio-vacation-changes-summary"><h2>Изменения <span>${cloud.vacationUnread||0} новых</span></h2><span class="studio-vacation-changes-hint">${vacationChangesExpanded?'Скрыть':'Показать'}${events.length?' · '+events.length+' событий':''}</span>${icon('chevron')}</summary>${events.length?`<div class="studio-vacation-list">${events.slice(0,60).map(v=>`<article class="studio-vacation-card event">${studioVacationIdentity(v.actorId,v.username)}<small class="studio-vacation-event-date">${e(new Date(v.createdAt).toLocaleString('ru-RU'))}</small><p>${e(types[v.kind]||v.kind)}</p>${!v.read?`<button class="btn ghost small" data-action="studio-vacation-read" data-event="${v.id}">Прочитано</button>`:''}<button type="button" class="btn ghost small studio-vacation-delete" data-action="studio-vacation-delete-event" data-event="${v.id}">Удалить событие</button></article>`).join('')}</div>`:'<p class="muted small">Событий пока нет.</p>'}</details>`;
   html+=section('История отпусков',rows.filter(v=>!['active','planned'].includes(v.status)).slice(0,50));
   html+='<p class="muted small">Причины видны только руководителю и самому актёру. Отпуск может назначить руководитель даже без регистрации актёра. После входа в Actor актёр увидит отпуск и сможет его изменить или завершить. Назначенные ранее роли не исчезают. Новые роли можно назначать и актёрам в отпуске — они останутся отмечены как недоступные, пока отпуск не закончится.</p>';
   return html;
