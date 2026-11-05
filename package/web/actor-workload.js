@@ -15,7 +15,7 @@ export function matchesWorkloadActor(actor,query=''){
   return name.startsWith(value)||telegram.startsWith(value)||name.includes(value)||telegram.includes(value);
 }
 export function actorWorkloadRows(state,{includeArchived=false,query='',actorQuery=''}={}){
-  const people=(state?.actors||[]).map(actor=>({
+  const people=(state?.actors||[]).filter(actor=>!actor.retiredAt).map(actor=>({
     actor,pending:0,pendingLines:0,pendingUnknown:0,inReview:0,accepted:0,
     total:0,allLines:0,allUnknown:0,projects:new Set(),assignments:[]}));
   const byId=new Map(people.map(x=>[x.actor.id,x]));

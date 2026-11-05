@@ -68,7 +68,7 @@ assert.match(app,/data-action="debts-preview"/);
 assert.match(app,/data-action="cast-preview"/);
 assert.match(app,/finishEpisodeId:ep\.id/);
 assert.match(app,/if\(completed\)completed\.stage='done'/);
-assert.match(app,/cloneEpisodeCast\(source\)/);
+assert.match(app,/cloneEpisodeCast\(source,state\)/,'Cloning must know which actor records are retired');
 assert.match(app,/name="copyRoles"/);
 assert.match(app,/outstandingCastMessage\(state,p,ep\)/);
 assert.match(app,/id="cloud-sync-indicator"/);

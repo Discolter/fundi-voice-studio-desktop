@@ -91,9 +91,9 @@ export const projectFolderName = (title,season='') => diskFolderName(title+(seas
 export const episodeFolderName = (number='',title='') => diskFolderName((number?'Серия '+number:'Серия')+(title?' - '+title:''));
 export function expandFolderKeys(keys){const all=new Set(keys.filter(k=>PATHS.some(p=>p[0]===k)&&!['root','reaper'].includes(k)));if(all.has('premiere'))all.add('video');if(all.has('characterSubs'))all.add('subs');if(['video','audio','subs'].some(k=>all.has(k)))all.add('source');return [...all];}
 export const cleanTelegram = v => str(v,150).trim().replace(/^https?:\/\/(?:www\.)?t\.me\//i,'').replace(/^t\.me\//i,'').replace(/^@/,'').replace(/\/$/,'');
-export function newActor(input={}) { return {id:uid(),name:'',telegram:'',voiceGroup:'',castGroup:'',avatar:'',avatarPreview:'',avatarThumbSource:'',notes:'',demos:[],actorAccess:false,...input}; }
+export function newActor(input={}) { return {id:uid(),name:'',telegram:'',voiceGroup:'',castGroup:'',avatar:'',avatarPreview:'',avatarThumbSource:'',notes:'',demos:[],actorAccess:false,retiredAt:'',...input}; }
 export const actorForRole = (state,r) => (state.actors||[]).find(a=>a.id===r.actorId) || null;
-export const actorName = (state,r) => actorForRole(state,r)?.name || r.actor || '';
+export const actorName = (state,r) => { const a=actorForRole(state,r); return a?.retiredAt?a.name+' (Удалённый актёр)':a?.name||r.actor||''; };
 // Episode-only actor filtering and workload order. Does not mutate actor assignments.
 export function episodeRoleActorKey(state, role) {
   const actor=actorForRole(state,role);
@@ -187,12 +187,38 @@ export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', 
 export function actorAssignments(state,id) {
   return state.projects.flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
 }
+// A deleted cast member stays addressable until every project/archived role and
+// task has been reassigned. Never clear actorId while a role still points here.
 export function removeActor(state,id) {
-  const actor=(state.actors||[]).find(a=>a.id===id);if(!actor)return;
-  for(const p of [...state.projects,...state.trash])for(const ep of p.episodes)for(const r of ep.roles)if(r.actorId===id){r.actor=actor.name;r.actorId='';}
-  for(const p of [...state.projects,...state.trash])for(const ep of p.episodes)for(const r of ep.roles)
-    if(Array.isArray(r.reviewCandidates))r.reviewCandidates=r.reviewCandidates.filter(candidateId=>candidateId!==id);
-  state.actors=state.actors.filter(a=>a.id!==id);
+  const actor=(state.actors||[]).find(a=>a.id===id);
+  if(!actor)return null;
+  actor.retiredAt=actor.retiredAt||new Date().toISOString();
+  actor.actorAccess=false;
+  for(const p of [...(state.projects||[]),...(state.trash||[])])
+    for(const ep of p.episodes||[])
+      for(const r of ep.roles||[]){
+        if(r.actorId===id)r.actor=actor.name;
+        // A removed actor cannot be used as a future casting candidate.
+        if(Array.isArray(r.reviewCandidates))
+          r.reviewCandidates=r.reviewCandidates.filter(candidateId=>candidateId!==id);
+      }
+  return actor;
+}
+// Purge only local tombstones with NO surviving references, even in the trash.
+// Cloud keeps its own audit/account history; disabling access is handled by sync.
+export function pruneRetiredActors(state){
+  const referenced=new Set();
+  for(const p of [...(state.projects||[]),...(state.trash||[])])
+    for(const ep of p.episodes||[]){
+      for(const r of ep.roles||[]){
+        if(r.actorId)referenced.add(r.actorId);
+        for(const candidate of r.reviewCandidates||[])referenced.add(candidate);
+      }
+      for(const t of ep.tasks||[])if(t.actorId)referenced.add(t.actorId);
+    }
+  const before=(state.actors||[]).length;
+  state.actors=(state.actors||[]).filter(a=>!a.retiredAt||referenced.has(a.id));
+  return before-state.actors.length;
 }
 // Unicode markers survive plain-text copying and display correctly in Telegram.
 export const castRoleStatusEmoji=status=>
@@ -237,12 +263,12 @@ export function newEpisode(input={}) {
   return { id: uid(), number:num(input.number), title:str(input.title,120), stage:'unset', due:'', notes:'', paths:{}, resources:[], tasks:[], roles:[], ...input };
 }
 // Carry forward actors and character portraits, not previous episode recordings.
-export function cloneEpisodeCast(sourceEpisode){
+export function cloneEpisodeCast(sourceEpisode,state){
   return (Array.isArray(sourceEpisode?.roles)?sourceEpisode.roles:[]).map(role=>({
     id:uid(),createdAt:new Date().toISOString(),
     character:str(role.character,200).trim(),roleTier:validRoleTier(role.roleTier),voiceGender:str(role.voiceGender,20),
     image:safeRoleImage(role.image),lineCount:null,
-    actorId:str(role.actorId,80),actor:str(role.actor,200),mine:!!role.mine,
+    actorId:(state?.actors||[]).some(a=>a.id===role.actorId&&a.retiredAt)?'':str(role.actorId,80),actor:(state?.actors||[]).some(a=>a.id===role.actorId&&a.retiredAt)?'':str(role.actor,200),mine:!!role.mine,
     status:'waiting',inProject:false,folder:'',subtitle:'',notes:'',due:'',
     reviewSeen:'',reviewCandidates:[]
   })).filter(role=>role.character);
@@ -306,12 +332,12 @@ export function normalizeState(raw) {
   const actors=(raw.actors||[]).map(a=>{
     if(!a||!str(a.name,160).trim())throw new Error('У актёра должно быть имя.');
     if(a.demos&&(!Array.isArray(a.demos)||a.demos.length>200))throw new Error('У одного актёра может быть до 200 демок.');
-    const actor=newActor({id:id(a.id),name:str(a.name,160).trim(),telegram:cleanTelegram(a.telegram).replace(/[^a-zA-Z0-9_]/g,''),voiceGroup:ACTOR_GROUPS.some(([key])=>key===a.voiceGroup)?a.voiceGroup:'',castGroup:CAST_GROUPS.some(([key])=>key===a.castGroup)?a.castGroup:'',avatar:safeCover(a.avatar),avatarPreview:safeCover(a.avatarPreview),avatarThumbSource:str(a.avatarThumbSource,64),notes:str(a.notes,4000),demos:(a.demos||[]).map(d=>({id:id(d.id),label:str(d.label,200)||'Демка',path:str(d.path,2000),folder:!!d.folder})).filter(d=>d.path),actorAccess:a.actorAccess===true});
+    const actor=newActor({id:id(a.id),name:str(a.name,160).trim(),telegram:cleanTelegram(a.telegram).replace(/[^a-zA-Z0-9_]/g,''),voiceGroup:ACTOR_GROUPS.some(([key])=>key===a.voiceGroup)?a.voiceGroup:'',castGroup:CAST_GROUPS.some(([key])=>key===a.castGroup)?a.castGroup:'',avatar:safeCover(a.avatar),avatarPreview:safeCover(a.avatarPreview),avatarThumbSource:str(a.avatarThumbSource,64),notes:str(a.notes,4000),demos:(a.demos||[]).map(d=>({id:id(d.id),label:str(d.label,200)||'Демка',path:str(d.path,2000),folder:!!d.folder})).filter(d=>d.path),actorAccess:a.actorAccess===true&&!a.retiredAt,retiredAt:str(a.retiredAt,50)});
     if(a.id&&!actorIdMap.has(a.id))actorIdMap.set(a.id,actor.id);return actor;
   });
   function normalizeRole(r){
     const name=str(r.actor,200).trim();let linked=actors.find(a=>a.id===actorIdMap.get(r.actorId));
-    if(!linked&&name){const matches=actors.filter(a=>a.name.toLocaleLowerCase('ru')===name.toLocaleLowerCase('ru'));
+    if(!linked&&name){const matches=actors.filter(a=>!a.retiredAt&&a.name.toLocaleLowerCase('ru')===name.toLocaleLowerCase('ru'));
       if(matches.length===1)linked=matches[0];
       else if(matches.length===0&&raw.actors===undefined){linked=newActor({id:id(''),name});actors.push(linked);}
     }
@@ -409,7 +435,7 @@ export function debtRows(state,{actorKey='',status='all',projectId='',query=''}=
 export function effectiveRoleDue(role, episode) { return dateValue(role.due) || dateValue(episode.due) || ''; }
 export function actorPublicFeed(state, actorId, {preview=false}={}) {
   const actor=(state.actors||[]).find(a=>a.id===actorId);
-  if(!actor || (!preview && actor.actorAccess!==true))return null;
+  if(!actor || actor.retiredAt || (!preview && actor.actorAccess!==true))return null;
   const roles=(state.projects||[]).filter(p=>!p.archived).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.roles||[])
     .filter(r=>r.actorId===actorId).map(r=>({
       roleId:r.id,
@@ -429,7 +455,7 @@ export function taskAssignment(state,ep,t) {
   const role=(ep?.roles||[]).find(r=>r.id===t.roleId)||null;
   const actorId=role?.actorId||t.actorId||'';
   const actor=(state.actors||[]).find(a=>a.id===actorId)||null;
-  const actorName=actor?.name||role?.actor||'';
+  const actorName=actor?.retiredAt?actor.name+' (Удалённый актёр)':actor?.name||role?.actor||'';
   return {role,actor,actorId,actorName,character:role?.character||'',lineCount:Number.isInteger(role?.lineCount)&&role.lineCount>=0?role.lineCount:null};
 }
 // A task can change a role's production stage only when it still refers to the
@@ -439,7 +465,7 @@ export function taskRoleStatusTarget(state,ep,task){
   if(!task?.roleId)return null;
   const linked=taskAssignment(state,ep,task);
   const role=linked.role;
-  if(!role?.id||!role.actorId||!linked.actor||linked.actor.id!==role.actorId)return null;
+  if(!role?.id||!role.actorId||!linked.actor||linked.actor.retiredAt||linked.actor.id!==role.actorId)return null;
   if(task.actorId&&task.actorId!==role.actorId)return null;
   return role;
 }
