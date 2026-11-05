@@ -59,7 +59,7 @@ function average(values){return values.length?values.reduce((a,b)=>a+b,0)/values
 export function actorDeliveryRows(state,{vacations=[],now=new Date(),query='',sort='speed',includeArchived=true}={}){
   const today=now instanceof Date?now:new Date(now);
   const current=today.getTime();
-  const byId=new Map((state.actors||[]).map(actor=>[actor.id,{
+  const byId=new Map((state.actors||[]).filter(actor=>!actor.retiredAt).map(actor=>[actor.id,{
     actor,assigned:0,accepted:0,waiting:0,inReview:0,overdue:0,retakes:0,
     speedDays:[],retakeDays:[],onTime:0,withDeadline:0,excludedVacations:0
   }]));
