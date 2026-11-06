@@ -185,7 +185,7 @@ export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', 
   return rows;
 }
 export function actorAssignments(state,id) {
-  return state.projects.flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
+  return state.projects.filter(p=>!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
 }
 // A deleted cast member stays addressable until every project/archived role and
 // task has been reassigned. Never clear actorId while a role still points here.
