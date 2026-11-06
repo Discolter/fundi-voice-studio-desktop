@@ -2002,7 +2002,7 @@ document.addEventListener('click',event=>{
   if(el.dataset.siteNav){ui.sitePage=el.dataset.siteNav;siteManager.switchTab(ui.sitePage);return;}
   if(el.dataset.nav){navigate(el.dataset.nav);return;}
   if(el.dataset.mode){state.settings.mode=el.dataset.mode;persist();render();return;}
-  if(el.dataset.filter){ui.filter=el.dataset.filter;render();return;}
+  if(el.dataset.filter){ui.page='projects';ui.filter=el.dataset.filter;render();return;}
   if(el.dataset.tab&&!el.dataset.action){ui.tab=el.dataset.tab;render();return;}
   Promise.resolve(action(el.dataset.action,el.dataset,el)).catch(err=>{if(modal.open)formError(err);else toast(err.message,true);});
 });
