@@ -438,7 +438,9 @@ export function effectiveRoleDue(role, episode) { return dateValue(role.due) || 
 export function actorPublicFeed(state, actorId, {preview=false}={}) {
   const actor=(state.actors||[]).find(a=>a.id===actorId);
   if(!actor || actor.retiredAt || (!preview && actor.actorAccess!==true))return null;
-  const roles=(state.projects||[]).filter(p=>!p.archived&&!p.hidden).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.roles||[])
+  // Keep frozen assignments in the published roster; the cloud hides them at read time.
+  // Removing them here would discard review/history associations on the server.
+  const roles=(state.projects||[]).filter(p=>!p.archived).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.roles||[])
     .filter(r=>r.actorId===actorId).map(r=>({
       roleId:r.id,
       projectId:p.id, projectTitle:p.title, season:p.season,
