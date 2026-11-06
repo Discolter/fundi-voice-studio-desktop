@@ -34,7 +34,7 @@ export function collectRecommendations(state,cloud={},options={}){
     items.push(recommendation);
   };
   for(const project of state?.projects||[]){
-    if(project.archived)continue;
+    if(project.archived||project.hidden)continue;
     for(const episode of project.episodes||[]){
       if(episode.stage==='done')continue;
       const roles=episode.roles||[],accepted=roles.filter(r=>r.status==='done').length,remaining=roles.length-accepted;

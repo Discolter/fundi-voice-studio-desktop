@@ -12,7 +12,7 @@ export function buildTaskSnapshot(state){
   return {
     tasks:(state.projects||[]).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.tasks||[]).map(t=>taskRecord(p,ep,t)))),
     projects:(state.projects||[]).map(p=>({
-      id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,createdAt:p.createdAt||'',
+      id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,hidden:!!p.hidden,createdAt:p.createdAt||'',
       episodes:(p.episodes||[]).map(ep=>({
         id:ep.id,number:String(ep.number||''),title:ep.title||'',
         roles:(ep.roles||[]).map(r=>({id:r.id,character:r.character,roleTier:['main','supporting','extras'].includes(r.roleTier)?r.roleTier:'supporting',actorId:r.actorId||'',actor:r.actor||'',
@@ -124,6 +124,7 @@ export function verifyStudioMirrorImages(expected,received){
   for(const p of expected.projects||[]){
     const saved=(received?.projects||[]).find(x=>x.id===p.id);
     check(p.cover,saved?.cover,'projects');
+    if(!!p.hidden!==!!saved?.hidden)throw Error('Облако не подтвердило состояние заморозки проекта. Повтори синхронизацию.');
     for(const ep of p.episodes||[]){
       const savedEp=(saved?.episodes||[]).find(x=>x.id===ep.id);
       for(const r of ep.roles||[])check(r.image,(savedEp?.roles||[]).find(x=>x.id===r.id)?.image,'characters');

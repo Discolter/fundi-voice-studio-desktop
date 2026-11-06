@@ -185,7 +185,7 @@ export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', 
   return rows;
 }
 export function actorAssignments(state,id) {
-  return state.projects.flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
+  return state.projects.filter(p=>!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
 }
 // A deleted cast member stays addressable until every project/archived role and
 // task has been reassigned. Never clear actorId while a role still points here.
@@ -275,7 +275,7 @@ export function cloneEpisodeCast(sourceEpisode,state){
 }
 
 export function newProject(input={}) {
-  return {id:uid(), title:'Новый проект', alias:'', season:'', color:'lime', symbol:'spark', cover:'',priority:'normal', root:'', notes:'', favorite:false, archived:false, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), lastOpened:'', episodes:[newEpisode()], ...input};
+  return {id:uid(), title:'Новый проект', alias:'', season:'', color:'lime', symbol:'spark', cover:'',priority:'normal', root:'', notes:'', favorite:false, archived:false, hidden:false, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), lastOpened:'', episodes:[newEpisode()], ...input};
 }
 // Reusable task phrases belong to the Studio workspace, not to individual episodes.
 export const DEFAULT_TASK_TEMPLATES=Object.freeze(['Записать','Дописать','Обработать','Проверить уровни голосов']);
@@ -319,7 +319,7 @@ function untouchedStarter(p){
   const d=defaults.find(x=>p.title===x[0]&&p.symbol===x[1]&&p.color===x[2]&&p.season===x[3]);
   const aliases=['Re:Zero — жизнь с нуля в альтернативном мире','Witch Hat Atelier','DanDanDan · Дандадан','Wistoria: Wand and Sword','Mob Psycho 100','Tokyo Revengers'];
   if(d&&p.alias!==aliases[defaults.indexOf(d)])return false;
-  if(!d||p.archived||p.cover||p.favorite||p.root||p.notes||p.priority!=='normal'||p.episodes.length!==1)return false;
+  if(!d||p.archived||p.hidden||p.cover||p.favorite||p.root||p.notes||p.priority!=='normal'||p.episodes.length!==1)return false;
   const ep=p.episodes[0];return ep.number===d[4]&&!ep.title&&ep.stage==='unset'&&!ep.due&&!ep.notes&&!ep.roles.length&&!ep.tasks.length&&!ep.resources.length&&!Object.values(ep.paths).some(Boolean);
 }
 export function normalizeState(raw) {
@@ -346,7 +346,7 @@ export function normalizeState(raw) {
   function normalizeProject(p) {
     if (!p || typeof p !== 'object' || !str(p.title,160).trim()) throw new Error('У проекта должно быть название.');
     if (!Array.isArray(p.episodes) || !p.episodes.length || p.episodes.length>500) throw new Error('В проекте должна быть хотя бы одна серия (не более 500).');
-    return {id:id(p.id),title:str(p.title,160).trim(),alias:str(p.alias,300),season:num(p.season),color:COLORS.includes(p.color)?p.color:'lime',symbol:['spark','hourglass','witch','bolt','swords','orbit','flower'].includes(p.symbol)?p.symbol:'spark',cover:safeCover(p.cover),priority:['normal','high','low'].includes(p.priority)?p.priority:'normal',root:str(p.root,2000),notes:str(p.notes,12000),favorite:!!p.favorite,archived:!!p.archived,createdAt:str(p.createdAt,50),updatedAt:str(p.updatedAt,50),lastOpened:str(p.lastOpened,50),episodes:p.episodes.map(ep=>{
+    return {id:id(p.id),title:str(p.title,160).trim(),alias:str(p.alias,300),season:num(p.season),color:COLORS.includes(p.color)?p.color:'lime',symbol:['spark','hourglass','witch','bolt','swords','orbit','flower'].includes(p.symbol)?p.symbol:'spark',cover:safeCover(p.cover),priority:['normal','high','low'].includes(p.priority)?p.priority:'normal',root:str(p.root,2000),notes:str(p.notes,12000),favorite:!!p.favorite,archived:!!p.archived,hidden:!!p.hidden,createdAt:str(p.createdAt,50),updatedAt:str(p.updatedAt,50),lastOpened:str(p.lastOpened,50),episodes:p.episodes.map(ep=>{
       if(!ep || typeof ep!=='object') throw new Error('Некорректная серия.');
       for(const key of ['resources','tasks','roles']) if(ep[key] && (!Array.isArray(ep[key]) || ep[key].length>2000)) throw new Error('Слишком много записей в серии.');
       return {id:id(ep.id),number:num(ep.number),title:str(ep.title,120),stage:STAGES.some(s=>s[0]===ep.stage)?ep.stage:'unset',due:dateValue(ep.due),notes:str(ep.notes,12000),paths:Object.fromEntries(PATHS.map(([key])=>[key,str(ep.paths?.[key],2000)])),
@@ -390,8 +390,8 @@ export function projectMatches(p,q) {
   const text = [p.title,p.alias,p.season,p.root,p.notes,...p.episodes.flatMap(e=>[e.title,e.number,e.notes,...Object.values(e.paths||{}),...e.resources.flatMap(r=>[r.path,r.label]),...e.tasks.map(t=>t.title),...e.roles.flatMap(r=>[r.character,r.actor,r.notes,r.folder,r.subtitle])])].join(' ').toLocaleLowerCase('ru');
   return q.toLocaleLowerCase('ru').trim().split(/\s+/).every(w=>text.includes(w));
 }
-export function selectProjects(state,{query='',filter='all',sort='recent',archived=false}={}) {
-  return state.projects.filter(p=>p.archived===archived && projectMatches(p,query) && (filter==='all' || (filter==='favorite'&&p.favorite) || (filter==='attention'&&((!p.root&&!p.episodes.some(ep=>ep.paths?.root)) || p.episodes.some(e=>e.stage==='unset'||(e.due&&e.due<today()&&e.stage!=='done')))) || p.episodes.some(e=>e.stage===filter))).sort((a,b)=>{
+export function selectProjects(state,{query='',filter='all',sort='recent',archived=false,hidden=false}={}) {
+  return state.projects.filter(p=>(hidden?!!p.hidden:!p.hidden&&p.archived===archived) && projectMatches(p,query) && (filter==='all' || (filter==='favorite'&&p.favorite) || (filter==='attention'&&((!p.root&&!p.episodes.some(ep=>ep.paths?.root)) || p.episodes.some(e=>e.stage==='unset'||(e.due&&e.due<today()&&e.stage!=='done')))) || p.episodes.some(e=>e.stage===filter))).sort((a,b)=>{
     if(a.favorite!==b.favorite) return a.favorite?-1:1;
     if(sort==='name') return a.title.localeCompare(b.title,'ru');
     if(sort==='due') return (nearestDue(a)||'9999').localeCompare(nearestDue(b)||'9999');
@@ -404,7 +404,7 @@ export function myRoleRows(state,{query=''}={}) {
   const handle=cleanTelegram(state.settings?.myTelegram||'').toLocaleLowerCase('ru');
   const profile=(state.settings?.name||'').trim().toLocaleLowerCase('ru');
   const q=query.trim().toLocaleLowerCase('ru');
-  return state.projects.flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,ep,r})=>{
+  return state.projects.filter(p=>!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,ep,r})=>{
     const a=actorForRole(state,r),telegram=cleanTelegram(a?.telegram||'').toLocaleLowerCase('ru');
     const name=(a?.name||r.actor||'').trim().replace(/^@/,'').toLocaleLowerCase('ru');
     const isMine=!!r.mine||(!!handle&&(telegram===handle||(!telegram&&name===handle)))||(!a&&!!profile&&name===profile);
@@ -417,7 +417,7 @@ export function myRoleRows(state,{query=''}={}) {
 // поэтому никакой дублирующей базы долгов или миграции workspace.json нет.
 export function debtRows(state,{actorKey='',status='all',projectId='',query=''}={}) {
   const q=query.trim().toLocaleLowerCase('ru');
-  return state.projects.filter(p=>!p.archived&&(!projectId||projectId==='all'||p.id===projectId))
+  return state.projects.filter(p=>!p.archived&&!p.hidden&&(!projectId||projectId==='all'||p.id===projectId))
     .flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>{
       const actor=actorForRole(state,r),name=(actor?.name||r.actor||'').trim();
       return {p,ep,r,actor,actorLabel:name,actorKey:actor?'id:'+actor.id:'name:'+name.toLocaleLowerCase('ru')};
@@ -438,6 +438,8 @@ export function effectiveRoleDue(role, episode) { return dateValue(role.due) || 
 export function actorPublicFeed(state, actorId, {preview=false}={}) {
   const actor=(state.actors||[]).find(a=>a.id===actorId);
   if(!actor || actor.retiredAt || (!preview && actor.actorAccess!==true))return null;
+  // Keep frozen assignments in the published roster; the cloud hides them at read time.
+  // Removing them here would discard review/history associations on the server.
   const roles=(state.projects||[]).filter(p=>!p.archived).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.roles||[])
     .filter(r=>r.actorId===actorId).map(r=>({
       roleId:r.id,
@@ -491,7 +493,7 @@ export function taskRows(state,{mine=false,query='',includeArchived=false,priori
     if(!bd)return -1;
     return (descending?bd.localeCompare(ad):ad.localeCompare(bd));
   };
-  return state.projects.filter(p=>includeArchived||!p.archived)
+  return state.projects.filter(p=>!p.hidden&&(includeArchived||!p.archived))
     .flatMap(p=>p.episodes.flatMap(ep=>ep.tasks.map(t=>({p,ep,t}))))
     .filter(({p,ep,t})=>{
       const linked=taskAssignment(state,ep,t),n=linked.lineCount;
@@ -519,10 +521,10 @@ export function taskRows(state,{mine=false,query='',includeArchived=false,priori
     });
 }
 export function roleRows(state,{mine=false,query=''}={}) {
-  return state.projects.filter(p=>!p.archived).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,r})=>(!mine||r.mine)&&(`${p.title} ${r.character} ${r.actor}`.toLowerCase().includes(query.toLowerCase())));
+  return state.projects.filter(p=>!p.archived&&!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,r})=>(!mine||r.mine)&&(`${p.title} ${r.character} ${r.actor}`.toLowerCase().includes(query.toLowerCase())));
 }
 export function materialRows(state) {
-  return state.projects.filter(p=>!p.archived).flatMap(p=>p.episodes.flatMap((ep,index)=>{
+  return state.projects.filter(p=>!p.archived&&!p.hidden).flatMap(p=>p.episodes.flatMap((ep,index)=>{
     const rows=ep.resources.map(r=>({p,ep,r}));
     for(const [key,label] of PATHS)if(ep.paths?.[key])rows.push({p,ep,r:{id:'path:'+key,label,path:ep.paths[key],folder:key!=='reaper'&&key!=='premiere',kind:key==='reaper'?'reaper':key==='voices'?'voices':['subs','characterSubs'].includes(key)?'subs':key==='render'?'render':'folder',virtual:'path'}});
     for(const role of ep.roles){if(role.folder)rows.push({p,ep,r:{id:'role-folder:'+role.id,label:role.character+' · голос',path:role.folder,folder:true,kind:'voices',virtual:'role'}});if(role.subtitle)rows.push({p,ep,r:{id:'role-subs:'+role.id,label:role.character+' · субтитры',path:role.subtitle,folder:false,kind:'subs',virtual:'role'}});}

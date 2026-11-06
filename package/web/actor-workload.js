@@ -19,7 +19,7 @@ export function actorWorkloadRows(state,{includeArchived=false,query='',actorQue
     actor,pending:0,pendingLines:0,pendingUnknown:0,inReview:0,accepted:0,
     total:0,allLines:0,allUnknown:0,projects:new Set(),assignments:[]}));
   const byId=new Map(people.map(x=>[x.actor.id,x]));
-  const projects=(state?.projects||[]).filter(p=>includeArchived||!p.archived);
+  const projects=(state?.projects||[]).filter(p=>!p.hidden&&(includeArchived||!p.archived));
   for(const project of projects)for(const episode of project.episodes||[])for(const role of episode.roles||[]){
     const item=byId.get(role.actorId);if(!item)continue;
     item.total++;

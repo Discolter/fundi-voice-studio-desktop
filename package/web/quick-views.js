@@ -8,7 +8,7 @@ export const roleSnapshot=(state,pid,eid,rid)=>{
  return p&&ep&&r?{p,ep,r}:null;
 };
 export const actorLoad=(state,id)=>{
- const rows=(state?.projects||[]).filter(p=>!p.archived).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
+ const rows=(state?.projects||[]).filter(p=>!p.archived&&!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
  return {rows,debts:rows.filter(x=>['waiting','retake'].includes(x.r.status)).length};
 };
 export const candidateScores=(state,actors)=>actors.map(actor=>{

@@ -64,7 +64,7 @@ export function actorDeliveryRows(state,{vacations=[],now=new Date(),query='',so
     speedDays:[],retakeDays:[],onTime:0,withDeadline:0,excludedVacations:0
   }]));
   for(const p of state.projects||[]){
-    if(!includeArchived&&p.archived)continue;
+    if(p.hidden||(!includeArchived&&p.archived))continue;
     for(const ep of p.episodes||[])for(const role of ep.roles||[]){
       const row=byId.get(role.actorId);if(!row)continue;
       row.assigned++;
