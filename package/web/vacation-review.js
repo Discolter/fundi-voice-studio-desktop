@@ -21,6 +21,7 @@ export function vacationReviewRows(state,vacations=[]){
   const rows=[];
   const actors=new Map((state?.actors||[]).map(a=>[a.id,a]));
   for(const p of state?.projects||[]){
+    if(p.hidden)continue;
     for(const ep of p.episodes||[]){
       for(const r of ep.roles||[]){
         const actor=actors.get(r.actorId);
