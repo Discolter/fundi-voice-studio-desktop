@@ -187,21 +187,46 @@ export function applyTaskSnapshot(state,tasks){
 // Field-level, three-way synchronization for statuses only.
 // Names, assignments, paths and existing local project data are never overwritten.
 // Legacy remote catalogs lack status and therefore cannot reset Windows statuses.
-export function mergeRoleStages(local,baseline,remote){
+const canonicalRoleStage=status=>status==='processed'?'processing':status||'';
+export function mergeRoleStages(local,baseline,remote,decisions=[]){
   const map=snapshot=>new Map((snapshot?.projects||[]).flatMap(p=>(p.episodes||[])
-    .flatMap(ep=>(ep.roles||[]).map(r=>[p.id+':'+ep.id+':'+r.id,r.status||'']))));
-  const ours=map(local),base=map(baseline),theirs=map(remote),stages=[],conflicts=[];
-  for(const [id,localStage] of ours){
-    const remoteStage=theirs.get(id)||'',prior=base.get(id)||'';
+    .flatMap(ep=>(ep.roles||[]).map(r=>[p.id+':'+ep.id+':'+r.id,{p,ep,r,status:canonicalRoleStage(r.status)}]))));
+  const ours=map(local),base=map(baseline),theirs=map(remote),choices=new Map(decisions.map(d=>[d.id,d]));
+  const stages=[],conflicts=[],details=[],resolved=[];
+  for(const [id,entry] of ours){
+    const incoming=theirs.get(id),previous=base.get(id);
+    const localStage=entry.status,remoteStage=incoming?.status||'',prior=previous?.status||'';
     let next=localStage;
     if(!remoteStage||remoteStage===localStage){/* local is already current */}
     else if(!baseline){ next=localStage; /* legacy first sync retains the Windows source */ }
     else if(localStage===prior)next=remoteStage;
     else if(remoteStage===prior)next=localStage;
-    else {conflicts.push(id);continue;}
+    else {
+      const {p,ep,r}=entry;
+      // A choice applies only to the exact comparison the owner saw. A newer
+      // stage, reassignment or character edit must be reviewed again.
+      const decisionKey=JSON.stringify([id,prior,localStage,remoteStage,
+        r.actorId||'',incoming.r.actorId||'',r.character||'',incoming.r.character||'']);
+      const detail={id,decisionKey,projectId:p.id,episodeId:ep.id,roleId:r.id,
+        projectTitle:p.title||'',season:p.season||'',episodeNumber:ep.number||'',episodeTitle:ep.title||'',
+        character:r.character||'',actor:r.actor||'',image:r.image||'',
+        baselineStatus:prior,localStatus:localStage,remoteStatus:remoteStage};
+      const choice=choices.get(id);
+      if(choice?.decisionKey===decisionKey&&['local','remote'].includes(choice.choice)){
+        next=choice.choice==='local'?localStage:remoteStage;
+        resolved.push({...detail,choice:choice.choice,status:next});
+      }else{conflicts.push(id);details.push(detail);continue;}
+    }
     stages.push({id,status:next});
   }
-  return {stages,conflicts};
+  return {stages,conflicts,details,resolved};
+}
+export function roleStageDecisions(details,values){
+  return details.map((detail,index)=>{
+    const choice=values['role-sync-'+index];
+    if(!['local','remote'].includes(choice))throw Error('Выбери нужный этап для каждого персонажа.');
+    return {id:detail.id,decisionKey:detail.decisionKey,choice};
+  });
 }
 export function applyRoleStages(state,stages){
   const values=new Map(stages.map(r=>[r.id,r.status]));let changed=false;
