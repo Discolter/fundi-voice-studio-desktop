@@ -1,4 +1,4 @@
-# Fundi Voice Studio updater bootstrap installer (Windows x64)
+﻿# Fundi Voice Studio updater bootstrap installer (Windows x64)
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 Set-Location $PSScriptRoot
@@ -25,3 +25,4 @@ if ($LASTEXITCODE -ne 0) { throw 'Не удалось собрать устан�
 & py -3 '.\Embed-Icon.py' $output '.\package\web\favicon.ico'
 if ($LASTEXITCODE -ne 0) { throw 'Не удалось вшить иконку установщика' }
 Write-Host "Готово: $output" -ForegroundColor Green
+

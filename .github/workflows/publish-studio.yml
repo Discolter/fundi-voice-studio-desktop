@@ -27,144 +27,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.2'
-      - name: Verify animated CSS is actually served by desktop host
+      - name: Verify all browser modules and regression checks
         shell: pwsh
-        run: python ./tools/check-animated-themes.py
-      - name: Verify secure built-in desktop file browser
-        shell: pwsh
-        run: |
-          python ./tools/check-file-browser.py
-          if($LASTEXITCODE -ne 0){ throw 'Desktop file picker regression failed' }
-          node --check ./package/web/file-browser.js
-          if($LASTEXITCODE -ne 0){ throw 'Desktop browser JavaScript syntax failed' }
-          node --check ./package/web/app.js
-          node ./tools/check-role-age.mjs
-          node ./tools/check-role-stage-sync.mjs
-          node ./tools/check-cloud-revision-recovery.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Cloud revision rebase safety check failed' }
-          node ./tools/check-role-lifecycle.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Studio role lifecycle regression failed' }
-          node ./tools/check-studio-module-delivery.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Desktop JavaScript module delivery failed' }
-          node ./tools/check-navigation-history.mjs
-          node ./tools/check-notification-role-navigation.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Notification actor role navigation regression failed' }
-          if($LASTEXITCODE -ne 0){ throw 'Studio navigation history regression failed' }
-          if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
-          node --check ./package/web/site-manager.js
-          if($LASTEXITCODE -ne 0){ throw 'Viewer manager JavaScript syntax failed' }
-          node ./tools/check-viewer-manager.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Viewer manager checks failed' }
-          node ./tools/check-registration-browser.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Actor registration/picker regression failed' }
-          node --check ./package/web/visual-selects.js
-          if($LASTEXITCODE -ne 0){ throw 'Desktop app JavaScript syntax failed' }
-          node ./tools/check-project-role-progress.mjs
-          node ./tools/check-frozen-projects.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Frozen project visibility regression failed' }
-          if($LASTEXITCODE -ne 0){ throw 'Latest project role progress regression failed' }
-          node ./tools/check-task-priorities.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Task priority regressions failed' }
-          node ./tools/check-task-assignment.mjs
-          node ./tools/check-task-role-status.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Task-linked role stage regression failed' }
-          node ./tools/check-task-templates.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Task template regression failed' }
-          node ./tools/check-task-bulk.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Batch task removal regression failed' }
-          if($LASTEXITCODE -ne 0){ throw 'Task assignment regression failed' }
-          node ./tools/check-task-row-images.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Task row portrait regression failed' }
-          node ./tools/check-task-filters.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Task filters and ordering regression failed' }
-          node ./tools/check-debt-project-filter.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Anime debt filter regression failed' }
-          node ./tools/check-visual-task-filters.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Visual assignment filters regression failed' }
-          node --test ./tools/check-cloud-task-sync.mjs
-          node ./tools/check-actor-studio-preview.mjs
-          if($LASTEXITCODE -ne 0){throw 'Actor Studio preview metadata regression failed'}
-          if($LASTEXITCODE -ne 0){ throw 'Cloud task synchronization regression failed' }
-          node ./tools/check-cloud-download.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Cloud download path test failed' }
-          node ./tools/check-update-restart.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Restart window cleanup test failed' }
-          node ./tools/check-actor-registration.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Actor registration UI regression failed' }
-          node ./tools/check-role-line-count.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Manual line counts Studio regression failed' }
-          node ./tools/check-role-image.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Character portrait sync regression failed' }
-          node ./tools/check-role-image-clipboard.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Clipboard portrait integration regression failed' }
-          if($LASTEXITCODE -ne 0){ throw 'Character portrait sync regression failed' }
-          node --check ./package/web/actor-cabinet.js
-          if($LASTEXITCODE -ne 0){ throw 'Actor cabinet JavaScript syntax failed' }
-          node ./tools/check-actor-workload.mjs
-          node --check ./package/web/recommendations.js
-          node --check ./package/web/recommendations-view.js
-          node ./tools/check-smart-recommendations.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Actor workload dashboard regression failed' }
-          node ./tools/check-actor-cabinet.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Actor cabinet owner preview regression failed' }
-          node --check ./package/web/quick-views.js
-          if($LASTEXITCODE -ne 0){ throw 'Quick views JavaScript syntax failed' }
-          node ./tools/check-quick-views.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Quick views interactivity regression failed' }
-          node ./tools/check-indefinite-vacation.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Indefinite vacation regression failed' }
-          node ./tools/check-telegram-sources.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Telegram sources Studio UI check failed' }
-          node ./tools/check-telegram-cast-status.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Telegram cast status emojis regression failed' }
-          node ./tools/check-my-tasks-vacation-ui.mjs
-          if($LASTEXITCODE -ne 0){ throw 'My tasks and vacation UI regression failed' }
-          node ./tools/check-collapsible-vacation-changes.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Vacation activity disclosure regression failed' }
-          node ./tools/check-my-role-workload.mjs
-          if($LASTEXITCODE -ne 0){ throw 'My role workload summary regression failed' }
-          node ./tools/check-my-reaper-shortcuts.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Personal REAPER shortcut regression failed' }
-          node ./tools/check-my-role-acceptance.mjs
-          if($LASTEXITCODE -ne 0){ throw 'My role accepted-status visualization regression failed' }
-          node ./tools/check-my-role-completion-visibility.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Completed personal episode visibility regression failed' }
-          node ./tools/check-studio-actor-cabinet-visibility.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Actor cabinet role visibility regression failed' }
-          node ./tools/check-studio-managed-vacations.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Studio vacation management regression failed' }
-          node ./tools/check-global-vacation-badges.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Studio-wide vacation indicators regression failed' }
-          node ./tools/check-vacation-role-review.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Vacation reassignment review regression failed' }
-          node ./tools/check-retired-actors.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Retired actor handling regression failed' }
-          node ./tools/check-vacation-actor-identity.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Vacation actor identities regression failed' }
-          node ./tools/check-vacation-review-candidates.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Vacation candidate shortlist regression failed' }
-          node ./tools/check-casting-assistant.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Casting recommendations regression failed' }
-          node ./tools/check-recovery-bottom-nav.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Recovery bottom navigation regression failed' }
-          node ./tools/check-episode-unassigned.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Unassigned episode actors check failed' }
-          node ./tools/check-ass-role-import.mjs
-          if($LASTEXITCODE -ne 0){ throw 'ASS import tests failed' }
-          node ./tools/check-role-tiers.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Casting tier tests failed' }
-          node ./tools/check-actor-statistics.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Actor statistics regression tests failed' }
-          node ./tools/check-actor-picker-stability.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Actor picker stability regression tests failed' }
-          node ./tools/check-multi-actor-roles.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Multi-actor casting regression tests failed' }
-          node ./tools/check-episode-actor-count.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Episode actor counter regression tests failed' }
-          if($LASTEXITCODE -ne 0){ throw 'ASS import and automatic casting tests failed' }
-          node ./tools/check-episode-cloud-status.mjs
-          if($LASTEXITCODE -ne 0){ throw 'Episode and Cloud status regression failed' }
-          if($LASTEXITCODE -ne 0){ throw 'Unassigned episode actors regression failed' }
+        run: node ./tools/run-checks.mjs
       - name: Validate code and compile C#
         shell: pwsh
         run: |
@@ -172,6 +37,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Go tests failed' }
           powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\Validate-Source.ps1
           if ($LASTEXITCODE -ne 0) { throw 'C# failed' }
+      - name: Build updated bootstrap installer
+        shell: pwsh
+        run: powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\Build-Installer.ps1
       - name: Build release ZIP
         id: version
         shell: pwsh
@@ -204,7 +72,7 @@ jobs:
             Write-Host "Release $tag already exists: not overwriting a signed published update. Bump VERSION.txt."
             exit 0
           }
-          gh release create $tag dist/studio-app.zip dist/studio-update.json --repo $env:GITHUB_REPOSITORY --title "Fundi Voice Studio $version" --notes "Automatic signed desktop update $version" --latest
+          gh release create $tag dist/studio-app.zip dist/studio-update.json "dist/FundiVoiceStudio-Launcher-Setup-$version.exe" --repo $env:GITHUB_REPOSITORY --title "Fundi Voice Studio $version" --notes "Automatic signed desktop update $version" --latest
           if ($LASTEXITCODE -ne 0) { throw 'Publishing GitHub Release failed' }
       - name: Upload signed assets as CI artifacts
         if: github.event_name != 'pull_request'
@@ -214,4 +82,6 @@ jobs:
           path: |
             dist/studio-app.zip
             dist/studio-update.json
+            dist/FundiVoiceStudio-Launcher-Setup-*.exe
           retention-days: 30
+

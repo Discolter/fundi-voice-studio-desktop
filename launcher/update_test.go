@@ -76,3 +76,31 @@ func TestInvalidZipNoPointerChange(t *testing.T) {
 		t.Fatal("missing stage selected")
 	}
 }
+
+
+func TestStudioVersionRetentionPreservesData(t *testing.T) {
+ root := t.TempDir()
+ for _, version := range []string{"1.8.85", "1.8.84", "1.8.83", "1.8.82", "1.8.81"} {
+  dir := filepath.Join(root, "versions", version)
+  if err := os.MkdirAll(dir, 0755); err != nil { t.Fatal(err) }
+  if err := os.WriteFile(filepath.Join(dir, "Launch.ps1"), []byte("launch"), 0600); err != nil { t.Fatal(err) }
+ }
+ data := filepath.Join(root, "workspace.json")
+ if err := os.WriteFile(data, []byte("private workspace"), 0600); err != nil { t.Fatal(err) }
+ if err := pruneVersions(root, "1.8.85"); err != nil { t.Fatal(err) }
+ for _, version := range []string{"1.8.85", "1.8.84", "1.8.83", "1.8.82"} {
+  if _, err := os.Stat(filepath.Join(root, "versions", version)); err != nil { t.Fatalf("Retained version missing: %s", version) }
+ }
+ if _, err := os.Stat(filepath.Join(root, "versions", "1.8.81")); !os.IsNotExist(err) { t.Fatal("Old package was not pruned") }
+ if value, err := os.ReadFile(data); err != nil || string(value) != "private workspace" { t.Fatal("Personal data changed during version cleanup") }
+}
+func TestStudioCachedPackageNeedsMatchingHash(t *testing.T) {
+ root := t.TempDir()
+ dir := filepath.Join(root,"versions","1.8.85")
+ _ = os.MkdirAll(dir,0755)
+ hash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+ if isPreviouslyVerified(root,"1.8.85",hash) { t.Fatal("Unverified cache accepted") }
+ _ = os.WriteFile(filepath.Join(dir,".verified-sha256"),[]byte(hash+"\n"),0600)
+ if !isPreviouslyVerified(root,"1.8.85",hash) { t.Fatal("Verified cache rejected") }
+ if isPreviouslyVerified(root,"1.8.85","ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff") { t.Fatal("Different package hash accepted") }
+}

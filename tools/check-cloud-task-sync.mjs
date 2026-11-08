@@ -61,3 +61,16 @@ test('desktop web and native sources contain task sync wiring',()=>{
  assert.match(server,/cloud\/tasks\/write/);
  assert.match(cloud,/\/v1\/studio\/tasks/);
 });
+
+
+test('deleted local projects, episodes and actors do not reappear in the cloud catalog',()=>{
+ const base=buildTaskSnapshot(workspace);
+ const removed=mergeTaskCatalog({projects:[],actors:[]},base,base);
+ assert.equal(removed.projects.length,0);
+ assert.equal(removed.actors.length,0);
+ const local={...base,projects:[{...base.projects[0],episodes:[]}]};
+ assert.equal(mergeTaskCatalog(local,base,base).projects[0].episodes.length,0);
+ const remoteOnly={...base,projects:[...base.projects,{...base.projects[0],id:'other-windows-project'}]};
+ assert.equal(mergeTaskCatalog(local,remoteOnly,base).projects.length,2,
+   'An unknown project from another device is preserved');
+});

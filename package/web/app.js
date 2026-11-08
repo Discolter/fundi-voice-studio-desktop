@@ -185,22 +185,33 @@ function scheduleTaskCloudSync(){
   clearTimeout(taskSyncTimer);
   taskSyncTimer=setTimeout(()=>syncStudioTasks().catch(()=>{}),6000);
 }
+let localEditRevision=0;
 async function syncStudioTasks(visible=false){
   if(!native||!cloud.connected||taskSyncBusy||modal.open)return false;
   taskSyncBusy=true;
+  let retry=false;
   try{
     if(saving)await flushSave();
     const [remote,baselineData]=await Promise.all([api('cloud/tasks/read',{}),api('cloud/tasks/baseline',{})]);
+    const editRevision=localEditRevision;
+    const requireUnchanged=()=>{
+      if(localEditRevision!==editRevision){
+        const issue=Error('Локальные данные изменились во время синхронизации.');
+        issue.localStateChanged=true;throw issue;
+      }
+    };
     const local=await addStudioMirrorToSnapshot(state,buildTaskSnapshot(state)),prior=baselineData?.known?baselineData.snapshot:null;
+    requireUnchanged();
     const merged=mergeTaskSnapshots(local,prior,remote.snapshot);
     if(merged.conflicts.length)throw Error('Есть конфликт в '+merged.conflicts.length+' задачах: изменения Windows и сайта сделаны одновременно. Проверь данные перед повторной синхронизацией.');
     const roleMerge=mergeRoleStages(local,prior,remote.snapshot);
     if(roleMerge.conflicts.length)throw Error('Конфликт этапов в '+roleMerge.conflicts.length+' ролях. В Windows и на сайте изменили одну роль одновременно; данные не перезаписаны.');
-    const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot),roleMerge.stages);
+    const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot,prior),roleMerge.stages);
     const snapshot={...catalog,tasks:merged.tasks};
     const different=JSON.stringify(snapshot)!==JSON.stringify(remote.snapshot);
     const published=different?await api('cloud/tasks/write',{baseVersion:remote.version,snapshot}):null;
     const confirmed=published?await api('cloud/tasks/read',{}):remote;
+    requireUnchanged();
     lastImageSync=verifyStudioMirrorImages(snapshot,confirmed.snapshot);
     const snapshotVersion=published?.version??remote.version;
     const tasksModified=applyTaskSnapshot(state,merged.tasks);
@@ -214,14 +225,16 @@ async function syncStudioTasks(visible=false){
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
   }catch(error){
+    if(error.localStateChanged){retry=true;return false;}
     if(visible||error.message!==taskSyncError){
       if(visible||!/404|not found/i.test(error.message))toast('Синхронизация поручений: '+error.message,true);
     }
     taskSyncError=error.message;updateCloudIndicator();
     return false;
-  }finally{taskSyncBusy=false;}
+  }finally{taskSyncBusy=false;if(retry)scheduleTaskCloudSync();}
 }
 function persist(){
+  localEditRevision++;
   pruneRetiredActors(state);
   lastDeliverySnapshot=trackRoleDeliveries(state,lastDeliverySnapshot);
   state.updatedAt=new Date().toISOString();
@@ -235,15 +248,20 @@ function flushSave(){
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
 function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationSort:ui.recommendationSort,recommendationFilter:ui.recommendationFilter}));}catch{}}
 function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if((['vacations','review'].includes(page)||page==='recommendations')&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
-function openProject(id,episode,tab='roles',actorKey=''){
+function openProject(id,episode,tab='roles',actorKey='',characterKey=''){
   selectedTasks.clear();
   const p=getProject(id);if(!p)return;
   ui.page='detail';ui.project=id;ui.episode=episode||currentEpisode(p).id;ui.tab=tab;
   ui.roleFilter='all';ui.roleCharacter='all';ui.roleOrder='original';ui.query='';
   const ep=p.episodes.find(item=>item.id===ui.episode);
-  // Deep-link from an assigned task: show all roles of this actor in the exact episode.
-  // An invalid/stale actor key must never leave the roles table unintentionally empty.
+  // A task link selects its actor; a submitted recording additionally selects its character.
+  // Ignore stale keys instead of opening an empty table.
   ui.roleActor=tab==='roles'&&actorKey&&ep&&episodeRoleActorOptions(state,ep.roles).some(item=>item.key===actorKey)?actorKey:'all';
+  ui.roleCharacter=tab==='roles'&&characterKey&&ep&&episodeRoleCharacterOptions(ep.roles).some(item=>item.key===characterKey)?characterKey:'all';
+  // If the submitted role was reassigned, still show that exact character.
+  if(ui.roleActor!=='all'&&ui.roleCharacter!=='all'&&
+      !filterEpisodeRoles(state,ep.roles,{actorKey:ui.roleActor,characterKey:ui.roleCharacter}).length)
+    ui.roleActor='all';
   p.lastOpened=new Date().toISOString();touch(p);render();window.scrollTo(0,0);
 }
 
@@ -1038,6 +1056,10 @@ function recordingRole(file){
   for(const p of state.projects)for(const ep of p.episodes){const r=ep.roles.find(item=>item.id===file.roleId);if(r)return {p,ep,r};}
   return null;
 }
+function studioRolePortrait(role,fallbackRole=null){
+  const picture=safeRoleImage(role?.image)||safeRoleImage(fallbackRole?.image);
+  return `<span class="studio-character-thumb" aria-hidden="true">${picture?`<img src="${e(picture)}" alt="" loading="lazy">`:icon('mic')}</span>`;
+}
 function roleRecordingButton(p,ep,r){
   const count=(cloud.files||[]).filter(f=>f.roleId===r.id&&f.actorId===r.actorId&&f.status==='ready').length;
   if(!native||(!actorForRole(state,r)?.actorAccess&&!count))return '';
@@ -1053,7 +1075,7 @@ function renderStudioFiles(){
   showModal(context?'Записи роли':'Записи актёров',context?context.title:'Файлы, загруженные через Fundi Voice Actor',`${storageMeter(cloud.usedBytes,cloud.quotaBytes)}${cloud.fileError?`<p class="file-error">${e(cloud.fileError)}</p>`:''}<div class="file-toolbar"><button type="button" class="btn ghost small" data-action="studio-files-refresh">Обновить список</button><button type="button" class="text-button" data-action="studio-files-cleanup">Очистить просроченные</button></div><div class="recording-list">${items.map(f=>{
     const found=recordingRole(f),actor=state.actors.find(a=>a.id===f.actorId)?.name||(cloud.actors||[]).find(a=>a.actorId===f.actorId)?.username||'Актёр';
     const detail=found?`${actor} · ${found.r.character} · ${found.p.title} · ${episodeLabel(found.p,found.ep)}`:actor+' · Роль больше не отображается в Studio';
-    return `<article class="recording-entry"><strong>${e(f.fileName)}</strong>${found?`<button type="button" class="btn ghost small" data-qv-open="role" data-qv-project="${e(found.p.id)}" data-qv-episode="${e(found.ep.id)}" data-qv-role="${e(found.r.id)}">Карточка роли</button>`:''}<div class="recording-context">${e(detail)} ${vacationTag(f.actorId)}</div><div class="recording-meta"><span>${e(formatBytes(f.size))}</span><span>${e(notificationDate(f.createdAt))}</span><span>${e(fileStatus(f.status))}</span></div><div class="recording-actions">${f.status==='ready'?`<button type="button" class="btn primary small" data-action="studio-file-download" data-file="${e(f.fileId)}" ${cloud.transfer?.state==='running'?'disabled':''}>${icon('download')}Скачать</button>${found?.r.folder?`<button type="button" class="btn ghost small" data-action="studio-file-download-as" data-file="${e(f.fileId)}">Выбрать папку</button>`:''}`:''}<button type="button" class="text-button" data-action="studio-file-delete" data-file="${e(f.fileId)}">Удалить из облака</button></div></article>`;
+    return `<article class="recording-entry"><div class="recording-entry-layout">${studioRolePortrait(found?.r)}<div class="recording-entry-body"><strong>${e(f.fileName)}</strong>${found?`<button type="button" class="btn ghost small" data-qv-open="role" data-qv-project="${e(found.p.id)}" data-qv-episode="${e(found.ep.id)}" data-qv-role="${e(found.r.id)}">Карточка роли</button>`:''}<div class="recording-context">${e(detail)} ${vacationTag(f.actorId)}</div><div class="recording-meta"><span>${e(formatBytes(f.size))}</span><span>${e(notificationDate(f.createdAt))}</span><span>${e(fileStatus(f.status))}</span></div><div class="recording-actions">${f.status==='ready'?`<button type="button" class="btn primary small" data-action="studio-file-download" data-file="${e(f.fileId)}" ${cloud.transfer?.state==='running'?'disabled':''}>${icon('download')}Скачать</button>${found?.r.folder?`<button type="button" class="btn ghost small" data-action="studio-file-download-as" data-file="${e(f.fileId)}">Выбрать папку</button>`:''}`:''}<button type="button" class="text-button" data-action="studio-file-delete" data-file="${e(f.fileId)}">Удалить из облака</button></div></div></div></article>`;
   }).join('')||'<div class="recording-empty">Записей пока нет. Актёр загружает запись в Actor 0.3.0 кнопкой «Сдать на проверку».</div>'}</div><p class="file-hint">После скачивания проверь запись на компьютере. Для освобождения места удали её из облака отдельной кнопкой.</p>`);
   modal.dataset.view='recordings';modal.querySelector('.recording-list').scrollTop=scroll;
 }
@@ -1075,7 +1097,7 @@ function findNotificationRole(item){
 }
 function showStudioMessages(){
   const scroll=modal.querySelector('.studio-notification-list')?.scrollTop||0,messages=[...(cloud.mailbox?.messages||[])].sort((a,b)=>b.id-a.id),failed=cloud.mailbox?.failed||[];
-  showModal('Уведомления',cloud.mailbox?.unread?cloud.mailbox.unread+' непрочитанных':'Сдача ролей',`${messages.length?'<div class="notification-toolbar"><span class="muted small">Удаление скрывает уведомления в этой Studio, но не отменяет сдачу роли.</span><button type="button" class="text-button" data-action="studio-clear-messages">Удалить все</button></div>':''}${!cloud.reviewApiAvailable?'<p class="setting-note">Для сдачи ролей обнови сервер до Cloud 0.3.0 и подключи Studio.</p>':''}${failed.length?`<p class="cloud-error">Не отправлено: ${e(failed.at(-1).error)} Текст сохранён ниже.</p><details class="failed-reviews"><summary>Сохранённые ответы</summary>${failed.map(item=>`<div class="failed-review"><strong>${e(item.error)}</strong><p>${e(item.body?.text||'Отметка прочтения')}</p></div>`).join('')}<button type="button" class="text-button" data-action="studio-dismiss-failed">Убрать ошибки</button></details>`:''}<div class="studio-notification-list">${messages.slice(0,studioNotificationLimit).map(item=>{const found=findNotificationRole(item);return `<article class="studio-notification ${item.read?'':'unread'}"><div class="studio-notification-head"><strong>${e(notificationActor(item))} сдал роль</strong>${vacationTag(item.actorId)}<time>${e(notificationDate(item.createdAt))}</time></div><div class="studio-notification-role"><strong>${e(item.role.character)}</strong><span>${e(item.role.projectTitle)} · ${item.role.season?'Сезон '+e(item.role.season)+' · ':''}${item.role.episodeNumber?'Серия '+e(item.role.episodeNumber):'Серия'}</span></div><div class="btn-row"><button type="button" class="btn ghost small" data-action="notification-recordings" data-message="${item.id}">Записи</button>${found?`<button type="button" class="btn ghost small" data-action="notification-open-role" data-message="${item.id}">Открыть роль</button>${found.assigned?`<button type="button" class="btn primary small" data-action="notification-reply" data-message="${item.id}">Ответить</button>`:'<span class="muted small">Роль переназначена</span>'}`:'<span class="muted small">Роль удалена из Studio</span>'}${!item.read?`<button type="button" class="text-button" data-action="studio-read-message" data-message="${item.id}">Прочитано</button>`:''}<button type="button" class="text-button notification-delete" data-action="studio-delete-message" data-message="${item.id}" title="Удалить уведомление только из этой Studio">${icon('trash')}Удалить</button></div></article>`;}).join('')||'<p class="muted small">Когда актёр сдаст роль, она появится здесь.</p>'}</div>${messages.length>studioNotificationLimit?'<button type="button" class="btn ghost small" data-action="studio-more-messages">Показать ещё</button>':''}`);
+  showModal('Уведомления',cloud.mailbox?.unread?cloud.mailbox.unread+' непрочитанных':'Сдача ролей',`${messages.length?'<div class="notification-toolbar"><span class="muted small">Удаление скрывает уведомления в этой Studio, но не отменяет сдачу роли.</span><button type="button" class="text-button" data-action="studio-clear-messages">Удалить все</button></div>':''}${!cloud.reviewApiAvailable?'<p class="setting-note">Для сдачи ролей обнови сервер до Cloud 0.3.0 и подключи Studio.</p>':''}${failed.length?`<p class="cloud-error">Не отправлено: ${e(failed.at(-1).error)} Текст сохранён ниже.</p><details class="failed-reviews"><summary>Сохранённые ответы</summary>${failed.map(item=>`<div class="failed-review"><strong>${e(item.error)}</strong><p>${e(item.body?.text||'Отметка прочтения')}</p></div>`).join('')}<button type="button" class="text-button" data-action="studio-dismiss-failed">Убрать ошибки</button></details>`:''}<div class="studio-notification-list">${messages.slice(0,studioNotificationLimit).map(item=>{const found=findNotificationRole(item);return `<article class="studio-notification ${item.read?'':'unread'}"><div class="studio-notification-layout">${studioRolePortrait(found?.r,item.role)}<div class="studio-notification-body"><div class="studio-notification-head"><strong>${e(notificationActor(item))} сдал роль</strong>${vacationTag(item.actorId)}<time>${e(notificationDate(item.createdAt))}</time></div><div class="studio-notification-role"><strong>${e(item.role.character)}</strong><span>${e(item.role.projectTitle)} · ${item.role.season?'Сезон '+e(item.role.season)+' · ':''}${item.role.episodeNumber?'Серия '+e(item.role.episodeNumber):'Серия'}</span></div><div class="btn-row"><button type="button" class="btn ghost small" data-action="notification-recordings" data-message="${item.id}">Записи</button>${found?`<button type="button" class="btn ghost small" data-action="notification-open-role" data-message="${item.id}">Открыть роль</button>${found.assigned?`<button type="button" class="btn primary small" data-action="notification-reply" data-message="${item.id}">Ответить</button>`:'<span class="muted small">Роль переназначена</span>'}`:'<span class="muted small">Роль удалена из Studio</span>'}${!item.read?`<button type="button" class="text-button" data-action="studio-read-message" data-message="${item.id}">Прочитано</button>`:''}<button type="button" class="text-button notification-delete" data-action="studio-delete-message" data-message="${item.id}" title="Удалить уведомление только из этой Studio">${icon('trash')}Удалить</button></div></div></div></article>`;}).join('')||'<p class="muted small">Когда актёр сдаст роль, она появится здесь.</p>'}</div>${messages.length>studioNotificationLimit?'<button type="button" class="btn ghost small" data-action="studio-more-messages">Показать ещё</button>':''}`);
   modal.querySelector('.studio-notification-list').scrollTop=scroll;
 }
 function reviewRoleForm(pid,eid,rid){
@@ -1776,7 +1798,8 @@ async function action(a,d,el){
         // Keep the submission actor in focus, even if this particular role was reassigned.
         // openProject validates the key and falls back to all roles when the actor has none here.
         const actorKey=message.actorId?'id:'+message.actorId:episodeRoleActorKey(state,found.r);
-        openProject(found.p.id,found.ep.id,'roles',actorKey);
+        const characterKey=episodeRoleCharacterKey(found.r);
+        openProject(found.p.id,found.ep.id,'roles',actorKey,characterKey);
       }
       break;
     }
@@ -2233,3 +2256,4 @@ installVisualSelects({
   actorAvatar:actorPickAvatar,icon
 });
 boot();
+

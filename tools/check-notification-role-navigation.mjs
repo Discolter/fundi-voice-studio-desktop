@@ -26,8 +26,20 @@ assert.ok(start>=0&&end>start,'Notification navigation handler exists');
 const handler=app.slice(start,end);
 assert.ok(handler.includes("const actorKey=message.actorId?'id:'+message.actorId:episodeRoleActorKey(state,found.r);"),
   'Prefer the submission actorId, not the current role assignee');
-assert.ok(handler.includes("openProject(found.p.id,found.ep.id,'roles',actorKey)"),
-  'Notification must pass the actor filter to the episode route');
+assert.ok(handler.includes("const characterKey=episodeRoleCharacterKey(found.r);"),
+  'A submitted role must derive its actual character key');
+assert.ok(handler.includes("openProject(found.p.id,found.ep.id,'roles',actorKey,characterKey)"),
+  'Notification must pass both actor and character filters to the episode route');
 assert.ok(app.includes("episodeRoleActorOptions(state,ep.roles).some(item=>item.key===actorKey)?actorKey:'all'"),
   'Missing/stale actors must fall back to showing all roles');
-console.log('PASS: notification links preserve actor filter and safely handle reassigned roles');
+assert.ok(app.includes("ui.roleCharacter=tab==='roles'&&characterKey&&ep&&episodeRoleCharacterOptions(ep.roles).some(item=>item.key===characterKey)?characterKey:'all'"),
+  'Character filter should be selected when opening a submitted role');
+assert.ok(app.includes("!filterEpisodeRoles(state,ep.roles,{actorKey:ui.roleActor,characterKey:ui.roleCharacter}).length"),
+  'A reassigned character must remain reachable without a stale actor filter');
+assert.ok(app.includes('studioRolePortrait(found?.r)}'),
+  'File list should display the saved character portrait');
+assert.ok(app.includes('studioRolePortrait(found?.r,item.role)'),
+  'Notification list should use a local portrait or the notification role snapshot');
+const css=readFileSync(new URL('../package/web/file-tools.css',import.meta.url),'utf8');
+assert.match(css,/\.studio-character-thumb img\{[^}]*object-fit:cover/);
+console.log('PASS: submitted role opens the matching character and both lists show portraits');

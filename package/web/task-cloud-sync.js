@@ -154,17 +154,24 @@ export function mergeTaskSnapshots(local,baseline,remote){
   }
   return {tasks,conflicts};
 }
-export function mergeTaskCatalog(local,remote){
+export function mergeTaskCatalog(local,remote,baseline=null){
   const projects=local.projects.map(p=>({...p,episodes:p.episodes.map(ep=>({...ep,roles:[...ep.roles]}))}));
+  const priorProjects=new Map((baseline?.projects||[]).map(p=>[p.id,p]));
   for(const p of remote.projects||[]){
     const existing=projects.find(x=>x.id===p.id);
-    if(!existing){projects.push(p);continue;}
-    for(const ep of p.episodes||[])if(!existing.episodes.some(x=>x.id===ep.id))existing.episodes.push(ep);
+    // Keep unknown remote entries, but do not resurrect a project deliberately
+    // removed from the Windows workspace since the last successful sync.
+    if(!existing){if(!priorProjects.has(p.id))projects.push(p);continue;}
+    const priorEpisodes=new Set((priorProjects.get(p.id)?.episodes||[]).map(ep=>ep.id));
+    for(const ep of p.episodes||[])
+      if(!existing.episodes.some(x=>x.id===ep.id)&&!priorEpisodes.has(ep.id))existing.episodes.push(ep);
   }
-  const actors=[...local.actors];
-  for(const actor of remote.actors||[])if(!actors.some(a=>a.id===actor.id))actors.push(actor);
+  const actors=[...local.actors],priorActors=new Set((baseline?.actors||[]).map(a=>a.id));
+  for(const actor of remote.actors||[])
+    if(!actors.some(a=>a.id===actor.id)&&!priorActors.has(actor.id))actors.push(actor);
   return {projects,actors};
 }
+
 export function applyTaskSnapshot(state,tasks){
   let changed=false;
   for(const p of state.projects||[])for(const ep of p.episodes||[]){
@@ -211,3 +218,4 @@ export function addRoleStagesToCatalog(catalog,stages){
       ...r,status:values.get(p.id+':'+ep.id+':'+r.id)||r.status||''
     }))}))}))};
 }
+
