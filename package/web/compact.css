@@ -858,6 +858,8 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .role-sync-warning p{margin:5px 0 0;font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
 .role-sync-warning .btn{flex-shrink:0}
 .role-sync-modal{width:min(700px,calc(100vw - 32px))}
+.role-sync-modal .modal-foot{flex-wrap:wrap}
+.role-sync-modal .modal-foot .btn{white-space:normal}
 .role-sync-list{display:grid;gap:16px}
 .role-sync-card{margin:0;min-width:0;padding:14px;border:1px solid var(--border);border-radius:14px}
 .role-sync-card legend{max-width:100%;padding:0 6px;font-size:16px;font-weight:700;overflow-wrap:anywhere}
@@ -869,7 +871,8 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .role-sync-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .role-sync-options label{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:10px;cursor:pointer}
 .role-sync-options label:has(input:checked){border-color:var(--accent,#84ceee);background:#84ceee15}
-.role-sync-options input{width:18px;height:18px;flex:0 0 18px;margin:0;accent-color:var(--accent,#84ceee)}
+.role-sync-options input{width:18px;height:18px;flex:0 0 18px;margin:0;padding:0;accent-color:var(--accent,#84ceee)}
+.role-sync-options input:focus-visible{outline:2px solid var(--accent,#84ceee);outline-offset:3px}
 .role-sync-options span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .role-sync-options strong{display:block;margin-top:5px;font-size:14px;color:var(--text)}
 @media(max-width:600px){.role-sync-warning{margin:12px 14px 0;align-items:stretch;flex-direction:column}.role-sync-options{grid-template-columns:1fr}}
