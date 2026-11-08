@@ -79,5 +79,6 @@ assert.match(reviewSection, /vacation-review-actions[^\n]*\$\{reaperShortcutButt
   'each review role must display the shared REAPER shortcut for its exact episode');
 assert.match(css, /\.vacation-review-actions\{[^}]*flex-wrap:wrap/,
   'review actions must wrap on narrow screens');
-assert.ok(workflow.includes('node ./tools/check-vacation-role-review.mjs'));
+assert.ok(workflow.includes('node ./tools/run-checks.mjs'),'The Windows build must run every discovered regression');
 console.log('PASS: derived vacation review queue, actor eligibility and safe manual handoff');
+

@@ -57,6 +57,18 @@ func logEvent(err error) {
 	}
 }
 func main() {
+	// A single updater owns the staging directory and version pointer.
+	mutexName, _ := syscall.UTF16PtrFromString(`Local\FundiVoiceStudioUpdater-` + os.Getenv("USERNAME"))
+	mutex, _, lastErr := syscall.NewLazyDLL("kernel32.dll").NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexName)))
+	if mutex == 0 {
+		message("Could not open Studio updater.", 0x10)
+		return
+	}
+	defer syscall.NewLazyDLL("kernel32.dll").NewProc("CloseHandle").Call(mutex)
+	if lastErr == syscall.Errno(183) {
+		message("Studio update check is already running.", 0x40)
+		return
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		message("Не удалось определить путь лаунчера.", 0x10)
@@ -74,7 +86,7 @@ func main() {
 		logEvent(fmt.Errorf("Update check: %s", updateError.Error()))
 	}
 	current, newDir := currentVersion(root)
-	if err = launch(newDir); err == nil && updated {
+	if err = launch(newDir); err == nil {
 		// Verify the new engine actually reached its single-instance mutex.
 		// Compilation/startup failure must not mark the new version as working.
 		healthy := false
@@ -108,6 +120,11 @@ func main() {
 		message("Не удалось открыть Studio:\n"+err.Error(), 0x10)
 		return
 	}
+	// Only remove old app packages after the host has started successfully.
+	if cleanupErr := pruneVersions(root, current); cleanupErr != nil {
+		logEvent(fmt.Errorf("Version cleanup: %w", cleanupErr))
+	}
 	// Offline use is supported: when GitHub is unavailable, open installed Studio.
 	// No GitHub credentials are ever requested or stored.
 }
+

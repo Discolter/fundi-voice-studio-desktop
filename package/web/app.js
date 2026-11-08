@@ -185,22 +185,33 @@ function scheduleTaskCloudSync(){
   clearTimeout(taskSyncTimer);
   taskSyncTimer=setTimeout(()=>syncStudioTasks().catch(()=>{}),6000);
 }
+let localEditRevision=0;
 async function syncStudioTasks(visible=false){
   if(!native||!cloud.connected||taskSyncBusy||modal.open)return false;
   taskSyncBusy=true;
+  let retry=false;
   try{
     if(saving)await flushSave();
     const [remote,baselineData]=await Promise.all([api('cloud/tasks/read',{}),api('cloud/tasks/baseline',{})]);
+    const editRevision=localEditRevision;
+    const requireUnchanged=()=>{
+      if(localEditRevision!==editRevision){
+        const issue=Error('Локальные данные изменились во время синхронизации.');
+        issue.localStateChanged=true;throw issue;
+      }
+    };
     const local=await addStudioMirrorToSnapshot(state,buildTaskSnapshot(state)),prior=baselineData?.known?baselineData.snapshot:null;
+    requireUnchanged();
     const merged=mergeTaskSnapshots(local,prior,remote.snapshot);
     if(merged.conflicts.length)throw Error('Есть конфликт в '+merged.conflicts.length+' задачах: изменения Windows и сайта сделаны одновременно. Проверь данные перед повторной синхронизацией.');
     const roleMerge=mergeRoleStages(local,prior,remote.snapshot);
     if(roleMerge.conflicts.length)throw Error('Конфликт этапов в '+roleMerge.conflicts.length+' ролях. В Windows и на сайте изменили одну роль одновременно; данные не перезаписаны.');
-    const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot),roleMerge.stages);
+    const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot,prior),roleMerge.stages);
     const snapshot={...catalog,tasks:merged.tasks};
     const different=JSON.stringify(snapshot)!==JSON.stringify(remote.snapshot);
     const published=different?await api('cloud/tasks/write',{baseVersion:remote.version,snapshot}):null;
     const confirmed=published?await api('cloud/tasks/read',{}):remote;
+    requireUnchanged();
     lastImageSync=verifyStudioMirrorImages(snapshot,confirmed.snapshot);
     const snapshotVersion=published?.version??remote.version;
     const tasksModified=applyTaskSnapshot(state,merged.tasks);
@@ -214,14 +225,16 @@ async function syncStudioTasks(visible=false){
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
   }catch(error){
+    if(error.localStateChanged){retry=true;return false;}
     if(visible||error.message!==taskSyncError){
       if(visible||!/404|not found/i.test(error.message))toast('Синхронизация поручений: '+error.message,true);
     }
     taskSyncError=error.message;updateCloudIndicator();
     return false;
-  }finally{taskSyncBusy=false;}
+  }finally{taskSyncBusy=false;if(retry)scheduleTaskCloudSync();}
 }
 function persist(){
+  localEditRevision++;
   pruneRetiredActors(state);
   lastDeliverySnapshot=trackRoleDeliveries(state,lastDeliverySnapshot);
   state.updatedAt=new Date().toISOString();
@@ -2243,3 +2256,4 @@ installVisualSelects({
   actorAvatar:actorPickAvatar,icon
 });
 boot();
+

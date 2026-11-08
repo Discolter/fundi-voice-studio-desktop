@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -263,6 +264,10 @@ func writeCurrentVersion(root, version string) error {
 	}
 	return nil
 }
+func isPreviouslyVerified(root, version, hash string) bool {
+	got := strings.TrimSpace(readSmallFile(filepath.Join(root, "versions", version, ".verified-sha256")))
+	return len(got) == 64 && strings.EqualFold(got, hash)
+}
 func installDownloaded(root string, m Manifest, client *http.Client) error {
 	if err := verifyManifest(m); err != nil {
 		return err
@@ -277,7 +282,10 @@ func installDownloaded(root string, m Manifest, client *http.Client) error {
 	}
 	versionDir := filepath.Join(root, "versions", m.Version)
 	if _, err := os.Stat(filepath.Join(versionDir, "Launch.ps1")); err == nil {
-		return writeCurrentVersion(root, m.Version)
+		if isPreviouslyVerified(root, m.Version, m.Sha256) {
+			return writeCurrentVersion(root, m.Version)
+		}
+		return errors.New("Previously staged update has no verified package hash")
 	}
 	name := filepath.Join(updates, "update-"+m.Version+".zip")
 	// No partial/resumed untrusted files: create a fresh download and verify before extraction.
@@ -299,6 +307,9 @@ func installDownloaded(root string, m Manifest, client *http.Client) error {
 		return errors.New("Версия внутри пакета не совпадает с подписанным релизом")
 	}
 	if err := os.MkdirAll(filepath.Dir(versionDir), 0700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(stage, ".verified-sha256"), []byte(m.Sha256+"\n"), 0600); err != nil {
 		return err
 	}
 	if err := os.Rename(stage, versionDir); err != nil {
@@ -323,3 +334,61 @@ func checkAndUpdate(root string) (updated bool, err error) {
 	}
 	return true, nil
 }
+
+
+func installedVersions(root string) []string {
+	items, err := os.ReadDir(filepath.Join(root, "versions"))
+	if err != nil {
+		return nil
+	}
+	var versions []string
+	for _, item := range items {
+		if !item.IsDir() || !semver.MatchString(item.Name()) {
+			continue
+		}
+		if stat, e := os.Stat(filepath.Join(root, "versions", item.Name(), "Launch.ps1")); e == nil && stat.Mode().IsRegular() {
+			versions = append(versions, item.Name())
+		}
+	}
+	sort.Slice(versions, func(i, j int) bool { return compareVersion(versions[i], versions[j]) > 0 })
+	return versions
+}
+func previousVersions(root, current string) []string {
+	var out []string
+	for _, v := range installedVersions(root) {
+		if compareVersion(v, current) < 0 {
+			out = append(out, v)
+		}
+		if len(out) == 3 {
+			break
+		}
+	}
+	return out
+}
+func pruneVersions(root, current string) error {
+	if !semver.MatchString(current) {
+		return errors.New("Invalid current version")
+	}
+	allowed := map[string]bool{current: true}
+	for _, v := range previousVersions(root, current) {
+		allowed[v] = true
+	}
+	// Don't traverse arbitrary paths: only scan direct version-name directories.
+	for _, v := range installedVersions(root) {
+		if !allowed[v] {
+			if err := os.RemoveAll(filepath.Join(root, "versions", v)); err != nil {
+				return err
+			}
+		}
+	}
+	// Downloaded ZIPs are temporary and should never build up.
+	if tmp, err := os.ReadDir(filepath.Join(root, ".updates")); err == nil {
+		for _, v := range tmp {
+			if !v.IsDir() && strings.HasPrefix(v.Name(), "update-") && strings.HasSuffix(v.Name(), ".zip") {
+				_ = os.Remove(filepath.Join(root, ".updates", v.Name()))
+			}
+		}
+	}
+	return nil
+}
+
