@@ -11,7 +11,7 @@ async function scenario(pauseAt){
  remote.tasks[0].title='Previous title';
  const gate=deferred(),paused=deferred();let retried=0,ready=0,baselineWrites=0,writes=0,written;
  const context=vm.createContext({...taskSync,state,native:true,cloud:{connected:true},taskSyncBusy:false,
-  modal:{open:false},saving:false,localEditRevision:0,saveError:'',taskSyncError:'',
+  modal:{open:false},saving:false,localEditRevision:0,saveError:'',taskSyncError:'',roleSyncConflicts:[],roleSyncDecisions:[],
   JSON,console,updateCloudIndicator(){},toast(){},render(){},isActorPickerOpen:()=>false,
   scheduleTaskCloudSync(){retried++;},flushSave:async()=>{},persist(){throw Error('Concurrent local edit must never be replaced');},
   async addStudioMirrorToSnapshot(s,snapshot){if(pauseAt==='preview'){paused.resolve();await gate.promise;}return snapshot;},

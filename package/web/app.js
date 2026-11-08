@@ -20,7 +20,7 @@ import {roleDeliverySnapshot,trackRoleDeliveries} from './actor-statistics.js';
 import {actorSubtabs,renderActorStatistics} from './actor-statistics-view.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
-import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog} from './task-cloud-sync.js';
+import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
 import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
@@ -53,6 +53,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
+let roleSyncConflicts=[],roleSyncDecisions=[];
 let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationSort:'easy',recommendationFilter:'all'};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
@@ -170,6 +171,7 @@ const studioNavigation=createStudioNavigation({
 
 function cloudStatusNow(){return cloudHealth(cloud,taskSyncError,native);}
 function updateCloudIndicator(){
+  updateRoleSyncBanner();
   const element=document.querySelector('#cloud-sync-indicator');
   if(!element)return;
   const health=cloudStatusNow();
@@ -177,6 +179,29 @@ function updateCloudIndicator(){
   element.title=health.description;
   const text=element.querySelector('.cloud-sync-text');
   if(text)text.textContent=health.label;
+}
+function roleSyncBannerHTML(){
+  if(!roleSyncConflicts.length)return '';
+  const first=roleSyncConflicts[0];
+  return `<section class="role-sync-warning" role="status"><div><strong>Нужно согласовать этапы ролей: ${roleSyncConflicts.length}</strong><p>${e(first.projectTitle)} · ${e(first.character)}${roleSyncConflicts.length>1?' и другие':''}. Выбери нужный этап, чтобы продолжить синхронизацию.</p></div><button class="btn primary small" data-action="cloud-resolve-conflict">Разобрать конфликт</button></section>`;
+}
+function updateRoleSyncBanner(){
+  const slot=document.querySelector('#role-sync-alert');
+  if(!slot)return;
+  // The cloud indicator polls frequently; keep the focused action button intact.
+  const markup=roleSyncBannerHTML();
+  if(slot.dataset.markup!==markup){slot.innerHTML=markup;slot.dataset.markup=markup;}
+}
+function showRoleSyncConflicts(){
+  if(!roleSyncConflicts.length||modal.open)return;
+  const shown=roleSyncConflicts.map(item=>({...item}));
+  const body=`<p class="setting-note">На компьютере и в облаке разные этапы. Укажи, какой сохранить для каждого персонажа. После подтверждения Studio повторно проверит изменения.</p><div class="role-sync-list">${shown.map((item,index)=>`<fieldset class="role-sync-card"><legend>${e(item.character||'Без имени')}</legend><div class="role-sync-identity">${studioRolePortrait(item)}<div><strong>${e(item.projectTitle)}</strong><p>Сезон ${e(item.season||'—')} · Серия ${e(item.episodeNumber||'—')}${item.episodeTitle?' · '+e(item.episodeTitle):''}</p><p>${e(item.actor||'Актёр не назначен')}</p></div></div><p class="role-sync-baseline">При последней синхронизации: ${e(item.baselineStatus?roleStageName(item.baselineStatus):'Этап не указан')}</p><div class="role-sync-options"><label><input type="radio" name="role-sync-${index}" value="local" required><span>На компьютере<strong>${e(roleStageName(item.localStatus))}</strong></span></label><label><input type="radio" name="role-sync-${index}" value="remote" required><span>В облаке<strong>${e(roleStageName(item.remoteStatus))}</strong></span></label></div></fieldset>`).join('')}</div>`;
+  showModal('Согласовать этапы ролей','Ролей с разными этапами: '+shown.length,body,'Сохранить и синхронизировать',async data=>{
+    roleSyncDecisions=[...roleSyncDecisions.filter(choice=>!shown.some(item=>item.id===choice.id)),...roleStageDecisions(shown,data)];
+    modal.close();
+    await refreshAllStudio();
+  });
+  modal.classList.add('role-sync-modal');
 }
 function saveStatusState(){return saveError?'error':saving?'saving':'saved';}
 function updateSaveStatus(){const el=document.querySelector('#save-status');if(!el)return;el.textContent=saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено';const indicator=el.closest('.status-indicator');if(indicator)indicator.dataset.saveState=saveStatusState();}
@@ -191,9 +216,10 @@ async function syncStudioTasks(visible=false){
   taskSyncBusy=true;
   let retry=false;
   try{
-    if(saving)await flushSave();
+    if(saving||saveError)await flushSave();
+    if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);
     const [remote,baselineData]=await Promise.all([api('cloud/tasks/read',{}),api('cloud/tasks/baseline',{})]);
-    const editRevision=localEditRevision;
+    let editRevision=localEditRevision;
     const requireUnchanged=()=>{
       if(localEditRevision!==editRevision){
         const issue=Error('Локальные данные изменились во время синхронизации.');
@@ -204,32 +230,55 @@ async function syncStudioTasks(visible=false){
     requireUnchanged();
     const merged=mergeTaskSnapshots(local,prior,remote.snapshot);
     if(merged.conflicts.length)throw Error('Есть конфликт в '+merged.conflicts.length+' задачах: изменения Windows и сайта сделаны одновременно. Проверь данные перед повторной синхронизацией.');
-    const roleMerge=mergeRoleStages(local,prior,remote.snapshot);
-    if(roleMerge.conflicts.length)throw Error('Конфликт этапов в '+roleMerge.conflicts.length+' ролях. В Windows и на сайте изменили одну роль одновременно; данные не перезаписаны.');
+    const roleMerge=mergeRoleStages(local,prior,remote.snapshot,roleSyncDecisions);
+    roleSyncConflicts=roleMerge.details;
+    if(roleMerge.conflicts.length){
+      const issue=Error('Нужно согласовать этапы ролей: '+roleMerge.conflicts.length+'. Нажми «Разобрать конфликт».');
+      issue.roleConflicts=true;throw issue;
+    }
     const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot,prior),roleMerge.stages);
     const snapshot={...catalog,tasks:merged.tasks};
     const different=JSON.stringify(snapshot)!==JSON.stringify(remote.snapshot);
     const published=different?await api('cloud/tasks/write',{baseVersion:remote.version,snapshot}):null;
     const confirmed=published?await api('cloud/tasks/read',{}):remote;
     requireUnchanged();
+    if(published&&confirmed.version!==published.version){
+      const issue=Error('В облаке появились новые изменения.');issue.cloudStateChanged=true;throw issue;
+    }
     lastImageSync=verifyStudioMirrorImages(snapshot,confirmed.snapshot);
     const snapshotVersion=published?.version??remote.version;
     const tasksModified=applyTaskSnapshot(state,merged.tasks);
     const stagesModified=applyRoleStages(state,roleMerge.stages);
-    const modified=tasksModified||stagesModified;
+    let reviewsModified=false;
+    for(const resolved of roleMerge.resolved){
+      const role=state.projects.find(p=>p.id===resolved.projectId)?.episodes.find(ep=>ep.id===resolved.episodeId)?.roles.find(r=>r.id===resolved.roleId);
+      const version=role?reviewVersion(reviewForRole(role)):'';
+      // An explicit owner choice supersedes an already received review. A new
+      // submission still has a new review version and will be applied normally.
+      if(version&&role.reviewSeen!==version){role.reviewSeen=version;reviewsModified=true;}
+    }
+    const modified=tasksModified||stagesModified||reviewsModified;
+    if(modified){
+      persist();editRevision=localEditRevision;await flushSave();
+      if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);
+      requireUnchanged();
+      if(!modal.open&&!isActorPickerOpen())render();
+    }
+    requireUnchanged();
     await api('cloud/tasks/baseline/save',{known:true,snapshot});
-    if(modified){persist();await flushSave();if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);if(!modal.open&&!isActorPickerOpen())render();}
+    requireUnchanged();
     // Only unlock pending roster publication after the reconciled disk state is saved.
     await api('cloud/roles/sync-ready',{snapshotVersion});
-    taskSyncError='';updateCloudIndicator();
+    roleSyncConflicts=[];roleSyncDecisions=[];taskSyncError='';updateCloudIndicator();
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
   }catch(error){
-    if(error.localStateChanged){retry=true;return false;}
+    if(error.localStateChanged||error.cloudStateChanged){retry=true;return false;}
     if(visible||error.message!==taskSyncError){
       if(visible||!/404|not found/i.test(error.message))toast('Синхронизация поручений: '+error.message,true);
     }
     taskSyncError=error.message;updateCloudIndicator();
+    if(error.roleConflicts&&visible)showRoleSyncConflicts();
     return false;
   }finally{taskSyncBusy=false;if(retry)scheduleTaskCloudSync();}
 }
@@ -272,7 +321,7 @@ function render(){
   const c=counts(),activePage=ui.siteMode==='cabinet'?'cabinet-home':ui.siteMode==='site'?'site-'+ui.sitePage:(ui.page==='detail'||ui.page==='archive'||ui.page==='hidden'?'projects':ui.page);
   const sidebarNav=ui.siteMode==='cabinet'?[['cabinet-home','grid','Главная']]:ui.siteMode==='site'?[['site-releases','grid','Релизы'],['site-news','file','Новости'],['site-notifications','bell','Уведомления'],['site-ratings','star','Оценки'],['site-users','users','Пользователи']]:navs;
   const section=ui.siteMode==='cabinet'?'Роли актёров':ui.siteMode==='site'?({releases:'Релизы',news:'Новости',notifications:'Уведомления',ratings:'Оценки',users:'Пользователи'}[ui.sitePage]||'Сайт'):(navs.find(n=>n[0]===activePage)?.[2]||(ui.page==='vacations'?'Отпуска':ui.page==='recommendations'?'Рекомендации':ui.page==='review'?'Пересмотр':ui.page==='recovery'?'Сброс пароля':'Настройки'));
-  app.innerHTML=`<div class="shell"><aside class="sidebar"><a class="brand" href="#" data-nav="projects" aria-label="Fundi Voice"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><div class="brand-title">Fundi Voice<span class="lime">.</span></div></a><nav>${sidebarNav.map(([id,ic,label])=>`<button class="nav-item ${activePage===id?'active':''}" data-${ui.siteMode==='site'?'site-nav':ui.siteMode==='cabinet'?'cabinet':'nav'}="${ui.siteMode==='site'?id.slice(5):ui.siteMode==='cabinet'?'home':id}" title="${label}">${icon(ic)}<span>${label}</span>${['projects','actors','mytasks','debts'].includes(id)?`<span class="nav-count" aria-label="${id==='actors'?'Всего актёров':id==='mytasks'?'Моих ролей':id==='debts'?'Невыполненных записей':'Активных проектов'}: ${c[id]}">${c[id]}</span>`:''}</button>`).join('')}${ui.siteMode==='studio'&&native&&cloud.connected?`<button class="nav-item" data-action="studio-files" aria-haspopup="dialog">${icon('file')}<span>Мои файлы</span><span class="nav-count nav-file-count" data-file-unread-count ${cloud.unreadFiles?'':'hidden'}>${cloud.unreadFiles>99?'99+':cloud.unreadFiles||''}</span></button>`:''}${ui.siteMode==='studio'?`<button class="nav-item vacation-review-nav ${ui.page==='review'?'active':''} ${c.review?'has-items':''}" data-nav="review" title="Пересмотр назначений из-за отпусков">${icon('review')}<span>Пересмотр</span>${c.review?`<span class="nav-count" aria-label="Ролей на пересмотр: ${c.review}">${c.review>99?'99+':c.review}</span>`:''}</button>`:''}${ui.siteMode==='studio'?`<button class="nav-item rec-nav ${ui.page==='recommendations'?'active':''}" data-nav="recommendations" title="Умные рекомендации для Studio">${icon('spark')}<span>Рекомендации</span>${c.recommendations?`<span class="nav-count" aria-label="Актуальных рекомендаций: ${c.recommendations}">${c.recommendations>99?'99+':c.recommendations}</span>`:''}</button>`:''}</nav><div class="sidebar-bottom">${ui.siteMode==='cabinet'?`<div class="nav-item" style="cursor:default;opacity:.7">${icon('eye')}<span>Режим просмотра</span></div>`:ui.siteMode==='site'?`<a class="nav-item" href="https://fundivoice-viewer-test.pages.dev/" target="_blank" rel="noopener noreferrer">${icon('external')}<span>Открыть сайт</span></a>`:`<button class="nav-item" data-action="help">${icon('help')}<span>Как пользоваться</span></button><button class="nav-item ${ui.page==='settings'?'active':''}" data-nav="settings">${icon('settings')}<span>Настройки</span></button><button class="nav-item studio-recovery-nav ${ui.page==='recovery'?'active':''}" data-nav="recovery" title="Сброс пароля" aria-label="Сброс пароля">${icon('password')}<span>Сброс пароля</span></button><button class="nav-item studio-vacation-nav ${ui.page==='vacations'?'active':''}" data-nav="vacations" title="Отпуска">${icon('vacation')}<span>Отпуска</span>${cloud.vacationUnread?`<b class="nav-count">${cloud.vacationUnread>99?'99+':cloud.vacationUnread}</b>`:''}</button>` }<div class="profile"><div class="avatar">${e(state.settings.name.slice(0,1).toUpperCase())}</div><div class="profile-name">${e(state.settings.name)}</div></div></div></aside><main class="main"><header class="topbar"><div class="site-topbar-group"><span class="topbar-title">${e(section)}</span><div class="site-mode-switch" role="group" aria-label="Рабочий режим"><button type="button" data-site-mode="studio" class="${ui.siteMode==='studio'?'active':''}" aria-pressed="${ui.siteMode==='studio'}">Студия</button><button type="button" data-site-mode="site" class="${ui.siteMode==='site'?'active':''}" aria-pressed="${ui.siteMode==='site'}">Сайт</button><button type="button" data-site-mode="cabinet" class="${ui.siteMode==='cabinet'?'active':''}" aria-pressed="${ui.siteMode==='cabinet'}">Роли актёров</button></div></div><div class="topbar-right">${ui.siteMode==='site'?`<span class="sm-toolbar-label">Управление зрительским сайтом</span>`:ui.siteMode==='cabinet'?`<span class="sm-toolbar-label">Проверка опубликованных назначений · только просмотр</span>`:`<button class="btn ghost studio-refresh-button" data-action="refresh-all" title="Проверить новые записи, уведомления и отпуска" aria-label="Обновить данные Studio" ${refreshing?'disabled':''}>${icon('refresh')}<span>${refreshing?'Обновляем…':'Обновить'}</span></button><button class="icon-btn notification-bell" data-action="studio-messages" title="Уведомления" aria-label="Уведомления">${icon('bell')}<b data-notification-count ${cloud.mailbox?.unread||cloud.mailbox?.failed?.length?'':'hidden'}>${cloud.mailbox?.unread||(cloud.mailbox?.failed?.length?'!':'')}</b></button><label class="search">${icon('search')}<span class="sr-only">Поиск</span><input id="search-input" placeholder="Поиск" value="${e(ui.query)}" autocomplete="off"><kbd>Ctrl K</kbd></label><div class="status-indicator" data-save-state="${saveStatusState()}"><span class="status-dot"></span><span id="save-status">${saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено'}</span></div><div class="cloud-sync-indicator" id="cloud-sync-indicator" data-cloud-state="${cloudStatusNow().code}" title="${e(cloudStatusNow().description)}" role="status" aria-live="polite"><span class="cloud-sync-dot"></span><span class="cloud-sync-text">${e(cloudStatusNow().label)}</span></div><button class="icon-btn" data-action="help" title="Как пользоваться" aria-label="Как пользоваться">${icon('help')}</button><button class="icon-btn mobile-settings" data-nav="settings" title="Настройки" aria-label="Настройки">${icon('settings')}</button>`}</div></header>${saveError?`<div class="save-warning">${e(saveError)} <button class="text-button" data-action="export">Скачать копию</button></div>`:''}<div class="content ${enter?'screen-enter':''}">${renderPage(c)}</div></main></div>`;
+  app.innerHTML=`<div class="shell"><aside class="sidebar"><a class="brand" href="#" data-nav="projects" aria-label="Fundi Voice"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><div class="brand-title">Fundi Voice<span class="lime">.</span></div></a><nav>${sidebarNav.map(([id,ic,label])=>`<button class="nav-item ${activePage===id?'active':''}" data-${ui.siteMode==='site'?'site-nav':ui.siteMode==='cabinet'?'cabinet':'nav'}="${ui.siteMode==='site'?id.slice(5):ui.siteMode==='cabinet'?'home':id}" title="${label}">${icon(ic)}<span>${label}</span>${['projects','actors','mytasks','debts'].includes(id)?`<span class="nav-count" aria-label="${id==='actors'?'Всего актёров':id==='mytasks'?'Моих ролей':id==='debts'?'Невыполненных записей':'Активных проектов'}: ${c[id]}">${c[id]}</span>`:''}</button>`).join('')}${ui.siteMode==='studio'&&native&&cloud.connected?`<button class="nav-item" data-action="studio-files" aria-haspopup="dialog">${icon('file')}<span>Мои файлы</span><span class="nav-count nav-file-count" data-file-unread-count ${cloud.unreadFiles?'':'hidden'}>${cloud.unreadFiles>99?'99+':cloud.unreadFiles||''}</span></button>`:''}${ui.siteMode==='studio'?`<button class="nav-item vacation-review-nav ${ui.page==='review'?'active':''} ${c.review?'has-items':''}" data-nav="review" title="Пересмотр назначений из-за отпусков">${icon('review')}<span>Пересмотр</span>${c.review?`<span class="nav-count" aria-label="Ролей на пересмотр: ${c.review}">${c.review>99?'99+':c.review}</span>`:''}</button>`:''}${ui.siteMode==='studio'?`<button class="nav-item rec-nav ${ui.page==='recommendations'?'active':''}" data-nav="recommendations" title="Умные рекомендации для Studio">${icon('spark')}<span>Рекомендации</span>${c.recommendations?`<span class="nav-count" aria-label="Актуальных рекомендаций: ${c.recommendations}">${c.recommendations>99?'99+':c.recommendations}</span>`:''}</button>`:''}</nav><div class="sidebar-bottom">${ui.siteMode==='cabinet'?`<div class="nav-item" style="cursor:default;opacity:.7">${icon('eye')}<span>Режим просмотра</span></div>`:ui.siteMode==='site'?`<a class="nav-item" href="https://fundivoice-viewer-test.pages.dev/" target="_blank" rel="noopener noreferrer">${icon('external')}<span>Открыть сайт</span></a>`:`<button class="nav-item" data-action="help">${icon('help')}<span>Как пользоваться</span></button><button class="nav-item ${ui.page==='settings'?'active':''}" data-nav="settings">${icon('settings')}<span>Настройки</span></button><button class="nav-item studio-recovery-nav ${ui.page==='recovery'?'active':''}" data-nav="recovery" title="Сброс пароля" aria-label="Сброс пароля">${icon('password')}<span>Сброс пароля</span></button><button class="nav-item studio-vacation-nav ${ui.page==='vacations'?'active':''}" data-nav="vacations" title="Отпуска">${icon('vacation')}<span>Отпуска</span>${cloud.vacationUnread?`<b class="nav-count">${cloud.vacationUnread>99?'99+':cloud.vacationUnread}</b>`:''}</button>` }<div class="profile"><div class="avatar">${e(state.settings.name.slice(0,1).toUpperCase())}</div><div class="profile-name">${e(state.settings.name)}</div></div></div></aside><main class="main"><header class="topbar"><div class="site-topbar-group"><span class="topbar-title">${e(section)}</span><div class="site-mode-switch" role="group" aria-label="Рабочий режим"><button type="button" data-site-mode="studio" class="${ui.siteMode==='studio'?'active':''}" aria-pressed="${ui.siteMode==='studio'}">Студия</button><button type="button" data-site-mode="site" class="${ui.siteMode==='site'?'active':''}" aria-pressed="${ui.siteMode==='site'}">Сайт</button><button type="button" data-site-mode="cabinet" class="${ui.siteMode==='cabinet'?'active':''}" aria-pressed="${ui.siteMode==='cabinet'}">Роли актёров</button></div></div><div class="topbar-right">${ui.siteMode==='site'?`<span class="sm-toolbar-label">Управление зрительским сайтом</span>`:ui.siteMode==='cabinet'?`<span class="sm-toolbar-label">Проверка опубликованных назначений · только просмотр</span>`:`<button class="btn ghost studio-refresh-button" data-action="refresh-all" title="Проверить новые записи, уведомления и отпуска" aria-label="Обновить данные Studio" ${refreshing?'disabled':''}>${icon('refresh')}<span>${refreshing?'Обновляем…':'Обновить'}</span></button><button class="icon-btn notification-bell" data-action="studio-messages" title="Уведомления" aria-label="Уведомления">${icon('bell')}<b data-notification-count ${cloud.mailbox?.unread||cloud.mailbox?.failed?.length?'':'hidden'}>${cloud.mailbox?.unread||(cloud.mailbox?.failed?.length?'!':'')}</b></button><label class="search">${icon('search')}<span class="sr-only">Поиск</span><input id="search-input" placeholder="Поиск" value="${e(ui.query)}" autocomplete="off"><kbd>Ctrl K</kbd></label><div class="status-indicator" data-save-state="${saveStatusState()}"><span class="status-dot"></span><span id="save-status">${saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено'}</span></div><div class="cloud-sync-indicator" id="cloud-sync-indicator" data-cloud-state="${cloudStatusNow().code}" title="${e(cloudStatusNow().description)}" role="status" aria-live="polite"><span class="cloud-sync-dot"></span><span class="cloud-sync-text">${e(cloudStatusNow().label)}</span></div><button class="icon-btn" data-action="help" title="Как пользоваться" aria-label="Как пользоваться">${icon('help')}</button><button class="icon-btn mobile-settings" data-nav="settings" title="Настройки" aria-label="Настройки">${icon('settings')}</button>`}</div></header><div id="role-sync-alert">${roleSyncBannerHTML()}</div>${saveError?`<div class="save-warning">${e(saveError)} <button class="text-button" data-action="export">Скачать копию</button></div>`:''}<div class="content ${enter?'screen-enter':''}">${renderPage(c)}</div></main></div>`;
   const selectAll=document.querySelector('#bulk-task-select-all');
   if(selectAll)selectAll.indeterminate=selectedTasks.size>0&&!selectAll.checked;
   if(focused){const input=document.querySelector('#search-input');input.focus();input.setSelectionRange(caret,caret);}
@@ -1042,7 +1091,7 @@ async function refreshAllStudio(button){
   refreshing=true;if(button)button.disabled=true;
   try{
     if(saving)await flushSave();
-    if(!await syncStudioTasks(true))throw Error('Сначала устрани ошибку синхронизации ролей. Публикация старого списка остановлена.');
+    if(!await syncStudioTasks(true))return;
     await api('cloud/sync',{replace:false});
     await refreshCloud(true);
     manualRefreshAt=Date.now();render();
@@ -1725,6 +1774,10 @@ async function action(a,d,el){
     }
     case 'casting-assistant':castingAssistantForm(d.id,d.ep,d.item);break;
     case 'refresh-all':await refreshAllStudio(el);break;
+    case 'cloud-resolve-conflict':
+      if(taskSyncBusy||refreshing){toast('Дождись завершения текущей проверки.');break;}
+      await syncStudioTasks(true);
+      break;
     case 'studio-vacation-new':studioVacationForm();break;
     case 'studio-vacation-edit':studioVacationForm(d.actor);break;
     case 'studio-vacation-end':await studioVacationEnd(d.actor);break;
@@ -1957,7 +2010,7 @@ async function action(a,d,el){
     case 'cloud-setup':await cloudSetup();break;
     case 'cloud-copy-setup':await copyText(cloudWizard.code);toast('Код скопирован');break;
     case 'cloud-renew-setup':{const result=await api('cloud/setup-code',{renew:true});cloudWizard.code=result.code;await cloudSetup(1);break;}
-    case 'cloud-sync':if(!await syncStudioTasks())throw Error('Не удалось согласовать этапы ролей с сайтом. Старые данные не отправлены.');await flushSave();await api('cloud/sync',{replace:false});await refreshCloud(true);toast(cloud.pending?'Синхронизация продолжается':'Изменения отправлены');break;
+    case 'cloud-sync':if(!await syncStudioTasks(true))break;await flushSave();await api('cloud/sync',{replace:false});await refreshCloud(true);toast(cloud.pending?'Синхронизация продолжается':'Изменения отправлены');break;
     case 'recovery-refresh':{const result=await api('cloud/recovery/requests',{});recoveryRequests=result.requests||[];render();break;}
     case 'recovery-copy':await copyText(recoveryCode);toast('Код скопирован');break;
     case 'recovery-approve':
