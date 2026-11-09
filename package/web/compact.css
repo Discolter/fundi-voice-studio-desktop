@@ -338,9 +338,6 @@ body[data-theme=silver] .search kbd{color:#40566c;border-color:#a6b2c0}
 .my-role-group-body .my-role-card{background:var(--surface);min-height:207px}
 .my-role-group-body .my-role-card:hover{transform:none}
 .my-priority-table .tasks-priority-table .task-row-title{font-size:15px;font-weight:700;line-height:1.5;letter-spacing:0}
-.my-priority-table .tasks-priority-table tbody td:nth-child(3) .text-button{font-size:14px;font-weight:600;line-height:1.45;text-align:left}
-.my-priority-table .tasks-priority-table tbody td:nth-child(3) .table-sub{font-size:12px;line-height:1.4}
-.my-priority-table .tasks-priority-table tbody td:nth-child(2){min-width:250px}
 @media(max-width:1250px){.my-role-group-body .my-roles-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.my-role-group-body .my-roles-grid{grid-template-columns:1fr}.my-role-group-summary{padding:10px 13px}.my-role-group-body{padding:11px}.my-role-group-caption strong{font-size:14px}}
 /* Vacations visible directly in all actor pickers. */

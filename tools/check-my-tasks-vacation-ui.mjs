@@ -13,7 +13,7 @@ assert.ok(app.includes("html+=groupedMyRoles(roles)"), 'render grouped roles');
 assert.ok(app.includes('data-action="open-project" data-id='), 'preserve project navigation');
 assert.ok(app.includes("my-priority-table"), 'scoped task font changes');
 assert.ok(css.includes('.my-priority-table .tasks-priority-table .task-row-title{font-size:15px'), 'larger task names');
-assert.ok(css.includes('tbody td:nth-child(3) .text-button{font-size:14px'), 'larger project names');
+assert.ok(readFileSync('package/web/task-priorities.css','utf8').includes('.task-project-identity .task-identity-copy strong{font-size:14px'), 'larger project names follow the project cell');
 assert.ok(app.includes('getVacation:vacationFor'), 'visual filter reads vacation status');
 assert.ok(visual.includes("d.vacation?.status==='active'"), 'vacation filter highlight');
 assert.ok(app.includes("episode-unassigned-person ${vacationFor(actor.id)?'on-vacation':''}"), 'unassigned filter highlight');
