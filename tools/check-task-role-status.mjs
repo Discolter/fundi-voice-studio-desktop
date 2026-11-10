@@ -30,7 +30,7 @@ for(const id of ['actor-only','no-actor','stale','missing-role']){
 }
 assert.equal(taskAssignment(workspace,ep,ep.tasks[2]).actorId,'a','Actor-only note stays selectable elsewhere');
 assert.deepEqual(ROLE_STAGES.map(s=>s[1]),
-  ['Жду запись','В записи','Получено','Обрабатываю','На перезапись','Принято']);
+  ['Жду запись','В записи','Получено','Обрабатываю','На перезапись','Дописать','Принято']);
 const old=role.status;
 role.status='done';assert.equal(taskRoleStatusTarget(workspace,ep,ep.tasks[0]).status,'done');
 assert.equal(ep.tasks[0].done,false,'Changing a role stage does not complete a task');

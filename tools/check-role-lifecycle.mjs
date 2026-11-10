@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {normalizeState,ROLE_STAGES,roleStageName} from '../package/web/core.js';
 const app=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');
 const valid=ROLE_STAGES.map(s=>s[0]);
-assert.deepEqual(valid,['waiting','recording','received','processing','retake','done']);
+assert.deepEqual(valid,['waiting','recording','received','processing','retake','pickup','done']);
 assert.equal(roleStageName('processed'),'Обрабатываю','Old processed entries must still display as processing');
 const legacy={schema:1,projects:[{id:'old',title:'Серия',episodes:[{id:'ep',roles:[{id:'r',character:'Герой',status:'processed',inProject:true}],tasks:[]}]}]};
 const restored=normalizeState(legacy);

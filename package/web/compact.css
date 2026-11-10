@@ -873,3 +873,12 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 .role-sync-options span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .role-sync-options strong{display:block;margin-top:5px;font-size:14px;color:var(--text)}
 @media(max-width:600px){.role-sync-warning{margin:12px 14px 0;align-items:stretch;flex-direction:column}.role-sync-options{grid-template-columns:1fr}}
+
+/* Pickups request missing lines, with their own pencil and calm teal accent. */
+.role-row.status-pickup{--row-accent:#71d9d2}
+.status-pickup,.my-role-status.status-pickup,.review-marker[data-state=pickup]{color:#71d9d2;border-color:#3c8d87}
+.review-marker[data-state=pickup]{background:#50bfb615}
+body[data-theme=light] .role-row.status-pickup,body[data-theme=silver] .role-row.status-pickup{--row-accent:#147572}
+body[data-theme=light] .status-pickup,body[data-theme=silver] .status-pickup{color:#147572;border-color:#70b4ae}
+
+.my-role-status.status-pickup::before,.role-row.status-pickup .debt-status::before{content:"";display:inline-block;width:1em;height:1em;margin-right:.4em;vertical-align:-.12em;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m16 3 5 5-12 12-6 1 1-6Z M14 5l5 5 M3 21h18'/%3E%3C/svg%3E") center/contain no-repeat}

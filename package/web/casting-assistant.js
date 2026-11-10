@@ -37,7 +37,7 @@ export function rankActorsForRole(state,episode,role,vacations=[],{excludeActorI
     const inEpisode=episodeActorWorkload(episode,actor.id,role?.id);
     const allActive=(state?.projects||[]).filter(p=>!p.archived).flatMap(p=>(p.episodes||[])
       .flatMap(ep=>(ep.roles||[]).filter(r=>r.actorId===actor.id&&r.id!==role?.id&&r.status!=='done')));
-    const debts=allActive.filter(r=>['waiting','retake'].includes(r.status)).length;
+    const debts=allActive.filter(r=>['waiting','retake','pickup'].includes(r.status)).length;
     candidates.push({actor,episodeCount:inEpisode.count,episodeLines:inEpisode.lines,
       unknownLines:inEpisode.unknown,characters:inEpisode.characters,
       activeCount:allActive.length,debtCount:debts,hasAccess:actor.actorAccess===true});

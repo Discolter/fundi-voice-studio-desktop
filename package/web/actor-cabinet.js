@@ -2,16 +2,16 @@
 // The Cloud roster is fetched with the Studio device token by the local server:
 // no actor passwords, sessions, or impersonation are required.
 const stageNames={waiting:'Жду запись',recording:'В записи',received:'Получено',
-  processing:'Обрабатываю',processed:'Обрабатываю',retake:'На перезапись',done:'Принято'};
+  processing:'Обрабатываю',processed:'Обрабатываю',retake:'На перезапись',pickup:'Дописать',done:'Принято'};
 const safeSource=value=>typeof value==='string'&&/^https:\/\/(?:t\.me|telegram\.me)\/[A-Za-z0-9_+/-]+\/?$/.test(value)?value:'';
 const validImage=value=>typeof value==='string'&&value.length<=150000&&
   /^data:image\/(?:png|webp|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/i.test(value)?value:'';
-const isDebt=role=>role.status==='waiting'||role.status==='retake';
+const isDebt=role=>['waiting','retake','pickup'].includes(role.status);
 const dateLabel=value=>value?new Date(value+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'}):'Без срока';
 const reviewRole=(role,reviews)=> {
   const review=(reviews||[]).find(r=>r.roleId===role.roleId);
   const status=review?.state==='pending'?'received':review?.state==='accepted'?'done':
-    role.status==='recording'?'recording':review?.state==='retake'?'retake':
+    role.status==='recording'?'recording':review?.state==='retake'?'retake':review?.state==='pickup'?'pickup':
     role.status==='processed'?'processing':role.status;
   return {...role,status,review,reviewLabel:review?.state==='pending'?'На проверке':stageNames[status]||'Статус не указан'};
 };

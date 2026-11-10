@@ -15,7 +15,7 @@ const TITLES={
 const isImage = value=>typeof value==='string'&&value.length<710000&&/^data:image\/(?:png|jpeg|webp);base64,[a-zA-Z0-9+/]+={0,2}$/.test(value);
 const urgencyLabel=n=>n>=4?'Просрочено':n>=3?'Срочно':n===2?'По сроку':'Планово';
 const urgencyClass=n=>n>=3?'urgent':n===2?'soon':'normal';
-const roleStatus=r=>({received:'Получено',processing:'Обрабатываю',waiting:'Жду запись',retake:'На перезапись',recording:'В записи'}[r?.status]||'');
+const roleStatus=r=>({received:'Получено',processing:'Обрабатываю',waiting:'Жду запись',retake:'На перезапись',pickup:'Дописать',recording:'В записи'}[r?.status]||'');
 const escapeData = (fn,s)=>fn(String(s==null?'':s));
 function avatar(actor,e){
   if(!actor)return '';

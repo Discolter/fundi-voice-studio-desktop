@@ -93,3 +93,7 @@
 .fv-type-sort .fv-option-art{color:#a8c3ff;background:#749eea1a;border-color:#749eea41}
 .fv-task-filter .fv-option-name{font-weight:650}
 .fv-dropdown-lines .fv-option-subtitle,.fv-dropdown-project .fv-option-subtitle{max-width:100%;white-space:normal}
+
+.fv-status-art[data-status=pickup]{color:#71d9d2;background:#50bfb61a;border-color:#50bfb640}
+
+body[data-theme=light] .fv-status-art[data-status=pickup],body[data-theme=silver] .fv-status-art[data-status=pickup]{color:#147572}
