@@ -2,7 +2,7 @@
 const isIso = x => typeof x==='string' && Number.isFinite(Date.parse(x)) && /T/.test(x);
 const date = x => isIso(x)?x:'';
 const empty = () => ({assignedAt:'',firstSubmittedAt:'',submittedDue:'',retakes:[]});
-const active = new Set(['waiting','recording','retake']);
+const active = new Set(['waiting','recording','retake','pickup']);
 const delivered = new Set(['received','processing','processed']);
 const dayEnd = value => typeof value==='string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
   ? new Date(value+'T23:59:59.999').getTime() : NaN;

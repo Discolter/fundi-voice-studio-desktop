@@ -1,6 +1,6 @@
 // Actor workload overview is a READ-ONLY summary across the selected project scope.
 // This is an advisory distribution metric, never a judgment of acting performance.
-export const VOICE_WORK_STAGES=Object.freeze(['waiting','recording','retake']);
+export const VOICE_WORK_STAGES=Object.freeze(['waiting','recording','retake','pickup']);
 export const IN_REVIEW_STAGES=Object.freeze(['received','processing','processed']);
 const knownLines=role=>Number.isInteger(role?.lineCount)&&role.lineCount>=0?role.lineCount:null;
 

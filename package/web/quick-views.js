@@ -1,6 +1,6 @@
 // Studio-only contextual actions, rendered outside #app so pages retain filters/scroll.
 import {rankActorsForRole,validRoleVoice,roleVoiceLabel} from './casting-assistant.js';
-const STAGES=[['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['done','Принято']];
+const STAGES=[['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['pickup','Дописать'],['done','Принято']];
 const validImage=s=>typeof s==='string'&&s.length<=150000&&/^data:image\/(?:png|webp|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/i.test(s)?s:'';
 const validTelegram=s=>typeof s==='string'&&/^https:\/\/(?:t\.me|telegram\.me)\/[A-Za-z0-9_+/-]+\/?$/.test(s)?s:'';
 export const roleSnapshot=(state,pid,eid,rid)=>{
@@ -9,11 +9,11 @@ export const roleSnapshot=(state,pid,eid,rid)=>{
 };
 export const actorLoad=(state,id)=>{
  const rows=(state?.projects||[]).filter(p=>!p.archived&&!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.filter(r=>r.actorId===id).map(r=>({p,ep,r}))));
- return {rows,debts:rows.filter(x=>['waiting','retake'].includes(x.r.status)).length};
+ return {rows,debts:rows.filter(x=>['waiting','retake','pickup'].includes(x.r.status)).length};
 };
 export const candidateScores=(state,actors)=>actors.map(actor=>{
  const {rows,debts}=actorLoad(state,actor.id);
- const nearest=rows.filter(x=>['waiting','recording','retake'].includes(x.r.status)).map(x=>x.r.due||x.ep.due).filter(Boolean).sort()[0]||'';
+ const nearest=rows.filter(x=>['waiting','recording','retake','pickup'].includes(x.r.status)).map(x=>x.r.due||x.ep.due).filter(Boolean).sort()[0]||'';
  return {actor,debts,active:rows.filter(x=>x.r.status!=='done').length,nearest};
 }).sort((a,b)=>a.debts-b.debts||a.active-b.active||a.actor.name.localeCompare(b.actor.name,'ru'));
 
@@ -35,7 +35,7 @@ export function createQuickViews({root,getState,getCloud,getRole,getReview,getSo
  function actorView(){
   const a=actor(panel?.actorId);if(!a)return '<p>Актёр больше не найден.</p>';
   const {rows,debts}=actorLoad(state(),a.id),hidden=new Set((cloud().hiddenRoles||[]).filter(x=>x.actorId===a.id).map(x=>x.roleId));
-  const filtered=rows.filter(x=>tab==='debts'?['waiting','retake'].includes(stage(x.r)):
+  const filtered=rows.filter(x=>tab==='debts'?['waiting','retake','pickup'].includes(stage(x.r)):
     tab==='history'?stage(x.r)==='done'&&hidden.has(x.r.id):!(stage(x.r)==='done'&&hidden.has(x.r.id)));
   const groups=new Map();for(const x of filtered){if(!groups.has(x.p.id))groups.set(x.p.id,{p:x.p,items:[]});groups.get(x.p.id).items.push(x);}
   const v=(cloud().vacations||[]).find(x=>x.actorId===a.id&&['active','planned'].includes(x.status));

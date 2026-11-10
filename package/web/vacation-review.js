@@ -3,7 +3,7 @@
 import {effectiveRoleDue} from './core.js';
 import {rankActorsForRole,applyRoleVoiceFromActor} from './casting-assistant.js';
 
-export const VACATION_REVIEW_STAGES=Object.freeze(['waiting','recording','retake']);
+export const VACATION_REVIEW_STAGES=Object.freeze(['waiting','recording','retake','pickup']);
 
 export function currentVacations(vacations=[]){
   const byActor=new Map();

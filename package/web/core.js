@@ -7,7 +7,7 @@ export const STAGES = [
 ];
 export const ROLE_TIERS = [['main','Главная роль'],['supporting','Второстепенная'],['extras','Массовка']];
 export const validRoleTier = value => ROLE_TIERS.some(([key])=>key===value)?value:'supporting';
-export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['done','Принято']];
+export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['pickup','Дописать'],['done','Принято']];
 export const TASK_PRIORITIES = [['urgent','Срочно'],['high','Высокий'],['normal','Обычный'],['low','Низкий']];
 export const taskPriority = value => TASK_PRIORITIES.some(([key])=>key===value)?value:'normal';
 export const taskPriorityName = value => TASK_PRIORITIES.find(([key])=>key===taskPriority(value))[1];
@@ -28,7 +28,7 @@ export const TASK_STATUS_FILTERS = [
 export const validTaskOrder = order => TASK_ORDERS.some(([key])=>key===order)?order:'priority';
 export const validTaskLineFilter = value => TASK_LINE_FILTERS.some(([key])=>key===value)?value:'all';
 export const validTaskStatusFilter = value => TASK_STATUS_FILTERS.some(([key])=>key===value)?value:'all';
-export const DEBT_STAGES = ['waiting','retake'];
+export const DEBT_STAGES = ['waiting','retake','pickup'];
 // Associate the last applied cloud review with the stored status. A director's manual
 // selection is authoritative until a NEW review/submission arrives from the server.
 // messageId changes for a new submission/feedback, but updatedAt can change merely
@@ -36,7 +36,7 @@ export const DEBT_STAGES = ['waiting','retake'];
 export const reviewVersion=review=>review?`${review.actorId||''}|${review.roleId||''}|${review.state||''}|${review.submissionId||0}|${review.messageId||0}`:'';
 export const roleReviewStage=(role,review)=>{
   if(!review||role.reviewSeen===reviewVersion(review))return role.status;
-  return review.state==='accepted'?'done':review.state==='retake'?'retake':review.state==='pending'&&!['processing','processed'].includes(role.status)?'received':role.status;
+  return review.state==='accepted'?'done':review.state==='retake'?'retake':review.state==='pickup'?(role.status==='recording'?'recording':'pickup'):review.state==='pending'&&!['processing','processed'].includes(role.status)?'received':role.status;
 };
 export function applyRoleReviews(state,reviews=[]){
   const byRole=new Map(reviews.map(item=>[item.actorId+'|'+item.roleId,item]));
@@ -222,7 +222,7 @@ export function pruneRetiredActors(state){
 }
 // Unicode markers survive plain-text copying and display correctly in Telegram.
 export const castRoleStatusEmoji=status=>
-  status==='done'?' ✅':status==='retake'?' 🔴':['processing','processed'].includes(status)?' 🟡':'';
+  status==='done'?' ✅':status==='retake'?' 🔴':status==='pickup'?' ✎':['processing','processed'].includes(status)?' 🟡':'';
 export function castText(state,p,episodeId='all') {
   const episodes=episodeId==='all'?p.episodes:p.episodes.filter(ep=>ep.id===episodeId);
   const lines=[p.title+(p.season?` · Сезон ${p.season}`:''),''];

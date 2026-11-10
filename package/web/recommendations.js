@@ -2,7 +2,7 @@
 // No background requests, automatic status changes, or messages to actors.
 const DAY = 86400000;
 const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const WORK = new Set(['waiting','recording','retake']);
+const WORK = new Set(['waiting','recording','retake','pickup']);
 const FINISHED = new Set(['done']);
 const toDay = value => {
   const text = String(value || '').slice(0,10);
@@ -102,7 +102,7 @@ export function collectRecommendations(state,cloud={},options={}){
     roles.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
     const first=roles[0],count=roles.length;
     push('remind',{...first,actor,priority,effort:2,count,
-      detail:count===1?'Роль ожидает запись или перезапись.':'Нужно напомнить о '+count+' ожидающих записях.',
+      detail:count===1?'Роль ожидает запись, перезапись или недостающие реплики.':'Нужно напомнить о '+count+' ожидающих записях.',
       linkedRoles:roles});
   }
   for(const {actor,count,knownLines,unknown} of workloads.values()){

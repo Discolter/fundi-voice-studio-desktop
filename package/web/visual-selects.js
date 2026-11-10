@@ -2,10 +2,10 @@
 // of truth for FormData, validation, existing change handlers and stored IDs.
 // Only presentation is enhanced; Actor Desktop and the web portal are untouched.
 export function installVisualSelects({getActors, getVacation=()=>null, getCharacterImage=()=>'', actorAvatar, icon}) {
-  const roleStages = new Set(['waiting','recording','received','processing','processed','retake','done']);
+  const roleStages = new Set(['waiting','recording','received','processing','processed','retake','pickup','done']);
   const stageIcons = {
     waiting:'clock', recording:'mic', received:'download', processing:'settings',
-    processed:'check', retake:'refresh', done:'check', all:'grid',
+    processed:'check', retake:'refresh', pickup:'edit', done:'check', all:'grid',
     'not-in-project':'reaper', prep:'folder', edit:'edit', mix:'settings',
     review:'search', accepted:'check', note:'chat'
   };
@@ -25,7 +25,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
   const detailText = {
     waiting:'Ожидаем запись актёра',recording:'Актёр работает над ролью',
     received:'Запись отправлена в студию',processing:'Идёт обработка аудио',
-    processed:'Обработка завершена',retake:'Нужна новая запись',
+    processed:'Обработка завершена',retake:'Нужна новая запись',pickup:'Нужно записать недостающие реплики',
     done:'Работа принята',accepted:'Работа принята',note:'Замечание актёру',
     all:'Показать все варианты','not-in-project':'Не добавлено в проект REAPER',
     original:'Исходная последовательность',workload:'Сначала самые загруженные',

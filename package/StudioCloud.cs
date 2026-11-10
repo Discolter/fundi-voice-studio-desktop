@@ -292,7 +292,7 @@ namespace FundiVoice {
             lock(gate){
                 if(!Connected()||!reviewApiAvailable)throw new CloudFault(409,"server_outdated","Подключи Studio и обнови сервер до Cloud 0.3.0.");
                 string kind=JsonData.S(body,"kind"),text=JsonData.S(body,"text").Trim();
-                if((kind!="note"&&kind!="retake"&&kind!="accepted")||text.Length>2000||((kind=="note"||kind=="retake")&&text==""))
+                if((kind!="note"&&kind!="retake"&&kind!="pickup"&&kind!="accepted")||text.Length>2000||((kind=="note"||kind=="retake"||kind=="pickup")&&text==""))
                     throw new CloudFault(400,"invalid_review","Напиши замечание до 2000 символов.");
                 var message=new Dictionary<string,object>{{"actorId",JsonData.S(body,"actorId")},{"roleId",JsonData.S(body,"roleId")},
                     {"kind",kind},{"text",text},{"requestId",Guid.NewGuid().ToString("D")},{"submissionId",JsonData.N(body,"submissionId")}};
