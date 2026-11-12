@@ -136,50 +136,69 @@ export function verifyStudioMirrorImages(expected,received){
 
 const key=t=>t.id;
 const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
-export function mergeTaskSnapshots(local,baseline,remote){
+export function mergeTaskSnapshots(local,baseline,remote,decisions=[]){
   const original=new Map((baseline?.tasks||[]).map(t=>[key(t),t]));
   const current=new Map((local.tasks||[]).map(t=>[key(t),t]));
   const incoming=new Map((remote.tasks||[]).map(t=>[key(t),t]));
   const keys=new Set([...original.keys(),...current.keys(),...incoming.keys()]);
-  const tasks=[],conflicts=[];
-  for(const id of keys){
-    const base=original.get(id),ours=current.get(id),theirs=incoming.get(id);
-    let chosen;
-    if(!baseline){chosen=theirs||ours;} // First connection: preserve web edits over stale local rows.
+  const decisionsById=new Map(decisions.map(item=>[item.id,item]));
+  const tasks=[],conflicts=[],details=[],resolved=[];
+  for(const taskId of keys){
+    const base=original.get(taskId),ours=current.get(taskId),theirs=incoming.get(taskId);
+    let chosen,collision=false;
+    if(!baseline)chosen=theirs||ours; // First connection retains existing Web work.
     else if(same(ours,theirs))chosen=ours;
     else if(same(ours,base))chosen=theirs;
     else if(same(theirs,base))chosen=ours;
     else if(base&&ours&&theirs){
-      // The same task may be edited in two windows without editing the same
-      // field (e.g. a new deadline in Web and a priority change on Windows).
-      // Merge those changes instead of blocking the entire task.
-      // Actor+role linkage is one logical unit: do not combine its two fields
-      // from different sources without explicit review.
+      // Different fields of one task can be merged. Two modifications to the
+      // same field, or a cross-source change of actor+role, require review.
       if((ours.actorId!==base.actorId&&theirs.roleId!==base.roleId)||
          (theirs.actorId!==base.actorId&&ours.roleId!==base.roleId)){
-        conflicts.push(id);continue;
+        collision=true;
+      }else{
+        const next={...base};
+        for(const field of new Set([...Object.keys(base),...Object.keys(ours),...Object.keys(theirs)])){
+          if(field==='id')continue;
+          const earlier=base[field],onWindows=ours[field],inCloud=theirs[field];
+          let value;
+          if(same(onWindows,inCloud))value=onWindows;
+          else if(same(onWindows,earlier))value=inCloud;
+          else if(same(inCloud,earlier))value=onWindows;
+          else {collision=true;break;}
+          if(value===undefined)delete next[field];
+          else next[field]=value;
+        }
+        if(!collision)chosen=next;
       }
-      const next={...base};
-      let collision=false;
-      for(const field of new Set([...Object.keys(base),...Object.keys(ours),...Object.keys(theirs)])){
-        if(field==='id')continue;
-        const earlier=base[field],onWindows=ours[field],inCloud=theirs[field];
-        let value;
-        if(same(onWindows,inCloud))value=onWindows;
-        else if(same(onWindows,earlier))value=inCloud;
-        else if(same(inCloud,earlier))value=onWindows;
-        else {collision=true;break;}
-        if(value===undefined)delete next[field];
-        else next[field]=value;
+    }else collision=true; // A deletion racing against an edit is not a silent deletion.
+
+    if(collision){
+      const id='task:'+taskId;
+      const decisionKey=JSON.stringify([id,base??null,ours??null,theirs??null]);
+      const detail={id,taskId,decisionKey,baseline:base||null,local:ours||null,remote:theirs||null};
+      const answer=decisionsById.get(id);
+      if(answer?.decisionKey===decisionKey&&['local','remote'].includes(answer.choice)){
+        chosen=answer.choice==='local'?ours:theirs;
+        resolved.push({...detail,choice:answer.choice});
+      }else{
+        conflicts.push(taskId);
+        details.push(detail);
+        continue;
       }
-      if(collision){conflicts.push(id);continue;}
-      chosen=next;
     }
-    else {conflicts.push(id);continue;}
     if(chosen)tasks.push(chosen);
   }
-  return {tasks,conflicts};
+  return {tasks,conflicts,details,resolved};
 }
+export function taskSyncDecisions(details,values){
+  return details.map((detail,index)=>{
+    const choice=values['task-sync-'+index];
+    if(!['local','remote'].includes(choice))throw Error('Выбери нужную версию для каждой задачи.');
+    return {id:detail.id,decisionKey:detail.decisionKey,choice};
+  });
+}
+
 export function mergeTaskCatalog(local,remote,baseline=null){
   const projects=local.projects.map(p=>({...p,episodes:p.episodes.map(ep=>({...ep,roles:[...ep.roles]}))}));
   const priorProjects=new Map((baseline?.projects||[]).map(p=>[p.id,p]));
