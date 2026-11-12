@@ -20,7 +20,7 @@ import {roleDeliverySnapshot,trackRoleDeliveries} from './actor-statistics.js';
 import {actorSubtabs,renderActorStatistics} from './actor-statistics-view.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
-import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog} from './task-cloud-sync.js';
+import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
 import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
@@ -53,7 +53,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
-let roleSyncConflicts=[],roleSyncDecisions=[];
+let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
 let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationSort:'easy',recommendationFilter:'all'};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
@@ -181,6 +181,11 @@ function updateCloudIndicator(){
   if(text)text.textContent=health.label;
 }
 function roleSyncBannerHTML(){
+  if(taskSyncConflicts.length){
+    const first=taskSyncConflicts[0];
+    const name=first.local?.title||first.remote?.title||first.baseline?.title||'Без названия';
+    return `<section class="role-sync-warning" role="status"><div><strong>Конфликт задач: ${taskSyncConflicts.length}</strong><p>${e(name)}${taskSyncConflicts.length>1?' и другие':''}. Выбери, какие изменения сохранить.</p></div><button class="btn primary small" data-action="cloud-resolve-task-conflict">Разобрать конфликт</button></section>`;
+  }
   if(!roleSyncConflicts.length)return '';
   const first=roleSyncConflicts[0];
   return `<section class="role-sync-warning" role="status"><div><strong>Нужно согласовать изменения ролей: ${roleSyncConflicts.length}</strong><p>${e(first.projectTitle)} · ${e(first.character)}${roleSyncConflicts.length>1?' и другие':''}. Выбери, какую версию сохранить, чтобы продолжить синхронизацию.</p></div><button class="btn primary small" data-action="cloud-resolve-conflict">Разобрать конфликт</button></section>`;
@@ -201,6 +206,28 @@ function showRoleSyncConflicts(){
     modal.close();
     await refreshAllStudio();
   });
+  modal.classList.add('role-sync-modal');
+}
+function taskSyncSummary(t){
+  if(!t)return 'Задача удалена';
+  return [t.title||'Без названия',
+    t.done?'Выполнена':'Не выполнена',
+    'Приоритет: '+(t.priority||'normal'),
+    'Срок: '+(t.due||'не задан'),
+    'Актёр: '+(t.actorId||'не назначен'),
+    'Роль: '+(t.roleId||'не указана')].join(' · ');
+}
+function showTaskSyncConflicts(){
+  if(!taskSyncConflicts.length||modal.open)return;
+  const shown=taskSyncConflicts.map(item=>({...item}));
+  const body=`<p class="setting-note">Одна и та же задача была изменена на компьютере и в облаке. Для каждого конфликта выбери, какую полную версию задачи оставить. Другие задачи сохранят свои изменения.</p><div class="role-sync-list">${shown.map((item,index)=>`<fieldset class="role-sync-card"><legend>${e(item.local?.title||item.remote?.title||item.baseline?.title||'Задача')}</legend><p class="role-sync-baseline">До изменений: ${e(taskSyncSummary(item.baseline))}</p><div class="role-sync-options"><label><input type="radio" name="task-sync-${index}" value="local" required><span>На компьютере<strong>${e(taskSyncSummary(item.local))}</strong></span></label><label><input type="radio" name="task-sync-${index}" value="remote" required><span>В облаке<strong>${e(taskSyncSummary(item.remote))}</strong></span></label></div></fieldset>`).join('')}</div>`;
+  showModal('Согласовать задачи','Конфликтных задач: '+shown.length,body,
+    'Сохранить и синхронизировать',async data=>{
+      taskSyncChoices=[...taskSyncChoices.filter(choice=>!shown.some(item=>item.id===choice.id)),
+        ...taskSyncDecisions(shown,data)];
+      modal.close();
+      await refreshAllStudio();
+    });
   modal.classList.add('role-sync-modal');
 }
 function saveStatusState(){return saveError?'error':saving?'saving':'saved';}
@@ -228,8 +255,12 @@ async function syncStudioTasks(visible=false){
     };
     const local=await addStudioMirrorToSnapshot(state,buildTaskSnapshot(state)),prior=baselineData?.known?baselineData.snapshot:null;
     requireUnchanged();
-    const merged=mergeTaskSnapshots(local,prior,remote.snapshot);
-    if(merged.conflicts.length)throw Error('Есть конфликт в '+merged.conflicts.length+' задачах: изменения Windows и сайта сделаны одновременно. Проверь данные перед повторной синхронизацией.');
+    const merged=mergeTaskSnapshots(local,prior,remote.snapshot,taskSyncChoices);
+    taskSyncConflicts=merged.details;
+    if(merged.conflicts.length){
+      const issue=Error('Есть конфликт в '+merged.conflicts.length+' задачах: изменения Windows и сайта сделаны одновременно. Выбери нужную версию.');
+      issue.taskConflicts=true;throw issue;
+    }
     const roleMerge=mergeRoleStages(local,prior,remote.snapshot,roleSyncDecisions);
     const assignmentMerge=mergeRoleAssignments(local,prior,remote.snapshot,roleSyncDecisions);
     roleSyncConflicts=[...roleMerge.details,...assignmentMerge.details];
@@ -272,7 +303,7 @@ async function syncStudioTasks(visible=false){
     requireUnchanged();
     // Only unlock pending roster publication after the reconciled disk state is saved.
     await api('cloud/roles/sync-ready',{snapshotVersion});
-    roleSyncConflicts=[];roleSyncDecisions=[];taskSyncError='';updateCloudIndicator();
+    roleSyncConflicts=[];roleSyncDecisions=[];taskSyncConflicts=[];taskSyncChoices=[];taskSyncError='';updateCloudIndicator();
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
   }catch(error){
@@ -282,6 +313,7 @@ async function syncStudioTasks(visible=false){
     }
     taskSyncError=error.message;updateCloudIndicator();
     if(error.roleConflicts&&visible)showRoleSyncConflicts();
+    if(error.taskConflicts&&visible)showTaskSyncConflicts();
     return false;
   }finally{taskSyncBusy=false;if(retry)scheduleTaskCloudSync();}
 }
@@ -1778,6 +1810,7 @@ async function action(a,d,el){
     case 'casting-assistant':castingAssistantForm(d.id,d.ep,d.item);break;
     case 'refresh-all':await refreshAllStudio(el);break;
     case 'cloud-resolve-conflict':
+    case 'cloud-resolve-task-conflict':
       if(taskSyncBusy||refreshing){toast('Дождись завершения текущей проверки.');break;}
       await syncStudioTasks(true);
       break;
