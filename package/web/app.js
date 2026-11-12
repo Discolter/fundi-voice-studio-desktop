@@ -1,3 +1,4 @@
+import {createCasting} from './casting.js';
 import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js';
 import {cloudHealth} from './cloud-health.js';
 import {outstandingCastMessage,outstandingEpisodeRoles} from './episode-debts.js';
@@ -89,7 +90,7 @@ const myRoleRows=(s,options)=>{
 const debtRows=(s,options)=>storedDebtRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
 const activeRecommendations=()=>visibleRecommendations(collectRecommendations(withRoleReviews(state,cloud.reviews||[]),cloud));
 const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).filter(a=>!a.retiredAt).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length,review:vacationReviewRows(state,cloud.vacations||[]).length,recommendations:activeRecommendations().length});
-const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['actors','users','Актёры'],['workload','workload','Нагрузка'],['actorportal','shield','Доступ актёров']];
+const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['casting','mic','Кастинг'],['actors','users','Актёры'],['workload','workload','Нагрузка'],['actorportal','shield','Доступ актёров']];
 let recoveryRequests=[],recoveryCode='';
 const vacationFor=id=>(cloud.vacations||[]).find(v=>v.actorId===id&&(v.status==='active'||v.status==='planned'));
 const activeVacation=id=>vacationFor(id)?.status==='active';
@@ -360,12 +361,14 @@ function render(){
   const selectAll=document.querySelector('#bulk-task-select-all');
   if(selectAll)selectAll.indeterminate=selectedTasks.size>0&&!selectAll.checked;
   if(focused){const input=document.querySelector('#search-input');input.focus();input.setSelectionRange(caret,caret);}
+  if(ui.siteMode==='studio'&&ui.page==='casting')casting.mount(document.querySelector('#casting-root'));
   quickViews.refresh();
   studioNavigation.record();
 }
 function renderPage(c){
   if(ui.siteMode==='cabinet')return actorCabinet.render();
   if(ui.siteMode==='site')return siteManager.render(ui.sitePage);
+  if(ui.page==='casting')return '<div id="casting-root"></div>';
   if(ui.page==='detail')return renderDetail();if(ui.page==='actors')return renderActors();if(ui.page==='workload')return renderWorkload();if(ui.page==='mytasks')return renderMyTasks();if(ui.page==='debts')return renderDebts();if(ui.page==='vacations')return renderVacations();
   if(ui.page==='recommendations')return renderRecommendations();if(ui.page==='review')return renderVacationReview();if(ui.page==='recovery')return renderRecoveries();if(ui.page==='actorportal')return renderActorPortal();if(ui.page==='settings')return renderSettings();return renderProjects(c);
 }
@@ -2332,6 +2335,7 @@ async function boot(){
     if(native){
       scheduleTaskCloudSync();setInterval(()=>syncStudioTasks().catch(()=>{}),45000);
       startUpdateNotice({api,label:'Studio',beforeRestart:async()=>{
+        if(casting.busy){toast('Дождись окончания загрузки пробы или останови её перед обновлением.',true);return false;}
         if(cloud.transfer?.state==='running'){toast('Дождись завершения передачи файлов перед обновлением.',true);return false;}
         if(saving)await flushSave();
         if(saveError){toast('Не удалось сохранить Studio: '+saveError,true);return false;}
@@ -2348,5 +2352,11 @@ installVisualSelects({
     getEpisode(getProject(ui.project),ui.episode)?.roles||[],key),
   actorAvatar:actorPickAvatar,icon
 });
-boot();
+function castingDownload(result){
+ if(!/^\/v1\/studio\/files\/content\?/.test(result.downloadPath||''))throw Error('Неверная ссылка на пробу.');
+ const a=document.createElement('a');a.href=(cloud.server||'https://fundi-voice-cloud.onrender.com')+result.downloadPath;a.download=result.fileName||'';a.target='_blank';a.rel='noopener noreferrer';document.body.append(a);a.click();a.remove();
+}
 
+const casting=createCasting({owner:true,identity:()=>cloud.server+'|'+cloud.connected,
+ request:(action,data)=>api('cloud/casting',{action,data:data||{}}),download:castingDownload});
+boot();
