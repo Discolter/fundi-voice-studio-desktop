@@ -136,24 +136,69 @@ export function verifyStudioMirrorImages(expected,received){
 
 const key=t=>t.id;
 const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
-export function mergeTaskSnapshots(local,baseline,remote){
+export function mergeTaskSnapshots(local,baseline,remote,decisions=[]){
   const original=new Map((baseline?.tasks||[]).map(t=>[key(t),t]));
   const current=new Map((local.tasks||[]).map(t=>[key(t),t]));
   const incoming=new Map((remote.tasks||[]).map(t=>[key(t),t]));
   const keys=new Set([...original.keys(),...current.keys(),...incoming.keys()]);
-  const tasks=[],conflicts=[];
-  for(const id of keys){
-    const base=original.get(id),ours=current.get(id),theirs=incoming.get(id);
-    let chosen;
-    if(!baseline){chosen=theirs||ours;} // First connection: preserve web edits over stale local rows.
+  const decisionsById=new Map(decisions.map(item=>[item.id,item]));
+  const tasks=[],conflicts=[],details=[],resolved=[];
+  for(const taskId of keys){
+    const base=original.get(taskId),ours=current.get(taskId),theirs=incoming.get(taskId);
+    let chosen,collision=false;
+    if(!baseline)chosen=theirs||ours; // First connection retains existing Web work.
     else if(same(ours,theirs))chosen=ours;
     else if(same(ours,base))chosen=theirs;
     else if(same(theirs,base))chosen=ours;
-    else {conflicts.push(id);continue;}
+    else if(base&&ours&&theirs){
+      // Different fields of one task can be merged. Two modifications to the
+      // same field, or a cross-source change of actor+role, require review.
+      if((ours.actorId!==base.actorId&&theirs.roleId!==base.roleId)||
+         (theirs.actorId!==base.actorId&&ours.roleId!==base.roleId)){
+        collision=true;
+      }else{
+        const next={...base};
+        for(const field of new Set([...Object.keys(base),...Object.keys(ours),...Object.keys(theirs)])){
+          if(field==='id')continue;
+          const earlier=base[field],onWindows=ours[field],inCloud=theirs[field];
+          let value;
+          if(same(onWindows,inCloud))value=onWindows;
+          else if(same(onWindows,earlier))value=inCloud;
+          else if(same(inCloud,earlier))value=onWindows;
+          else {collision=true;break;}
+          if(value===undefined)delete next[field];
+          else next[field]=value;
+        }
+        if(!collision)chosen=next;
+      }
+    }else collision=true; // A deletion racing against an edit is not a silent deletion.
+
+    if(collision){
+      const id='task:'+taskId;
+      const decisionKey=JSON.stringify([id,base??null,ours??null,theirs??null]);
+      const detail={id,taskId,decisionKey,baseline:base||null,local:ours||null,remote:theirs||null};
+      const answer=decisionsById.get(id);
+      if(answer?.decisionKey===decisionKey&&['local','remote'].includes(answer.choice)){
+        chosen=answer.choice==='local'?ours:theirs;
+        resolved.push({...detail,choice:answer.choice});
+      }else{
+        conflicts.push(taskId);
+        details.push(detail);
+        continue;
+      }
+    }
     if(chosen)tasks.push(chosen);
   }
-  return {tasks,conflicts};
+  return {tasks,conflicts,details,resolved};
 }
+export function taskSyncDecisions(details,values){
+  return details.map((detail,index)=>{
+    const choice=values['task-sync-'+index];
+    if(!['local','remote'].includes(choice))throw Error('Выбери нужную версию для каждой задачи.');
+    return {id:detail.id,decisionKey:detail.decisionKey,choice};
+  });
+}
+
 export function mergeTaskCatalog(local,remote,baseline=null){
   const projects=local.projects.map(p=>({...p,episodes:p.episodes.map(ep=>({...ep,roles:[...ep.roles]}))}));
   const priorProjects=new Map((baseline?.projects||[]).map(p=>[p.id,p]));
@@ -244,3 +289,103 @@ export function addRoleStagesToCatalog(catalog,stages){
     }))}))}))};
 }
 
+
+// Owner-only two-way casting sync. Role IDs identify the assignment; display names
+// are metadata, never identity. Windows remains responsible for files and notes.
+const roleEntries=snapshot=>new Map((snapshot?.projects||[]).flatMap(p=>(p.episodes||[])
+  .flatMap(ep=>(ep.roles||[]).map(r=>[p.id+':'+ep.id+':'+r.id,{p,ep,r}]))));
+const roleActor=entry=>entry?.r?.actorId||'';
+const actorLabel=(snapshot,id,role)=>id
+  ?(snapshot?.actors||[]).find(actor=>actor.id===id)?.name||role?.actor||id
+  :'Не назначен';
+
+export function mergeRoleAssignments(local,baseline,remote,decisions=[]){
+  const ours=roleEntries(local),before=roleEntries(baseline),theirs=roleEntries(remote);
+  const choices=new Map(decisions.map(choice=>[choice.id,choice]));
+  const assignments=[],conflicts=[],details=[],resolved=[];
+  const localActors=new Set((local.actors||[]).map(actor=>actor.id));
+  for(const [key,entry] of ours){
+    const incoming=theirs.get(key);
+    if(!incoming)continue; // Remote-only catalogue entries do not erase local roles.
+    const previous=before.get(key);
+    const localId=roleActor(entry),remoteId=roleActor(incoming),priorId=roleActor(previous);
+    let target=localId;
+    const firstSync=!baseline||!previous;
+    let needsReview=false;
+    if(localId===remoteId){/* Already synchronized. */}
+    else if(firstSync){
+      if(!localId)target=remoteId; // Adopt the cloud's initial cast.
+      else if(!remoteId)target=localId; // Preserve a new offline casting.
+      else needsReview=true; // Two different non-empty first-time casts.
+    }else if(localId===priorId)target=remoteId;
+    else if(remoteId===priorId)target=localId;
+    else needsReview=true;
+
+    const id='assignment:'+key;
+    const decisionKey=JSON.stringify([id,priorId,localId,remoteId,
+      entry.r.character||'',incoming.r.character||'',entry.r.status||'',incoming.r.status||'']);
+    const detail={
+      kind:'assignment',id,decisionKey,projectId:entry.p.id,episodeId:entry.ep.id,roleId:entry.r.id,
+      projectTitle:entry.p.title||'',season:entry.p.season||'',episodeNumber:entry.ep.number||'',
+      episodeTitle:entry.ep.title||'',character:entry.r.character||'',actor:entry.r.actor||'',
+      image:entry.r.image||'',baselineActor:actorLabel(baseline,priorId,previous?.r),
+      localActor:actorLabel(local,localId,entry.r),remoteActor:actorLabel(remote,remoteId,incoming.r),
+      localActorId:localId,remoteActorId:remoteId
+    };
+    const choice=choices.get(id);
+    if(needsReview){
+      if(choice?.decisionKey===decisionKey&&['local','remote'].includes(choice.choice)){
+        target=choice.choice==='local'?localId:remoteId;
+        resolved.push({...detail,choice:choice.choice,actorId:target});
+      }else{
+        conflicts.push(id);details.push(detail);continue;
+      }
+    }
+    // Never create a fabricated actor card or silently reassign to a missing ID.
+    // The owner must first add that actor to the local cast.
+    if(target&&!localActors.has(target)){
+      if(choice?.decisionKey===decisionKey&&choice.choice==='local'&&(!localId||localActors.has(localId))){
+        target=localId;
+        resolved.push({...detail,choice:'local',actorId:target});
+      }else{
+        conflicts.push(id);
+        details.push({...detail,missingActor:true});
+        continue;
+      }
+    }
+    const label=target
+      ?(local.actors||[]).find(actor=>actor.id===target)?.name||actorLabel(remote,target,incoming.r)
+      :'';
+    assignments.push({id:key,actorId:target,actor:label});
+  }
+  return {assignments,conflicts,details,resolved};
+}
+
+export function applyRoleAssignments(state,assignments){
+  const selected=new Map(assignments.map(item=>[item.id,item]));
+  let changed=false;
+  for(const p of state.projects||[])for(const ep of p.episodes||[])for(const r of ep.roles||[]){
+    const incoming=selected.get(p.id+':'+ep.id+':'+r.id);
+    if(!incoming)continue;
+    const newId=incoming.actorId||'';
+    const known=(state.actors||[]).find(a=>a.id===newId);
+    if(newId&&!known)throw Error('Нельзя синхронизировать роль '+r.character+': актёр отсутствует в Windows Studio.');
+    const newName=newId?known.name:'';
+    if(r.actorId!==newId||r.actor!==newName){
+      if(r.actorId!==newId){r.reviewSeen='';r.reviewCandidates=[];}
+      r.actorId=newId;r.actor=newName;changed=true;
+    }
+  }
+  return changed;
+}
+
+export function addRoleAssignmentsToCatalog(catalog,assignments){
+  const selected=new Map(assignments.map(item=>[item.id,item]));
+  return {...catalog,projects:(catalog.projects||[]).map(p=>({...p,
+    episodes:(p.episodes||[]).map(ep=>({...ep,
+      roles:(ep.roles||[]).map(r=>{
+        const match=selected.get(p.id+':'+ep.id+':'+r.id);
+        return match?{...r,actorId:match.actorId,actor:match.actor}:r;
+      })
+    }))}))};
+}

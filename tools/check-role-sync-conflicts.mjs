@@ -42,7 +42,7 @@ async function scenario({choice,failDisk=false,newEditWhileSaving=false,changeCl
  const calls=[];let savedSnapshot=structuredClone(remote),version=4,opened=0,retried=0;
  const review={actorId:'a',roleId:'r',state:'pending',submissionId:10,messageId:20};
  const context=vm.createContext({...sync,state,native:true,cloud:{connected:true,reviews:[review]},modal:{open:false},
-  saving:false,saveError:'',localEditRevision:0,taskSyncBusy:false,taskSyncError:'',roleSyncConflicts:[],roleSyncDecisions:choice||[],
+  saving:false,saveError:'',localEditRevision:0,taskSyncBusy:false,taskSyncError:'',roleSyncConflicts:[],roleSyncDecisions:choice||[],taskSyncConflicts:[],taskSyncChoices:[],
   JSON,console,updateCloudIndicator(){},toast(){},render(){},isActorPickerOpen:()=>false,
   reviewVersion,reviewForRole:role=>role.id==='r'?review:null,
   async addStudioMirrorToSnapshot(s,snapshot){return snapshot;},
@@ -98,7 +98,7 @@ assert.equal(result.ok,false);assert.ok(!result.calls.includes('cloud/roles/sync
 
 // Exercise the actual dialog and submit callback with untrusted role names.
 let body='',handler,refreshes=0;
-const ui=vm.createContext({roleSyncConflicts:merged.details,roleSyncDecisions:[{id:'older',decisionKey:'preserve',choice:'local'}],
+const ui=vm.createContext({taskSyncConflicts:[],roleSyncConflicts:merged.details,roleSyncDecisions:[{id:'older',decisionKey:'preserve',choice:'local'}],
  modal:{open:false,classList:{add(){}},close(){this.open=false;}},e:escapeHTML,roleStageName,roleStageDecisions:sync.roleStageDecisions,
  studioRolePortrait:()=>'<span class="portrait"></span>',
  showModal(title,subtitle,html,label,submit){body=html;handler=submit;ui.modal.open=true;},
