@@ -8,6 +8,7 @@ export const STAGES = [
 export const ROLE_TIERS = [['main','Главная роль'],['supporting','Второстепенная'],['extras','Массовка']];
 export const validRoleTier = value => ROLE_TIERS.some(([key])=>key===value)?value:'supporting';
 export const ROLE_STAGES = [['waiting','Жду запись'],['recording','В записи'],['received','Получено'],['processing','Обрабатываю'],['retake','На перезапись'],['pickup','Дописать'],['done','Принято']];
+export const ROLE_ASSIGNMENT_FILTERS = [['all','Все роли'],['assigned','Назначены актёрам'],['unassigned','Без актёра']];
 export const TASK_PRIORITIES = [['urgent','Срочно'],['high','Высокий'],['normal','Обычный'],['low','Низкий']];
 export const taskPriority = value => TASK_PRIORITIES.some(([key])=>key===value)?value:'normal';
 export const taskPriorityName = value => TASK_PRIORITIES.find(([key])=>key===taskPriority(value))[1];
@@ -94,6 +95,9 @@ export const cleanTelegram = v => str(v,150).trim().replace(/^https?:\/\/(?:www\
 export function newActor(input={}) { return {id:uid(),name:'',telegram:'',voiceGroup:'',castGroup:'',avatar:'',avatarPreview:'',avatarThumbSource:'',notes:'',demos:[],actorAccess:false,retiredAt:'',...input}; }
 export const actorForRole = (state,r) => (state.actors||[]).find(a=>a.id===r.actorId) || null;
 export const actorName = (state,r) => { const a=actorForRole(state,r); return a?.retiredAt?a.name+' (Удалённый актёр)':a?.name||r.actor||''; };
+// Registration and recording status do not determine whether a role is assigned.
+// Keep legacy name-only and missing/retired profile assignments out of empty roles.
+export const episodeRoleHasActor = role => !!(String(role.actorId||'').trim()||String(role.actor||'').trim());
 // Episode-only actor filtering and workload order. Does not mutate actor assignments.
 export function episodeRoleActorKey(state, role) {
   const actor=actorForRole(state,role);
@@ -166,12 +170,13 @@ export function episodeRoleCharacterImage(roles, characterKey) {
   }
   return '';
 }
-export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', characterKey='all', order='original'}={}) {
+export function filterEpisodeRoles(state, roles, {status='all', actorKey='all', characterKey='all', assignment='all', order='original'}={}) {
   const all=episodeRoleActorOptions(state,roles);
   const counts=new Map(all.map(actor=>[actor.key,actor.count]));
   const rows=roles.filter(role=>(status==='all'||
       (status==='not-in-project'?!role.inProject:role.status===status))&&
       (actorKey==='all'||episodeRoleActorKey(state,role)===actorKey)&&
+      (assignment==='all'||(assignment==='assigned'?episodeRoleHasActor(role):!episodeRoleHasActor(role)))&&
       (characterKey==='all'||episodeRoleCharacterKey(role)===characterKey));
   if(order==='workload'||order==='actor'){
     rows.sort((a,b)=>{
