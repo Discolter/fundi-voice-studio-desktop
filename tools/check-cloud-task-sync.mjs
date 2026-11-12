@@ -60,7 +60,7 @@ test('owner can explicitly resolve overlapping or deletion task conflicts',()=>{
     assert.deepEqual(accepted.conflicts,[]);
     assert.equal(accepted.tasks[0].priority,expected);
     const changed=structuredClone(remote);
-    changed.tasks[0].priority='high';
+    changed.tasks[0].priority='normal';
     assert.deepEqual(mergeTaskSnapshots(local,base,changed,choices).conflicts,['a'],
       'Stale decisions cannot overwrite a newer cloud task');
   }
