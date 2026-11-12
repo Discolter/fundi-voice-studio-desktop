@@ -133,6 +133,14 @@ namespace FundiVoice {
                 SaveFileAlerts();
             }
         }
+        public object Casting(Dictionary<string,object> body){
+            string action=JsonData.S(body,"action"),path;
+            if(action=="")path="/v1/studio/casting";
+            else if(action=="save"||action=="files/review"||action=="files/download")path="/v1/studio/casting/"+action;
+            else if(action=="files/delete")path="/v1/studio/files/delete";
+            else throw new CloudFault(400,"invalid_casting_action","Неизвестное действие кастинга.");
+            return FileRequest(path,action==""?"GET":"POST",action==""?null:JsonData.D(body.ContainsKey("data")?body["data"]:null));
+        }
         Dictionary<string,object> FileRequest(string path,string method,object body){
             lock(syncGate){
                 string server,token;
