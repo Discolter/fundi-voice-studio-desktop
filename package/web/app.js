@@ -20,7 +20,7 @@ import {roleDeliverySnapshot,trackRoleDeliveries} from './actor-statistics.js';
 import {actorSubtabs,renderActorStatistics} from './actor-statistics-view.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
-import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions} from './task-cloud-sync.js';
+import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
 import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
@@ -183,7 +183,7 @@ function updateCloudIndicator(){
 function roleSyncBannerHTML(){
   if(!roleSyncConflicts.length)return '';
   const first=roleSyncConflicts[0];
-  return `<section class="role-sync-warning" role="status"><div><strong>Нужно согласовать этапы ролей: ${roleSyncConflicts.length}</strong><p>${e(first.projectTitle)} · ${e(first.character)}${roleSyncConflicts.length>1?' и другие':''}. Выбери нужный этап, чтобы продолжить синхронизацию.</p></div><button class="btn primary small" data-action="cloud-resolve-conflict">Разобрать конфликт</button></section>`;
+  return `<section class="role-sync-warning" role="status"><div><strong>Нужно согласовать изменения ролей: ${roleSyncConflicts.length}</strong><p>${e(first.projectTitle)} · ${e(first.character)}${roleSyncConflicts.length>1?' и другие':''}. Выбери, какую версию сохранить, чтобы продолжить синхронизацию.</p></div><button class="btn primary small" data-action="cloud-resolve-conflict">Разобрать конфликт</button></section>`;
 }
 function updateRoleSyncBanner(){
   const slot=document.querySelector('#role-sync-alert');
@@ -195,8 +195,8 @@ function updateRoleSyncBanner(){
 function showRoleSyncConflicts(){
   if(!roleSyncConflicts.length||modal.open)return;
   const shown=roleSyncConflicts.map(item=>({...item}));
-  const body=`<p class="setting-note">На компьютере и в облаке разные этапы. Укажи, какой сохранить для каждого персонажа. После подтверждения Studio повторно проверит изменения.</p><div class="role-sync-list">${shown.map((item,index)=>`<fieldset class="role-sync-card"><legend>${e(item.character||'Без имени')}</legend><div class="role-sync-identity">${studioRolePortrait(item)}<div><strong>${e(item.projectTitle)}</strong><p>Сезон ${e(item.season||'—')} · Серия ${e(item.episodeNumber||'—')}${item.episodeTitle?' · '+e(item.episodeTitle):''}</p><p>${e(item.actor||'Актёр не назначен')}</p></div></div><p class="role-sync-baseline">При последней синхронизации: ${e(item.baselineStatus?roleStageName(item.baselineStatus):'Этап не указан')}</p><div class="role-sync-options"><label><input type="radio" name="role-sync-${index}" value="local" required><span>На компьютере<strong>${e(roleStageName(item.localStatus))}</strong></span></label><label><input type="radio" name="role-sync-${index}" value="remote" required><span>В облаке<strong>${e(roleStageName(item.remoteStatus))}</strong></span></label></div></fieldset>`).join('')}</div>`;
-  showModal('Согласовать этапы ролей','Ролей с разными этапами: '+shown.length,body,'Сохранить и синхронизировать',async data=>{
+  const body=`<p class="setting-note">На компьютере и в облаке различаются этапы или назначения. Выбери нужную версию для каждого персонажа. После подтверждения Studio повторно проверит изменения.</p><div class="role-sync-list">${shown.map((item,index)=>`<fieldset class="role-sync-card"><legend>${e(item.character||'Без имени')}</legend><div class="role-sync-identity">${studioRolePortrait(item)}<div><strong>${e(item.projectTitle)}</strong><p>Сезон ${e(item.season||'—')} · Серия ${e(item.episodeNumber||'—')}${item.episodeTitle?' · '+e(item.episodeTitle):''}</p><p>${e(item.actor||'Актёр не назначен')}</p></div></div><p class="role-sync-baseline">При последней синхронизации: ${e(item.kind==='assignment'?item.baselineActor:(item.baselineStatus?roleStageName(item.baselineStatus):'Этап не указан'))}</p><div class="role-sync-options"><label><input type="radio" name="role-sync-${index}" value="local" required><span>На компьютере<strong>${e(item.kind==='assignment'?item.localActor:roleStageName(item.localStatus))}</strong></span></label><label><input type="radio" name="role-sync-${index}" value="remote" required><span>В облаке<strong>${e(item.kind==='assignment'?item.remoteActor:roleStageName(item.remoteStatus))}</strong></span></label></div></fieldset>`).join('')}</div>`;
+  showModal('Согласовать изменения ролей','Конфликтных ролей: '+shown.length,body,'Сохранить и синхронизировать',async data=>{
     roleSyncDecisions=[...roleSyncDecisions.filter(choice=>!shown.some(item=>item.id===choice.id)),...roleStageDecisions(shown,data)];
     modal.close();
     await refreshAllStudio();
@@ -231,12 +231,14 @@ async function syncStudioTasks(visible=false){
     const merged=mergeTaskSnapshots(local,prior,remote.snapshot);
     if(merged.conflicts.length)throw Error('Есть конфликт в '+merged.conflicts.length+' задачах: изменения Windows и сайта сделаны одновременно. Проверь данные перед повторной синхронизацией.');
     const roleMerge=mergeRoleStages(local,prior,remote.snapshot,roleSyncDecisions);
-    roleSyncConflicts=roleMerge.details;
-    if(roleMerge.conflicts.length){
+    const assignmentMerge=mergeRoleAssignments(local,prior,remote.snapshot,roleSyncDecisions);
+    roleSyncConflicts=[...roleMerge.details,...assignmentMerge.details];
+    if(roleMerge.conflicts.length||assignmentMerge.conflicts.length){
       const issue=Error('Нужно согласовать этапы ролей: '+roleMerge.conflicts.length+'. Нажми «Разобрать конфликт».');
       issue.roleConflicts=true;throw issue;
     }
-    const catalog=addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot,prior),roleMerge.stages);
+    const catalog=addRoleAssignmentsToCatalog(
+      addRoleStagesToCatalog(mergeTaskCatalog(local,remote.snapshot,prior),roleMerge.stages),assignmentMerge.assignments);
     const snapshot={...catalog,tasks:merged.tasks};
     const different=JSON.stringify(snapshot)!==JSON.stringify(remote.snapshot);
     const published=different?await api('cloud/tasks/write',{baseVersion:remote.version,snapshot}):null;
@@ -248,6 +250,7 @@ async function syncStudioTasks(visible=false){
     lastImageSync=verifyStudioMirrorImages(snapshot,confirmed.snapshot);
     const snapshotVersion=published?.version??remote.version;
     const tasksModified=applyTaskSnapshot(state,merged.tasks);
+    const assignmentsModified=applyRoleAssignments(state,assignmentMerge.assignments);
     const stagesModified=applyRoleStages(state,roleMerge.stages);
     let reviewsModified=false;
     for(const resolved of roleMerge.resolved){
@@ -257,7 +260,7 @@ async function syncStudioTasks(visible=false){
       // submission still has a new review version and will be applied normally.
       if(version&&role.reviewSeen!==version){role.reviewSeen=version;reviewsModified=true;}
     }
-    const modified=tasksModified||stagesModified||reviewsModified;
+    const modified=tasksModified||assignmentsModified||stagesModified||reviewsModified;
     if(modified){
       persist();editRevision=localEditRevision;await flushSave();
       if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);
