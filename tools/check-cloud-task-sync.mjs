@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {seedState,newProject} from '../package/web/core.js';
-import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot} from '../package/web/task-cloud-sync.js';
+import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,taskSyncDecisions} from '../package/web/task-cloud-sync.js';
 
 const workspace=seedState(),p=newProject({title:'Тестовая серия'}),ep=p.episodes[0];
 workspace.projects=[p];workspace.actors=[{id:'actor-1',name:'Тестовый актёр'}];
@@ -45,6 +45,30 @@ test('independent fields merge but conflicting task edits still require review',
     'Actor and role linkage must not be merged independently');
   const untouched=mergeTaskSnapshots(base,base,{...base,tasks:[]});
   assert.equal(untouched.tasks.length,0);
+});
+test('owner can explicitly resolve overlapping or deletion task conflicts',()=>{
+  const base=buildTaskSnapshot(workspace);
+  const local={...base,tasks:[{...base.tasks[0],priority:'urgent'}]};
+  const remote={...base,tasks:[{...base.tasks[0],priority:'low'}]};
+  const found=mergeTaskSnapshots(local,base,remote);
+  assert.deepEqual(found.conflicts,['a']);
+  assert.equal(found.details[0].id,'task:a');
+  assert.throws(()=>taskSyncDecisions(found.details,{}),/Выбери/);
+  for(const [selection,expected] of [['local','urgent'],['remote','low']]){
+    const choices=taskSyncDecisions(found.details,{'task-sync-0':selection});
+    const accepted=mergeTaskSnapshots(local,base,remote,choices);
+    assert.deepEqual(accepted.conflicts,[]);
+    assert.equal(accepted.tasks[0].priority,expected);
+    const changed=structuredClone(remote);
+    changed.tasks[0].priority='high';
+    assert.deepEqual(mergeTaskSnapshots(local,base,changed,choices).conflicts,['a'],
+      'Stale decisions cannot overwrite a newer cloud task');
+  }
+  const deleted={...base,tasks:[]};
+  assert.deepEqual(mergeTaskSnapshots(local,base,deleted).conflicts,['a']);
+  const drop=mergeTaskSnapshots(local,base,deleted,taskSyncDecisions(
+    mergeTaskSnapshots(local,base,deleted).details,{'task-sync-0':'remote'}));
+  assert.deepEqual(drop.tasks,[]);
 });
 test('applies remote tasks by episode without replacing actors and roles',()=>{
   const base=buildTaskSnapshot(workspace);
