@@ -149,6 +149,32 @@ export function mergeTaskSnapshots(local,baseline,remote){
     else if(same(ours,theirs))chosen=ours;
     else if(same(ours,base))chosen=theirs;
     else if(same(theirs,base))chosen=ours;
+    else if(base&&ours&&theirs){
+      // The same task may be edited in two windows without editing the same
+      // field (e.g. a new deadline in Web and a priority change on Windows).
+      // Merge those changes instead of blocking the entire task.
+      // Actor+role linkage is one logical unit: do not combine its two fields
+      // from different sources without explicit review.
+      if((ours.actorId!==base.actorId&&theirs.roleId!==base.roleId)||
+         (theirs.actorId!==base.actorId&&ours.roleId!==base.roleId)){
+        conflicts.push(id);continue;
+      }
+      const next={...base};
+      let collision=false;
+      for(const field of new Set([...Object.keys(base),...Object.keys(ours),...Object.keys(theirs)])){
+        if(field==='id')continue;
+        const earlier=base[field],onWindows=ours[field],inCloud=theirs[field];
+        let value;
+        if(same(onWindows,inCloud))value=onWindows;
+        else if(same(onWindows,earlier))value=inCloud;
+        else if(same(inCloud,earlier))value=onWindows;
+        else {collision=true;break;}
+        if(value===undefined)delete next[field];
+        else next[field]=value;
+      }
+      if(collision){conflicts.push(id);continue;}
+      chosen=next;
+    }
     else {conflicts.push(id);continue;}
     if(chosen)tasks.push(chosen);
   }
