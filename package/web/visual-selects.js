@@ -42,6 +42,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
     return node;
   };
   function kind(select) {
+    if(select.id === 'role-assignment-filter') return 'assignment';
     if(select.id === 'task-priority-filter' || select.classList.contains('task-priority-select') || select.name === 'priority' && select.options.length === 4) return 'priority';
     if(select.id === 'role-actor-filter' || select.id === 'task-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
     if(select.id === 'role-character-filter') return 'character';
@@ -66,6 +67,11 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
   function detailsFor(option, type) {
     const value = option.value;
     const label = option.textContent.trim();
+    if(type === 'assignment') {
+      return {label:label.replace(/\s+\(\d+\)$/,''),
+        subtitle:{all:'Показать все роли серии',assigned:'У роли уже есть исполнитель',unassigned:'Нужно назначить актёра'}[value]||'',
+        count:label.match(/\((\d+)\)$/)?.[1]||'',actor:null,value};
+    }
     if(type === 'actor') {
       const name = label.replace(/\s+\(\d+\)$/, '');
       const count = label.match(/\((\d+)\)$/);
@@ -95,7 +101,11 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
   }
   function artFor(detail, type) {
     const art = element('span','fv-option-art');
-    if(type === 'actor') {
+    if(type === 'assignment') {
+      art.classList.add('fv-assignment-art');
+      art.dataset.assignment = detail.value;
+      art.innerHTML = icon({all:'grid',assigned:'check',unassigned:'users'}[detail.value]||'grid');
+    } else if(type === 'actor') {
       art.classList.add('fv-actor-art');
       if(detail.actor) art.innerHTML = actorAvatar(detail.actor);
       else art.innerHTML = icon(detail.value === 'all' || detail.value === 'unassigned' ? 'users' : 'users');
@@ -142,12 +152,12 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
     content.append(artFor(d,type));
     const words = element('span','fv-option-words');
     words.append(element('strong','fv-option-name',d.label));
-    if(!condensed && (type === 'actor' || type === 'character' || type === 'status' || type === 'sort' || type === 'priority' || type === 'lines' || type === 'project') && d.subtitle)
+    if(!condensed && (type === 'actor' || type === 'character' || type === 'status' || type === 'sort' || type === 'priority' || type === 'lines' || type === 'project' || type === 'assignment') && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
     if(condensed && type === 'actor' && d.subtitle)
       words.append(element('small','fv-option-subtitle',d.subtitle));
     content.append(words);
-    if(d.count && !condensed) content.append(element('span','fv-choice-count',d.count));
+    if(d.count && (!condensed || type === 'assignment')) content.append(element('span','fv-choice-count',d.count));
     return content;
   }
 
@@ -170,6 +180,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
     if(select.id === 'episode-select') wrapper.classList.add('fv-episode-select');
     if(select.id === 'role-actor-filter') wrapper.classList.add('fv-role-actor-filter');
     if(select.id === 'role-character-filter') wrapper.classList.add('fv-role-character-filter');
+    if(select.id === 'role-assignment-filter') wrapper.classList.add('fv-role-assignment-filter');
     if(select.id === 'role-order') wrapper.classList.add('fv-role-order');
     if(select.classList.contains('task-priority-select')) wrapper.classList.add('fv-task-priority');
     if(select.id === 'task-priority-filter') wrapper.classList.add('fv-priority-filter');

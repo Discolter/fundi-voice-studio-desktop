@@ -4,6 +4,10 @@
 .fv-select.fv-role-status{width:100%;min-width:136px;max-width:192px}
 .fv-select.fv-role-actor-filter{min-width:210px}
 .fv-select.fv-role-character-filter{min-width:178px;width:210px;max-width:230px}
+.fv-select.fv-role-assignment-filter{min-width:235px}
+.fv-assignment-art[data-assignment=all]{color:#a4bafa;background:#8da8f11a;border-color:#8da8f142}
+.fv-assignment-art[data-assignment=assigned]{color:#66dfa4;background:#32a36d23;border-color:#4abb813d}
+.fv-assignment-art[data-assignment=unassigned]{color:#f3c668;background:#cf9b3a23;border-color:#d7aa5140}
 .fv-type-character .fv-character-art{color:#d1abff;background:#a876ed1c;border-color:#a876ed4a}
 .fv-dropdown-character .fv-character-art{width:36px;height:36px;flex-basis:36px}
 .fv-role-character-filter .fv-character-art{width:32px;height:32px;flex-basis:32px}
@@ -76,7 +80,7 @@
 .scan-item .fv-option-art{width:25px;height:25px;flex-basis:25px}
 @media(max-width:700px){
  .role-toolbar .fv-select{width:100%;max-width:100%}
- .fv-select.fv-row,.fv-select.fv-role-actor-filter,.fv-select.fv-role-character-filter,.fv-select.fv-role-order{min-width:0}
+ .fv-select.fv-row,.fv-select.fv-role-actor-filter,.fv-select.fv-role-character-filter,.fv-select.fv-role-assignment-filter,.fv-select.fv-role-order{min-width:0}
  .fv-dropdown{max-width:calc(100vw - 16px)}
  .scan-item .fv-select{width:135px}
 }
