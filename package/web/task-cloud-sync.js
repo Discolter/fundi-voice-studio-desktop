@@ -299,17 +299,19 @@ export function mergeRoleAssignments(local,baseline,remote,decisions=[]){
     // Never create a fabricated actor card or silently reassign to a missing ID.
     // The owner must first add that actor to the local cast.
     if(target&&!localActors.has(target)){
-      conflicts.push(id);
-      details.push({...detail,missingActor:true});
-      continue;
+      if(choice?.decisionKey===decisionKey&&choice.choice==='local'&&(!localId||localActors.has(localId))){
+        target=localId;
+        resolved.push({...detail,choice:'local',actorId:target});
+      }else{
+        conflicts.push(id);
+        details.push({...detail,missingActor:true});
+        continue;
+      }
     }
-    const selected=target===remoteId?incoming:entry;
     const label=target
-      ?actorLabel(local,target,entry.r)===(entry.r.actor||'')&&target===localId
-        ?(local.actors||[]).find(actor=>actor.id===target)?.name||entry.r.actor
-        :(local.actors||[]).find(actor=>actor.id===target)?.name||actorLabel(remote,target,incoming.r)
+      ?(local.actors||[]).find(actor=>actor.id===target)?.name||actorLabel(remote,target,incoming.r)
       :'';
-    assignments.push({id:key,actorId:target,actor:label||selected.r.actor||''});
+    assignments.push({id:key,actorId:target,actor:label});
   }
   return {assignments,conflicts,details,resolved};
 }
