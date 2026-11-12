@@ -29,12 +29,20 @@ test('three-way merges independent edits without overwriting completed updates',
   assert.equal(merged.tasks.length,3);
   assert.equal(merged.tasks.find(t=>t.id==='a').priority,'urgent');
 });
-test('conflicts do not silently win and remote deletions persist',()=>{
+test('independent fields merge but conflicting task edits still require review',()=>{
   const base=buildTaskSnapshot(workspace);
   const local={...base,tasks:[{...base.tasks[0],priority:'urgent'}]};
   const remote={...base,tasks:[{...base.tasks[0],title:'Edit in Web'}]};
   const merged=mergeTaskSnapshots(local,base,remote);
-  assert.deepEqual(merged.conflicts,['a']);
+  assert.deepEqual(merged.conflicts,[]);
+  assert.equal(merged.tasks[0].title,'Edit in Web');
+  assert.equal(merged.tasks[0].priority,'urgent');
+  const overlapping={...base,tasks:[{...base.tasks[0],priority:'low'}]};
+  assert.deepEqual(mergeTaskSnapshots(local,base,overlapping).conflicts,['a']);
+  const changingActor={...base,tasks:[{...base.tasks[0],actorId:'another'}]};
+  const changingRole={...base,tasks:[{...base.tasks[0],roleId:'other-role'}]};
+  assert.deepEqual(mergeTaskSnapshots(changingActor,base,changingRole).conflicts,['a'],
+    'Actor and role linkage must not be merged independently');
   const untouched=mergeTaskSnapshots(base,base,{...base,tasks:[]});
   assert.equal(untouched.tasks.length,0);
 });
