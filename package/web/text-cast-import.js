@@ -13,7 +13,7 @@ export function parseTextCast(text){
   const rows=[],errors=[];
   for(const [index,raw] of text.replace(/^\uFEFF/,'').split(/\r\n|\r|\n/).entries()){
     let line=raw.trim().replace(/^\s*(?:\d+[.)]\s*|[•*]\s+|-\s+)/,'').replace(/^\*\*|\*\*$/g,'').trim();
-    if(!line||/^#/.test(line)||/^каст\b/i.test(line)&&!/@/.test(line))continue;
+    if(!line||/^#/.test(line)||/^каст(?:\s|$|[:—-])/i.test(line)&&!/@/.test(line))continue;
     // Prefer the rightmost delimiter before @username so hyphenated character
     // names are not split in the middle. Also accept ordinary "role - actor".
     const at=line.match(/^(.+)\s*[-—–→:=]\s*((?:@|https?:\/\/(?:www\.)?t\.me\/)[\w][^]*)$/i);
