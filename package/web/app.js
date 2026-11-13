@@ -15,6 +15,7 @@ import {openFileBrowser} from './file-browser.js';
 import {roleImageFromClipboard} from './role-image-clipboard.js';
 import {matchingCharacterRoles,assignedCharacterActors,addActorsToCharacter} from './multi-actor-roles.js';
 import {parseAssCharacters,decodeAssFile,normalizeAssCharacter,matchAssRole,applyAssCastImport,previousAssEpisode} from './ass-role-import.js';
+import {parseTextCast,planTextCast,applyTextCastPlan} from './text-cast-import.js';
 import {vacationReviewRows,availableReplacementActors,reassignVacationRole,vacationReviewCandidates,addVacationReviewCandidates,removeVacationReviewCandidate} from './vacation-review.js';
 import {actorWorkloadRows,actorWorkloadGroups} from './actor-workload.js';
 import {roleDeliverySnapshot,trackRoleDeliveries} from './actor-statistics.js';
@@ -55,6 +56,7 @@ let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
 let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
+let textCastDraft=null;
 let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationSort:'easy',recommendationFilter:'all'};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
@@ -582,10 +584,11 @@ function episodeRoles(p,ep){
       <h2>В этой серии пока нет персонажей</h2>
       <p>Импортируй ASS/SSA субтитры. Studio создаст роли по полю Name/Actor и предложит актёров из предыдущей серии.</p>
       <button type="button" class="btn primary" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать из ASS</button>
+      <button type="button" class="btn ghost" data-action="text-cast-import" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('users')}Распределить по тексту</button>
       <small>Поддерживаются .ass и .ssa · файл обрабатывается локально</small></section>`;
   }
 
-  return `<div class="panel-head"><div class="role-count" title="Уникальные исполнители, назначенные на роли в этой серии">Ролей: ${ep.roles.length} · Актёров: ${engagedActors}</div><div class="btn-row">${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select><select class="row-select" id="role-assignment-filter" aria-label="Фильтр по назначению ролей">${options(assignmentOptions,ui.roleAssignment||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импорт из ASS</button><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${ep.roles.length&&!ep.roles.some(r=>r.actorId||r.actor)?`<div class="ass-unassigned-tip">Пока никому не назначены роли. Можно заполнить список из ASS и автоматически подобрать совпадения с предыдущей серией. <button type="button" class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать ASS</button></div>`:''}${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр назначения, персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
+  return `<div class="panel-head"><div class="role-count" title="Уникальные исполнители, назначенные на роли в этой серии">Ролей: ${ep.roles.length} · Актёров: ${engagedActors}</div><div class="btn-row">${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select><select class="row-select" id="role-assignment-filter" aria-label="Фильтр по назначению ролей">${options(assignmentOptions,ui.roleAssignment||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импорт из ASS</button><button class="text-button" data-action="text-cast-import" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('users')}Распределить по тексту</button><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${ep.roles.length&&!ep.roles.some(r=>r.actorId||r.actor)?`<div class="ass-unassigned-tip">Пока никому не назначены роли. Можно заполнить список из ASS и автоматически подобрать совпадения с предыдущей серией. <button type="button" class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать ASS</button></div>`:''}${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр назначения, персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
 }
 const actorLabel=a=>a.name+(a.telegram?' @'+a.telegram:'');
 // Встроенный визуальный выбор актёра: карточки загружаются в список только при открытии.
@@ -1709,6 +1712,60 @@ function showAssImportPreview(pid,epid,fileName,parsed){
       toast('ASS импортирован: новых ролей '+result.added+', совпадений '+result.reused+', автоназначений '+result.inherited+'.');
     });
 }
+
+function textCastForm(pid,epid,draft=null){
+  const project=getProject(pid),episode=getEpisode(project,epid);
+  if(!project||!episode)throw Error('Сначала выбери проект и серию.');
+  const saved=draft||{text:'',createMissing:false,replaceWaiting:false};
+  showModal('Распределить роли по тексту',project.title+' · '+episodeLabel(project,episode),
+    '<p class="setting-note">Вставь состав из Telegram. Формат: <strong>Персонаж — @username</strong>, по одному на строку. Для массовки можно указать несколько исполнителей через запятую. Сопоставление строгое: без угадывания похожих ников.</p>'+
+    '<textarea class="cast-draft" name="castText" rows="12" maxlength="100000" required placeholder="Аратака Рейген - @mysentream&#10;Сигэо Кагэяма (Моб) - @bebrabobrovich&#10;Ученик №1 - @actor1, @actor2">'+e(saved.text)+'</textarea>'+
+    '<label class="check-label"><input type="checkbox" name="createMissing" '+(saved.createMissing?'checked':'')+'> Создать отсутствующих персонажей как новые роли (без файлов)</label>'+
+    '<label class="check-label"><input type="checkbox" name="replaceWaiting" '+(saved.replaceWaiting?'checked':'')+'> Разрешить переназначить одиночные роли со статусом «Жду запись», если к ним нет поручений и отметок проверки</label>'+
+    '<p class="small muted">Уже записанные, принятые и назначенные на другого актёра роли автоматически не перезаписываются. Перед отправкой появится список изменений.</p>',
+    'Проверить назначения',data=>{
+      const parsed=parseTextCast(data.castText);
+      const options={createMissing:!!data.createMissing,replaceWaiting:!!data.replaceWaiting};
+      const plan=planTextCast(state,episode,parsed,options);
+      if(plan.issues.length){
+        const details=plan.issues.slice(0,5).map(issue=>(issue.line?'Строка '+issue.line+': ':'')+issue.message).join('\n');
+        throw Error('Нужно исправить '+plan.issues.length+' проблем(ы):\n'+details);
+      }
+      textCastDraft={pid,epid,text:data.castText,...options};
+      if(!plan.actions.length){
+        modal.close();toast('Все '+plan.unchanged+' назначения уже совпадают с текстом. Ничего менять не нужно.');return;
+      }
+      const actionLabel=action=>action.kind==='assign'?'Заполнить роль':action.kind==='replace'?'Переназначить':action.kind==='create'?'Создать персонажа':'Добавить исполнителя';
+      const rows=plan.actions.slice(0,100).map(action=>
+        '<div class="scan-item"><span class="scan-copy"><b>'+e(action.character)+'</b><small>'+e(actionLabel(action))+
+        (action.from?' · прежний: '+e(action.from):'')+'</small></span><strong>'+e(action.actorName)+'</strong></div>').join('');
+      showModal('Проверь распределение перед сохранением',project.title+' · '+episodeLabel(project,episode),
+        '<p class="scan-info">К изменению: '+plan.actions.length+' · уже совпадают: '+plan.unchanged+
+        '. Никакие существующие записи и статусы выполненных ролей не удаляются.</p>'+
+        '<div class="scan-list">'+rows+'</div>'+(plan.actions.length>100?'<p class="small muted">Показаны первые 100 изменений.</p>':'')+
+        '<p class="small muted">После подтверждения Studio сначала сохранит изменения на ПК, затем отправит их в Cloud. При конфликте версия сервера не будет затёрта автоматически.</p>',
+        'Сохранить и синхронизировать',async()=>{
+          const freshProject=getProject(pid),freshEpisode=getEpisode(freshProject,epid);
+          if(!freshProject||!freshEpisode)throw Error('Серия больше не существует.');
+          const result=applyTextCastPlan(state,freshEpisode,plan);
+          touch(freshProject);modal.close();render();
+          if(!native||!cloud.connected){
+            toast('Распределено ролей: '+result.total+'. Сохранено локально. Для отправки подключи Cloud.');return;
+          }
+          try{
+            await flushSave();
+            if(saveError)throw Error('Локальное сохранение не завершено: '+saveError);
+            if(!await syncStudioTasks(true))throw Error('Нужно согласовать изменения с сервером во вкладке облака.');
+            await api('cloud/sync',{replace:false});
+            await refreshCloud(true);
+            toast('Распределено '+result.total+' ролей, изменения подтверждены Cloud.');
+          }catch(error){
+            toast('Назначения сохранены на компьютере, но Cloud ещё не подтвердил их: '+error.message,true);
+          }
+        },{extra:'<button type="button" class="btn ghost small" data-action="text-cast-back">Изменить текст</button>'});
+    });
+}
+
 async function importAssRolesFile(file,pid,epid){
   const text=await decodeAssFile(file);
   const parsed=parseAssCharacters(text);
@@ -1947,6 +2004,8 @@ async function action(a,d,el){
       if(!input||!p||!ep)break;
       input.dataset.project=p.id;input.dataset.episode=ep.id;input.value='';input.click();break;
     }
+    case 'text-cast-import':textCastForm(p.id,ep.id);break;
+    case 'text-cast-back':if(textCastDraft)textCastForm(textCastDraft.pid,textCastDraft.epid,textCastDraft);break;
     case 'import-roles':await importRoles(p.id,ep.id);break;
     case 'role-folder':{const r=ep.roles.find(r=>r.id===d.item);if(r.folder)await openPath(r.folder);else roleForm(p.id,ep.id,r.id);break;}
     case 'role-subs':{const r=ep.roles.find(r=>r.id===d.item);if(r.subtitle)await openPath(r.subtitle);else roleForm(p.id,ep.id,r.id);break;}
