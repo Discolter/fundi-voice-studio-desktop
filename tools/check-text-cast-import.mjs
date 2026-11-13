@@ -72,7 +72,7 @@ const stalePlan=planTextCast(state,episode,parseTextCast('Клиент - @First_
 episode.roles.find(r=>r.id==='waiting').status='received';
 assert.notEqual(stalePlan.fingerprint,textCastFingerprint(state,episode));
 assert.throws(()=>applyTextCastPlan(state,episode,stalePlan),/измени/,'Stale preview cannot mutate role');
-assert.throws(()=>parseTextCast('Персонаж без актёра'),/Не найден|Ожидается|Вставь/);
+assert.equal(parseTextCast('Персонаж без актёра').errors.length,1,'Unparseable line requires correction');
 
 const app=readFileSync('package/web/app.js','utf8');
 const host=readFileSync('package/LocalServer.cs','utf8');
