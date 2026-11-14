@@ -45,7 +45,13 @@ assert.ok(cloud.includes('requestConflict=problem.Code=="request_conflict"'));
 assert.ok(host.includes('Cloud.FinishRoleSync(FundiVoice.Desktop.JsonData.N(dataBody,"snapshotVersion"))'));
 assert.ok(cloud.includes('if(requestId!=""&&roleSyncReady)'),
   'Roster updates still require the validated permission gate');
-assert.ok(web.includes("case 'cloud-replace':confirmAction("),
-  'Forced overwrite remains an explicit user-confirmed action only');
+assert.ok(web.includes("case 'publish-episode-roles':{") &&
+  web.includes("await api('cloud/roles/publish-episode'"),
+  'Explicit episode approval is the only path to actor roster changes');
+assert.ok(!host.includes('Cloud.Queue(dataBody)') &&
+  !host.includes('if(File.Exists(DataFile))Cloud.Queue('),
+  'Autosave and pairing must never publish unpublished casting drafts');
+assert.ok(host.includes('Cloud.PublishEpisodeRoles(saved,'),
+  'The approved episode must be sent through the native host');
 
 console.log('PASS: actor recording revision conflict recovers only after verified, saved role reconciliation');
