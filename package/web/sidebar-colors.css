@@ -1,0 +1,72 @@
+/* Semantic navigation colors for Studio, matching the Actor app's colored hover states.
+   Keep section labels legible; color conveys section identity but never status alone. */
+.sidebar .nav-item{
+  --nav-accent:#a8bacf;
+  --nav-ink:#50627b;
+  box-sizing:border-box;
+  border:1px solid transparent;
+  transition:color .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+.sidebar .nav-item[data-nav="projects"]{--nav-accent:#78dea9;--nav-ink:#1b784d}
+.sidebar .nav-item[data-nav="mytasks"]{--nav-accent:#8abfff;--nav-ink:#2868aa}
+.sidebar .nav-item[data-nav="debts"]{--nav-accent:#ff8a95;--nav-ink:#a93348}
+.sidebar .nav-item[data-nav="casting"]{--nav-accent:#c9aaff;--nav-ink:#7753ae}
+.sidebar .nav-item[data-nav="actors"]{--nav-accent:#83dce3;--nav-ink:#247e86}
+.sidebar .nav-item[data-nav="workload"]{--nav-accent:#f5c77e;--nav-ink:#93601e}
+.sidebar .nav-item[data-nav="actorportal"]{--nav-accent:#a3b2ff;--nav-ink:#485db1}
+.sidebar .nav-item[data-action="studio-files"]{--nav-accent:#7bdfce;--nav-ink:#23796c}
+.sidebar .nav-item[data-nav="review"]{--nav-accent:#ffb98d;--nav-ink:#9b571c}
+.sidebar .nav-item[data-nav="recommendations"]{--nav-accent:#f5a6d2;--nav-ink:#a03e79}
+.sidebar .nav-item[data-nav="settings"]{--nav-accent:#a8cafa;--nav-ink:#456eab}
+.sidebar .nav-item[data-nav="recovery"]{--nav-accent:#ffacbe;--nav-ink:#a83f58}
+.sidebar .nav-item[data-nav="vacations"]{--nav-accent:#f0d083;--nav-ink:#906422}
+.sidebar .nav-item[data-action="help"]{--nav-accent:#a7b4c6;--nav-ink:#52677f}
+/* Keep colors consistent when switching into the studio's Viewer management mode. */
+.sidebar .nav-item[data-site-nav="releases"]{--nav-accent:#79dba7;--nav-ink:#247c52}
+.sidebar .nav-item[data-site-nav="news"]{--nav-accent:#88c3fa;--nav-ink:#286cb0}
+.sidebar .nav-item[data-site-nav="notifications"]{--nav-accent:#ffbf8e;--nav-ink:#a56025}
+.sidebar .nav-item[data-site-nav="ratings"]{--nav-accent:#f1d07d;--nav-ink:#8f6c24}
+.sidebar .nav-item[data-site-nav="users"]{--nav-accent:#baabf8;--nav-ink:#6e59ab}
+.sidebar .nav-item[data-cabinet="home"]{--nav-accent:#81dfce;--nav-ink:#237d70}
+
+.sidebar .nav-item .icon{color:var(--nav-accent);transition:color .18s ease}
+.sidebar .nav-item:is(:hover,:focus-visible){
+  color:var(--nav-accent);
+  background:linear-gradient(95deg,color-mix(in srgb,var(--nav-accent) 15%,transparent),color-mix(in srgb,var(--nav-accent) 5%,transparent));
+  border-color:color-mix(in srgb,var(--nav-accent) 25%,transparent);
+}
+.sidebar .nav-item.active{
+  color:var(--nav-accent);
+  background:linear-gradient(95deg,color-mix(in srgb,var(--nav-accent) 21%,transparent),color-mix(in srgb,var(--nav-accent) 7%,transparent));
+  border-color:color-mix(in srgb,var(--nav-accent) 36%,transparent);
+  box-shadow:inset 3px 0 0 color-mix(in srgb,var(--nav-accent) 82%,transparent);
+}
+.sidebar .nav-item:is(:hover,:focus-visible,.active) .nav-count{
+  color:var(--nav-accent);
+  background:color-mix(in srgb,var(--nav-accent) 14%,transparent);
+  border-color:color-mix(in srgb,var(--nav-accent) 25%,transparent);
+}
+.sidebar .nav-item:focus-visible{
+  outline:2px solid var(--nav-accent);
+  outline-offset:2px;
+}
+/* Pastel accents need a deeper ink color on light/silver backgrounds. */
+:is(body[data-theme="light"],body[data-theme="silver"]) .sidebar .nav-item .icon{
+  color:var(--nav-ink);
+}
+:is(body[data-theme="light"],body[data-theme="silver"]) .sidebar .nav-item:is(:hover,:focus-visible,.active){
+  color:var(--nav-ink);
+  background:linear-gradient(95deg,color-mix(in srgb,var(--nav-ink) 13%,transparent),color-mix(in srgb,var(--nav-ink) 3%,transparent));
+  border-color:color-mix(in srgb,var(--nav-ink) 26%,transparent);
+}
+:is(body[data-theme="light"],body[data-theme="silver"]) .sidebar .nav-item.active{
+  box-shadow:inset 3px 0 0 var(--nav-ink);
+}
+:is(body[data-theme="light"],body[data-theme="silver"]) .sidebar .nav-item:is(:hover,:focus-visible,.active) .nav-count{
+  color:var(--nav-ink);
+  background:color-mix(in srgb,var(--nav-ink) 11%,transparent);
+  border-color:color-mix(in srgb,var(--nav-ink) 25%,transparent);
+}
+@media(prefers-reduced-motion:reduce){
+  .sidebar .nav-item,.sidebar .nav-item .icon{transition:none}
+}
