@@ -16,3 +16,16 @@
 .wizard-cast-copy .field{margin:0}
 .wizard-cast-copy .check-label{font-weight:600}
 .wizard-cast-copy p{margin:0}
+
+
+/* Role assignments remain an unpublished local draft until explicit approval. */
+.studio-publish-roles{background:linear-gradient(130deg,#248d5f,#34be79)!important;
+ border:1px solid #74d8a0!important;color:#fff!important;
+ box-shadow:0 2px 11px rgba(28,143,86,.24);white-space:nowrap}
+.studio-publish-roles:hover:not(:disabled),.studio-publish-roles:focus-visible:not(:disabled){
+ filter:brightness(1.13);box-shadow:0 0 0 3px rgba(57,213,130,.18)}
+.studio-publish-roles:disabled{filter:grayscale(.7);opacity:.5;cursor:not-allowed}
+.studio-cast-draft-note{margin:9px 0 13px;padding:10px 13px;
+ border-left:3px solid #5f9df5;border-radius:8px;
+ background:rgba(73,125,217,.10);color:var(--muted,#a8bfd5);
+ font-size:12px;line-height:1.5}
