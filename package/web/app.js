@@ -55,6 +55,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
+let syncedRoleSnapshotVersion=-1; // Version checked immediately before explicit episode publication.
 let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
 let textCastDraft=null;
 let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationSort:'easy',recommendationFilter:'all'};
@@ -306,6 +307,7 @@ async function syncStudioTasks(visible=false){
     requireUnchanged();
     // Only unlock pending roster publication after the reconciled disk state is saved.
     await api('cloud/roles/sync-ready',{snapshotVersion});
+    syncedRoleSnapshotVersion=snapshotVersion;
     roleSyncConflicts=[];roleSyncDecisions=[];taskSyncConflicts=[];taskSyncChoices=[];taskSyncError='';updateCloudIndicator();
     if(visible)toast('Поручения и этапы ролей синхронизированы с веб-студией.');
     return true;
@@ -564,6 +566,10 @@ function acceptedEpisodeRolesForActors(p,ep){
     return [{actorId:actor.id,roleId:r.id}];
   });
 }
+const episodePublishButton=(p,ep)=>native?
+  `<button type="button" class="btn primary small studio-publish-roles" data-action="publish-episode-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}"
+    title="Передать назначения только этой серии актёрам; остальные серии останутся без изменений"
+    ${!cloud.connected||taskSyncBusy?'disabled':''}>${icon('upload')}Опубликовать роли</button>`:'';
 function episodeRoles(p,ep){
   const mine=state.settings.mode==='actor';
   const viewEp=withRoleReviews({projects:[p]},cloud.reviews||[]).projects[0].episodes.find(item=>item.id===ep.id);
@@ -579,7 +585,7 @@ function episodeRoles(p,ep){
   const assignmentCounts={all:all.length,assigned:assignedCount,unassigned:all.length-assignedCount};
   const assignmentOptions=ROLE_ASSIGNMENT_FILTERS.map(([key,label])=>[key,`${label} (${assignmentCounts[key]})`]);
   if(!ep.roles.length){
-    return `<div class="panel-head"><div class="role-count">Ролей: 0 · Актёров: 0</div><div class="btn-row"><button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль вручную</button>${ep.stage==='done'?'':`<button class="btn ghost small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}</div></div>
+    return `<div class="panel-head"><div class="role-count">Ролей: 0 · Актёров: 0</div><div class="btn-row">${episodePublishButton(p,ep)}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль вручную</button>${ep.stage==='done'?'':`<button class="btn ghost small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}</div></div>
       <section class="ass-import-empty"><span class="ass-import-symbol">${icon('file')}</span>
       <h2>В этой серии пока нет персонажей</h2>
       <p>Импортируй ASS/SSA субтитры. Studio создаст роли по полю Name/Actor и предложит актёров из предыдущей серии.</p>
@@ -588,7 +594,7 @@ function episodeRoles(p,ep){
       <small>Поддерживаются .ass и .ssa · файл обрабатывается локально</small></section>`;
   }
 
-  return `<div class="panel-head"><div class="role-count" title="Уникальные исполнители, назначенные на роли в этой серии">Ролей: ${ep.roles.length} · Актёров: ${engagedActors}</div><div class="btn-row">${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select><select class="row-select" id="role-assignment-filter" aria-label="Фильтр по назначению ролей">${options(assignmentOptions,ui.roleAssignment||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импорт из ASS</button><button class="text-button" data-action="text-cast-import" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('users')}Распределить по тексту</button><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${ep.roles.length&&!ep.roles.some(r=>r.actorId||r.actor)?`<div class="ass-unassigned-tip">Пока никому не назначены роли. Можно заполнить список из ASS и автоматически подобрать совпадения с предыдущей серией. <button type="button" class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать ASS</button></div>`:''}${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр назначения, персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
+  return `<div class="panel-head"><div class="role-count" title="Уникальные исполнители, назначенные на роли в этой серии">Ролей: ${ep.roles.length} · Актёров: ${engagedActors}</div><div class="btn-row">${episodePublishButton(p,ep)}${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div>${native?'<p class="studio-cast-draft-note">Черновик ролей: любые назначения сохраняются на компьютере. Актёры получат состав только после нажатия «Опубликовать роли» для этой серии.</p>':''}<div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select><select class="row-select" id="role-assignment-filter" aria-label="Фильтр по назначению ролей">${options(assignmentOptions,ui.roleAssignment||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импорт из ASS</button><button class="text-button" data-action="text-cast-import" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('users')}Распределить по тексту</button><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${ep.roles.length&&!ep.roles.some(r=>r.actorId||r.actor)?`<div class="ass-unassigned-tip">Пока никому не назначены роли. Можно заполнить список из ASS и автоматически подобрать совпадения с предыдущей серией. <button type="button" class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать ASS</button></div>`:''}${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр назначения, персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
 }
 const actorLabel=a=>a.name+(a.telegram?' @'+a.telegram:'');
 // Встроенный визуальный выбор актёра: карточки загружаются в список только при открытии.
@@ -1116,7 +1122,7 @@ function renderVacations(){
 function renderCloudConnection(){
   const label=cloud.error?'Нужна проверка':cloud.busy?'Синхронизируем…':cloud.pending?'Есть изменения для отправки':cloud.connected?'Подключено':'Подключить облако';
   const last=cloud.lastSync?new Date(cloud.lastSync).toLocaleString('ru-RU'):'Ещё не отправляли';
-  return `<section class="cloud-connection panel"><div><span class="cloud-label"><span class="status-dot"></span>${e(label)}</span><p class="small muted">${cloud.connected?e(cloud.server)+' · '+e(last):'Синхронизация ролей и аккаунты актёров'}</p>${cloud.error?`<p class="cloud-error">${e(cloud.error)}</p>`:''}</div><div class="btn-row">${cloud.connected?`<button class="btn ghost small" data-action="cloud-sync" ${cloud.busy?'disabled':''}>Обновить сейчас</button><button class="btn ghost small" data-action="cloud-setup">Подключение</button>`:`<button class="btn primary small" data-action="cloud-setup">Подключить</button>`}${cloud.conflict?'<button class="btn primary small" data-action="cloud-replace">Опубликовать эту Studio</button>':''}</div></section>`;
+  return `<section class="cloud-connection panel"><div><span class="cloud-label"><span class="status-dot"></span>${e(label)}</span><p class="small muted">${cloud.connected?e(cloud.server)+' · '+e(last):'Синхронизация ролей и аккаунты актёров'}</p>${cloud.error?`<p class="cloud-error">${e(cloud.error)}</p>`:''}</div><div class="btn-row">${cloud.connected?`<button class="btn ghost small" data-action="cloud-sync" ${cloud.busy?'disabled':''}>Обновить сейчас</button><button class="btn ghost small" data-action="cloud-setup">Подключение</button>`:`<button class="btn primary small" data-action="cloud-setup">Подключить</button>`}${cloud.conflict?'<span class="small muted">Конфликт публикации: проверь роли и опубликуй серию отдельно.</span>':''}</div></section>`;
 }
 async function refreshCloud(renderPage=false){
   if(!native)return;
@@ -1219,7 +1225,7 @@ async function cloudSetup(step=0){
   }
   showModal('Подключить Studio','Подключение · 3 из 3',`<p class="setting-note">${e(cloudWizard.server)}</p><p>После подключения Studio будет автоматически отправлять роли, статусы и сроки разрешённых актёров.</p>`,'Подключить',async()=>{
     await flushSave();if(saveError)throw new Error(saveError);await api('cloud/pair',{server:cloudWizard.server});
-    await refreshCloud();modal.close();render();if(cloud.conflict){toast('Studio подключена. Проверь данные перед первой публикацией.');return;}toast('Studio подключена. Отправляем назначения…');await api('cloud/sync',{replace:false});await refreshCloud(true);
+    await refreshCloud();modal.close();render();if(cloud.conflict){toast('Studio подключена. Проверь данные перед первой публикацией.');return;}toast('Studio подключена. Назначения остаются черновиком до ручной публикации серии.');await api('cloud/sync',{replace:false});await refreshCloud(true);
   });
 }
 async function cloudInvite(actorId){
@@ -1758,9 +1764,9 @@ function textCastForm(pid,epid,draft=null){
             if(!await syncStudioTasks(true))throw Error('Нужно согласовать изменения с сервером во вкладке облака.');
             await api('cloud/sync',{replace:false});
             await refreshCloud(true);
-            toast('Распределено '+result.total+' ролей, изменения подтверждены Cloud.');
+            toast('Распределено '+result.total+' ролей. Черновик сохранён; актёрам роли ещё не отправлены.');
           }catch(error){
-            toast('Назначения сохранены на компьютере, но Cloud ещё не подтвердил их: '+error.message,true);
+            toast('Назначения сохранены локально. Веб-синхронизация пока недоступна: '+error.message,true);
           }
         },{extra:'<button type="button" class="btn ghost small" data-action="text-cast-back">Изменить текст</button>'});
     });
@@ -2056,6 +2062,37 @@ async function action(a,d,el){
     case 'edit-task':taskForm(p.id,ep.id,d.item);break;
     case 'toggle-task':{const t=ep.tasks.find(t=>t.id===d.item);t.done=!t.done;touch(p);render();break;}
     case 'delete-task':{const t=ep.tasks.find(t=>t.id===d.item);confirmAction('Удалить задачу?',e(t.title),'Удалить',()=>{ep.tasks=ep.tasks.filter(x=>x.id!==d.item);touch(p);});break;}
+    case 'publish-episode-roles':{
+      if(!native||!cloud.connected)throw Error('Для публикации подключи Fundi Voice Cloud.');
+      if(!p||!ep)throw Error('Выбери серию в разделе ролей.');
+      if(taskSyncBusy||refreshing)throw Error('Синхронизация ещё идёт. Повтори публикацию после её окончания.');
+      await flushSave();
+      if(saveError)throw Error('Черновик не сохранён: '+saveError);
+      // Synchronize owner-only tasks first, without changing published actor feeds.
+      if(!await syncStudioTasks(true)||syncedRoleSnapshotVersion<0)
+        throw Error('Не удалось согласовать список с облаком. Черновик остаётся локальным.');
+      const approvedEditRevision=localEditRevision;
+      const episodeName=episodeLabel(p,ep),assigned=ep.roles.filter(r=>r.actorId).length,
+        unassigned=ep.roles.length-assigned;
+      showModal('Опубликовать роли?',p.title+' · '+episodeName,
+        `<p>Назначено актёрам: <strong>${assigned}</strong>, без исполнителей: <strong>${unassigned}</strong>.</p>
+         <p>Актёры получат новые роли и изменения назначений <strong>только этой серии</strong>. Переназначенные роли исчезнут у прежних исполнителей. Другие серии и их черновики не затрагиваются.</p>
+         <p class="small muted">Нажатие «Обновить» и автоматическое сохранение не публикуют роли.</p>`,
+        'Опубликовать роли',async()=>{
+          if(localEditRevision!==approvedEditRevision)
+            throw Error('Черновик изменился после проверки. Закрой окно и проверь роли заново.');
+          const result=await api('cloud/roles/publish-episode',{
+            projectId:p.id,episodeId:ep.id,snapshotVersion:syncedRoleSnapshotVersion
+          });
+          modal.close();
+          await refreshCloud(true);
+          render();
+          toast('Роли опубликованы: '+result.publishedRoles+' · актёров: '+result.affectedActors);
+          // Roster publish may update owner snapshot revision; recheck it normally.
+          scheduleTaskCloudSync();
+        });
+      break;
+    }
     case 'new-role':roleForm(p.id,ep.id);break;
     case 'edit-role':roleForm(p.id,ep.id,d.item);break;
     case 'multi-role-actors':multiRoleActorsForm(p.id,ep.id,d.item);break;
@@ -2137,7 +2174,7 @@ async function action(a,d,el){
       break;
     }
     case 'cloud-invite':el.disabled=true;try{await cloudInvite(d.actor);}finally{if(el.isConnected)el.disabled=false;}break;
-    case 'cloud-replace':confirmAction('Опубликовать данные этой Studio?','Списки ролей и разрешения на сервере будут заменены текущими данными этой программы.','Опубликовать',async()=>{await flushSave();await api('cloud/sync',{replace:true});await refreshCloud(true);toast('Назначения опубликованы');});break;
+    case 'cloud-replace':toast('Назначения публикуются отдельно для каждой серии кнопкой «Опубликовать роли» над таблицей. Обновление облака не публикует роли.',true);break;
     case 'delete-actor':{const a=state.actors.find(a=>a.id===d.actor);if(!a)break;const total=actorAssignments(state,a.id).length;confirmAction('Исключить актёра из состава?',`<strong>${e(a.name)}</strong>. ${total?`Его роли (${total}) останутся с пометкой «Удалённый актёр» и попадут в «Пересмотр».`:'Активных назначений нет: архивная запись будет очищена, если нет других ссылок.'} Доступ к Actor отключится. Файлы останутся на диске.`,'Исключить',()=>{removeActor(state,a.id);if(ui.actorFilter===a.id)ui.actorFilter='';persist();toast('Актёр исключён из состава. Проверь вкладку «Пересмотр».');});break;}
     case 'new-demo':demoForm(d.actor);break;
     case 'edit-demo':demoForm(d.actor,d.demo);break;
