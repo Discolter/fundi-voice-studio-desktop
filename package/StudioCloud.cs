@@ -131,6 +131,24 @@ namespace FundiVoice {
                         }
                     }
                 }
+                // The role table is a draft, but status/category are live fields.
+                // Preserve their latest published values when the director approves
+                // assignments. A concurrent Web/Actor update must never be rolled back
+                // by an otherwise valid roster publication.
+                var liveRoleMetadata=new Dictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);
+                foreach(var remoteActor in JsonData.A(roster,"actors"))
+                {
+                    var remote=JsonData.D(remoteActor);
+                    var feed=JsonData.D(remote.ContainsKey("feed")?remote["feed"]:null);
+                    foreach(var rawRole in JsonData.A(feed,"roles"))
+                    {
+                        var role=JsonData.D(rawRole);
+                        if(JsonData.S(role,"projectId")!=projectId||JsonData.S(role,"episodeId")!=episodeId)continue;
+                        var roleId=JsonData.S(role,"roleId");
+                        if(roleId!=""&&!liveRoleMetadata.ContainsKey(roleId))
+                            liveRoleMetadata.Add(roleId,role);
+                    }
+                }
                 Func<Dictionary<string,object>,List<object>> selectedRoles=delegate(Dictionary<string,object> actor){
                     var feed=JsonData.D(actor.ContainsKey("feed")?actor["feed"]:null);
                     var result=new List<object>();
@@ -138,7 +156,18 @@ namespace FundiVoice {
                     {
                         var role=JsonData.D(rawRole);
                         if(JsonData.S(role,"projectId")==projectId&&JsonData.S(role,"episodeId")==episodeId)
+                        {
+                            // Only cast changes are being approved. Use the server's
+                            // current processing stage and category, even when a role
+                            // is moved to another actor. Keep existing image handling.
+                            Dictionary<string,object> live;
+                            if(liveRoleMetadata.TryGetValue(JsonData.S(role,"roleId"),out live))
+                            {
+                                if(live.ContainsKey("status"))role["status"]=live["status"];
+                                if(live.ContainsKey("roleTier"))role["roleTier"]=live["roleTier"];
+                            }
                             result.Add(role);
+                        }
                     }
                     return result;
                 };
