@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using FundiVoice.Desktop;
 
@@ -24,7 +25,10 @@ namespace FundiVoice {
         public StudioCloud(string dataRoot){
             root=dataRoot;connectionFile=Path.Combine(root,"cloud.connection.bin");pendingFile=Path.Combine(root,"cloud.pending.json");setupFile=Path.Combine(root,"cloud.setup.bin");
             try{connection=PrivateFile.Read(connectionFile);}catch(CloudFault problem){error=problem.Message;}
-            try{pending=JsonData.Read(pendingFile);}catch{pending=new Dictionary<string,object>();error="Очередь облака повреждена. Сохрани любое изменение в Studio для повторной публикации.";}
+            // Migrate old automatic publish queues: the owner must now opt in
+            // explicitly for each episode. Never flush a pre-update draft on startup.
+            pending=new Dictionary<string,object>();
+            try{if(File.Exists(pendingFile))File.Delete(pendingFile);}catch{}
             LoadVacations();
             LoadFileAlerts();
             LoadDownloadNotifications();
@@ -62,6 +66,159 @@ namespace FundiVoice {
                 JsonData.AtomicText(pendingFile,JsonData.Json().Serialize(pending));nextTry=DateTime.MinValue;
             }
         }
+        // Publish only one explicitly approved episode. Preserve the published
+        // cast of every other episode, including actors with no local draft changes.
+        public object PublishEpisodeRoles(Dictionary<string,object> workspace,
+            string projectId,string episodeId,long expectedSnapshotVersion)
+        {
+            if(!System.Text.RegularExpressions.Regex.IsMatch(projectId??"",@"^[A-Za-z0-9_-]{1,128}$")||
+               !System.Text.RegularExpressions.Regex.IsMatch(episodeId??"",@"^[A-Za-z0-9_-]{1,128}$"))
+                throw new CloudFault(400,"invalid_episode","Выбери проект и серию.");
+            if(expectedSnapshotVersion<0)
+                throw new CloudFault(400,"invalid_snapshot_version","Сначала синхронизируй локальный черновик.");
+            lock(syncGate)
+            {
+                string server,token;
+                lock(gate){
+                    if(!Connected())throw new CloudFault(409,"not_connected","Подключи Fundi Voice Cloud.");
+                    if(requestConflict)throw new CloudFault(409,"request_conflict","Сначала разреши предыдущий конфликт публикации.");
+                    server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");
+                }
+                bool projectExists=false,episodeExists=false,projectArchived=false;
+                foreach(var rawProject in JsonData.A(workspace,"projects"))
+                {
+                    var project=JsonData.D(rawProject);
+                    if(JsonData.S(project,"id")!=projectId)continue;
+                    projectExists=true;projectArchived=JsonData.B(project,"archived");
+                    foreach(var rawEpisode in JsonData.A(project,"episodes"))
+                    {
+                        var ep=JsonData.D(rawEpisode);
+                        if(JsonData.S(ep,"id")==episodeId){episodeExists=true;break;}
+                    }
+                    break;
+                }
+                if(!projectExists||!episodeExists||projectArchived)
+                    throw new CloudFault(409,"missing_episode","Серия не найдена или находится в архиве.");
+                var latest=CloudHttp.Request(server,"/v1/studio/tasks","GET",null,token);
+                if(JsonData.N(latest,"version")!=expectedSnapshotVersion)
+                    throw new CloudFault(409,"task_version_conflict","Черновик изменился на сайте или в другой Studio. Сначала обнови и проверь роли.");
+                var roster=CloudHttp.Request(server,"/v1/studio/web/roster","GET",null,token);
+                var state=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
+                var localProjection=ActorProjection.Build(workspace);
+                var local=new Dictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);
+                foreach(var raw in localProjection)
+                {
+                    var actor=JsonData.D(raw);
+                    var id=JsonData.S(actor,"actorId");
+                    if(id!="")local[id]=actor;
+                }
+                // Fail visibly if an assigned actor cannot receive roles.
+                foreach(var rawProject in JsonData.A(workspace,"projects"))
+                {
+                    var project=JsonData.D(rawProject);
+                    if(JsonData.S(project,"id")!=projectId)continue;
+                    foreach(var rawEpisode in JsonData.A(project,"episodes"))
+                    {
+                        var episode=JsonData.D(rawEpisode);
+                        if(JsonData.S(episode,"id")!=episodeId)continue;
+                        foreach(var rawRole in JsonData.A(episode,"roles"))
+                        {
+                            var role=JsonData.D(rawRole),actorId=JsonData.S(role,"actorId");
+                            if(actorId==""&&JsonData.S(role,"actor")!="")
+                                throw new CloudFault(409,"unlinked_actor","Есть роль с именем актёра без привязки к аккаунту. Исправь её перед публикацией.");
+                            if(actorId!=""&&(!local.ContainsKey(actorId)||!JsonData.B(local[actorId],"enabled")))
+                                throw new CloudFault(409,"actor_access_disabled","Назначенный актёр не имеет доступа к Actor. Включи доступ или сними назначение.");
+                        }
+                    }
+                }
+                Func<Dictionary<string,object>,List<object>> selectedRoles=delegate(Dictionary<string,object> actor){
+                    var feed=JsonData.D(actor.ContainsKey("feed")?actor["feed"]:null);
+                    var result=new List<object>();
+                    foreach(var rawRole in JsonData.A(feed,"roles"))
+                    {
+                        var role=JsonData.D(rawRole);
+                        if(JsonData.S(role,"projectId")==projectId&&JsonData.S(role,"episodeId")==episodeId)
+                            result.Add(role);
+                    }
+                    return result;
+                };
+                var published=new List<object>();
+                var updatedActors=new HashSet<string>(StringComparer.Ordinal);
+                int publishedRoles=0;
+                foreach(var raw in JsonData.A(roster,"actors"))
+                {
+                    var actor=JsonData.D(raw),id=JsonData.S(actor,"actorId");
+                    if(id=="")continue;
+                    var originalFeed=JsonData.D(actor.ContainsKey("feed")?actor["feed"]:null);
+                    var roles=new List<object>();
+                    foreach(var rawRole in JsonData.A(originalFeed,"roles"))
+                    {
+                        var role=JsonData.D(rawRole);
+                        if(JsonData.S(role,"projectId")==projectId&&JsonData.S(role,"episodeId")==episodeId)continue;
+                        roles.Add(role);
+                    }
+                    Dictionary<string,object> draft;
+                    if(local.TryGetValue(id,out draft))
+                    {
+                        var specific=selectedRoles(draft);
+                        if(specific.Count>0)updatedActors.Add(id);
+                        publishedRoles+=specific.Count;roles.AddRange(specific);
+                    }
+                    var feed=new Dictionary<string,object>{{"version",1},{"actorId",id},{"roles",roles.ToArray()}};
+                    var profile=actor.ContainsKey("profile")?actor["profile"]:null;
+                    // Publishing one episode must not update unrelated account access
+                    // or other actors' profile data.
+                    published.Add(new Dictionary<string,object>{
+                        {"actorId",id},{"enabled",JsonData.B(actor,"enabled")},
+                        {"profile",profile},{"feed",feed}
+                    });
+                }
+                var existingIds=new HashSet<string>(published.Select(raw=>JsonData.S(JsonData.D(raw),"actorId")),StringComparer.Ordinal);
+                foreach(var entry in local)
+                {
+                    if(existingIds.Contains(entry.Key))continue;
+                    var specific=selectedRoles(entry.Value);
+                    if(specific.Count==0)continue;
+                    updatedActors.Add(entry.Key);publishedRoles+=specific.Count;
+                    published.Add(new Dictionary<string,object>{
+                        {"actorId",entry.Key},{"enabled",true},
+                        {"profile",entry.Value.ContainsKey("profile")?entry.Value["profile"]:null},
+                        {"feed",new Dictionary<string,object>{{"version",1},{"actorId",entry.Key},{"roles",specific.ToArray()}}}
+                    });
+                }
+                // New assignments to a previously published but disabled actor
+                // require explicitly enabling the account in the same approval.
+                for(var i=0;i<published.Count;i++)
+                {
+                    var actor=JsonData.D(published[i]),id=JsonData.S(actor,"actorId");
+                    if(!updatedActors.Contains(id))continue;
+                    Dictionary<string,object> localActor;
+                    if(local.TryGetValue(id,out localActor)&&JsonData.B(localActor,"enabled"))
+                    {
+                        actor["enabled"]=true;
+                        actor["profile"]=localActor.ContainsKey("profile")?localActor["profile"]:actor["profile"];
+                    }
+                }
+                var result=CloudHttp.Request(server,"/v1/studio/roster","PUT",new{
+                    baseRevision=JsonData.N(state,"revision"),
+                    requestId=Guid.NewGuid().ToString("D"),
+                    actors=published.ToArray()
+                },token);
+                lock(gate)
+                {
+                    connection["revision"]=JsonData.N(result,"revision");
+                    connection["lastSync"]=DateTime.UtcNow.ToString("o");
+                    PrivateFile.Save(connectionFile,connection);
+                    conflict=false;error="";requestConflict=false;
+                }
+                // The published roster may adjust the owner snapshot version;
+                // the normal task sync will refresh its baseline afterwards.
+                return new {published=true,projectId=projectId,episodeId=episodeId,
+                    publishedRoles=publishedRoles,affectedActors=updatedActors.Count,
+                    revision=JsonData.N(result,"revision")};
+            }
+        }
+
         void RefreshSourceLinks(){
             string server,token;
             lock(gate){if(!Connected())return;server=JsonData.S(connection,"server");token=JsonData.S(connection,"token");}
