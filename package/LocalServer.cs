@@ -283,7 +283,7 @@ namespace FundiVoice {
                     if(route=="cloud/setup-code")result=Cloud.NewSetupCode(S(dataBody,"renew")=="True");
                     else if(route=="cloud/pair"){
                         result=Cloud.Pair(S(dataBody,"server"));
-                        if(File.Exists(DataFile))Cloud.Queue(Body(File.ReadAllText(DataFile,Encoding.UTF8)));
+                        // Pairing never publishes draft roles. Explicit approval is required.
                     }
                     else if(route=="cloud/sync")result=Cloud.SyncNow(S(dataBody,"replace")=="True");
                     else if(route=="cloud/actor-roster")result=Cloud.ActorRoster();
@@ -297,6 +297,15 @@ namespace FundiVoice {
                     else if(route=="cloud/messages/delete")result=Cloud.DeleteMessage(FundiVoice.Desktop.JsonData.N(dataBody,"id"));
                     else if(route=="cloud/messages/clear")result=Cloud.ClearMessages();
                     else if(route=="cloud/messages/dismiss-failed")result=Cloud.DismissFailures();
+                    else if(route=="cloud/roles/publish-episode"){
+                        Dictionary<string,object> saved;
+                        lock(SaveLock){
+                            if(!File.Exists(DataFile))throw new FundiVoice.Desktop.CloudFault(409,"no_workspace","Сначала сохрани роли на диск.");
+                            saved=Body(File.ReadAllText(DataFile,Encoding.UTF8));
+                        }
+                        result=Cloud.PublishEpisodeRoles(saved,S(dataBody,"projectId"),S(dataBody,"episodeId"),
+                            FundiVoice.Desktop.JsonData.N(dataBody,"snapshotVersion"));
+                    }
                     else if(route=="cloud/roles/sync-ready")result=Cloud.FinishRoleSync(FundiVoice.Desktop.JsonData.N(dataBody,"snapshotVersion"));
                     else if(route=="cloud/tasks/read")result=Cloud.TasksNow();
                     else if(route=="cloud/tasks/baseline")result=Cloud.TasksBaseline();
@@ -344,7 +353,7 @@ namespace FundiVoice {
                     if (File.Exists(DataFile)) File.Replace(temp,DataFile,Path.Combine(DataRoot,"workspace.previous.json"),true);
                     else File.Move(temp,DataFile);
                 }
-                try{Cloud.Queue(dataBody);}catch{}
+                // Local autosave is private; never publish roles from POST /state.
                 SendJson(stream,200,new { saved=true }); return;
             }
             if (route == "check") { string path = ExistingPath(S(dataBody,"path")); SendJson(stream,200,new { path=path, folder=Directory.Exists(path) }); return; }
