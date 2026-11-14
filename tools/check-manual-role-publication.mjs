@@ -31,6 +31,11 @@ for(const part of [
 ])assert.ok(method.includes(part),'Missing explicit publish safety check: '+part);
 assert.ok(method.indexOf('!=expectedSnapshotVersion')<method.indexOf('"/v1/studio/roster","PUT"'),
   'Do not publish without validating cloud snapshot version');
+// Explicit cast publication must not roll back already live fields. The
+// server roster is the authority for processing status and category.
+for(const required of ['liveRoleMetadata','if(live.ContainsKey("status"))role["status"]=live["status"]',
+  'if(live.ContainsKey("roleTier"))role["roleTier"]=live["roleTier"]'])
+  assert.ok(method.includes(required),'Roster publish may roll back live metadata: '+required);
 assert.ok(cloud.includes('pending=new Dictionary<string,object>();') &&
   cloud.includes('File.Delete(pendingFile)'),
   'Old automatically enqueued roles must not be published after an upgrade');
