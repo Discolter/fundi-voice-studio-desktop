@@ -199,14 +199,14 @@ namespace FundiVoice {
                         actor["profile"]=localActor.ContainsKey("profile")?localActor["profile"]:actor["profile"];
                     }
                 }
-                var result=CloudHttp.Request(server,"/v1/studio/roster","PUT",new{
+                var response=CloudHttp.Request(server,"/v1/studio/roster","PUT",new{
                     baseRevision=JsonData.N(state,"revision"),
                     requestId=Guid.NewGuid().ToString("D"),
                     actors=published.ToArray()
                 },token);
                 lock(gate)
                 {
-                    connection["revision"]=JsonData.N(result,"revision");
+                    connection["revision"]=JsonData.N(response,"revision");
                     connection["lastSync"]=DateTime.UtcNow.ToString("o");
                     PrivateFile.Save(connectionFile,connection);
                     conflict=false;error="";requestConflict=false;
@@ -215,7 +215,7 @@ namespace FundiVoice {
                 // the normal task sync will refresh its baseline afterwards.
                 return new {published=true,projectId=projectId,episodeId=episodeId,
                     publishedRoles=publishedRoles,affectedActors=updatedActors.Count,
-                    revision=JsonData.N(result,"revision")};
+                    revision=JsonData.N(response,"revision")};
             }
         }
 
