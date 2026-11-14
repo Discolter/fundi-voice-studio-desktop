@@ -147,7 +147,7 @@ namespace FundiVoice {
                 int publishedRoles=0;
                 foreach(var raw in JsonData.A(roster,"actors"))
                 {
-                    var actor=JsonData.D(raw),id=JsonData.S(actor,"actorId");
+                    var actor=JsonData.D(raw);string id=JsonData.S(actor,"actorId");
                     if(id=="")continue;
                     var originalFeed=JsonData.D(actor.ContainsKey("feed")?actor["feed"]:null);
                     var roles=new List<object>();
@@ -190,7 +190,7 @@ namespace FundiVoice {
                 // require explicitly enabling the account in the same approval.
                 for(var i=0;i<published.Count;i++)
                 {
-                    var actor=JsonData.D(published[i]),id=JsonData.S(actor,"actorId");
+                    var actor=JsonData.D(published[i]);string id=JsonData.S(actor,"actorId");
                     if(!updatedActors.Contains(id))continue;
                     Dictionary<string,object> localActor;
                     if(local.TryGetValue(id,out localActor)&&JsonData.B(localActor,"enabled"))
