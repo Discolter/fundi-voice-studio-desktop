@@ -123,7 +123,7 @@ namespace FundiVoice {
                         if(JsonData.S(episode,"id")!=episodeId)continue;
                         foreach(var rawRole in JsonData.A(episode,"roles"))
                         {
-                            var role=JsonData.D(rawRole),actorId=JsonData.S(role,"actorId");
+                            var role=JsonData.D(rawRole);string actorId=JsonData.S(role,"actorId");
                             if(actorId==""&&JsonData.S(role,"actor")!="")
                                 throw new CloudFault(409,"unlinked_actor","Есть роль с именем актёра без привязки к аккаунту. Исправь её перед публикацией.");
                             if(actorId!=""&&(!local.ContainsKey(actorId)||!JsonData.B(local[actorId],"enabled")))
