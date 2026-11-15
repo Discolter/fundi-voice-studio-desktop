@@ -525,6 +525,31 @@ export function taskRows(state,{mine=false,query='',includeArchived=false,priori
       return result||Number(a.p.archived)-Number(b.p.archived)||dated(a,b)||a.t.title.localeCompare(b.t.title,'ru')||a.t.id.localeCompare(b.t.id,'ru');
     });
 }
+// Read-only personal task grouping; original task records remain unchanged.
+export function groupTaskRows(state,rows,{order='priority',lines='all'}={}){
+  const groups=new Map();
+  for(const row of rows){
+    const {p,ep,t}=row, linked=taskAssignment(state,ep,t);
+    // A real assigned role may be grouped across episodes of the same project.
+    // Free-form, deleted-role and unassigned tasks stay independent.
+    const key=linked.role&&linked.actorId?JSON.stringify(['actor',p.id,linked.actorId]):JSON.stringify(['task',p.id,ep.id,t.id]);
+    if(!groups.has(key))groups.set(key,{key,rows:[],roles:new Map(),episodes:new Set(),total:0,unknown:0,done:true});
+    const g=groups.get(key);
+    g.rows.push(row);g.episodes.add(ep.id);g.done=g.done&&!!t.done;
+    const roleKey=JSON.stringify([ep.id,linked.role?.id||'',linked.role?'':t.id]);
+    if(!g.roles.has(roleKey)){
+      g.roles.set(roleKey,{row,linked});
+      if(linked.lineCount===null)g.unknown++;else g.total+=linked.lineCount;
+    }
+  }
+  const result=[...groups.values()].map(g=>({...g,roles:[...g.roles.values()],episodes:[...g.episodes]})).filter(g=>
+    lines==='all'||(lines==='unknown'?g.unknown>0:g.unknown===0&&(lines==='small'?g.total<=20:lines==='medium'?g.total>20&&g.total<=100:g.total>100)));
+  // Stable sort: preserve taskRows' existing priority/project/date order for ties.
+  return result.sort((a,b)=>Number(a.done)-Number(b.done)||(
+    order==='linesAsc'||order==='linesDesc'?
+      Number(a.unknown>0)-Number(b.unknown>0)||
+      (a.total-b.total)*(order==='linesDesc'?-1:1):0));
+}
 export function roleRows(state,{mine=false,query=''}={}) {
   return state.projects.filter(p=>!p.archived&&!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,r})=>(!mine||r.mine)&&(`${p.title} ${r.character} ${r.actor}`.toLowerCase().includes(query.toLowerCase())));
 }

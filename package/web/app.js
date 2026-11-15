@@ -24,7 +24,7 @@ import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,appl
 import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
-import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
+import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
@@ -54,6 +54,7 @@ let lastDeliverySnapshot=new Map();
 let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:'',actors:[]},cloudWizard=null;
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
+const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
 let syncedRoleSnapshotVersion=-1; // Version checked immediately before explicit episode publication.
 let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
@@ -450,8 +451,9 @@ function renderMyTasks(){
   if(ui.taskProject!=='all'&&!taskProjects.some(p=>p.id===ui.taskProject))ui.taskProject='all';
   if(ui.taskActor!=='all'&&ui.taskActor!=='unassigned'&&!taskActors.some(a=>a.id===ui.taskActor))ui.taskActor='all';
   const hasUnassigned=allTasks.some(({ep,t})=>!taskAssignment(state,ep,t).actorId);
-  const tasks=taskRows(state,{query:ui.query,includeArchived:true,priority:ui.taskPriority||'all',
-    order:ui.taskOrder,status:ui.taskStatus,lines:ui.taskLines,actorId:ui.taskActor,projectId:ui.taskProject});
+  const taskGroups=groupTaskRows(state,taskRows(state,{query:ui.query,includeArchived:true,priority:ui.taskPriority||'all',
+    order:ui.taskOrder,status:ui.taskStatus,actorId:ui.taskActor,projectId:ui.taskProject}),{order:ui.taskOrder,lines:ui.taskLines});
+  const tasks=taskGroups.flatMap(g=>g.rows);
   retainVisibleTasks(selectedTasks,tasks);
   const activeTasks=allTasks.filter(({t})=>!t.done).length;
   const filtered=ui.taskPriority!=='all'||ui.taskStatus!=='all'||ui.taskLines!=='all'||ui.taskActor!=='all'||ui.taskProject!=='all';
@@ -468,7 +470,7 @@ function renderMyTasks(){
   const projects=[['all','Все проекты'],...taskProjects.map(p=>[p.id,p.title])];
   const actors=[['all','Все актёры'],...(hasUnassigned?[['unassigned','Без актёра']]:[]),...taskActors.map(a=>[a.id,a.name+vacationOptionSuffix(a.id)])];
   const filterControl=(id,label,choices,value)=>`<div class="my-task-filter"><label for="${id}">${label}</label><select id="${id}" aria-label="${label} поручений">${options(choices,value)}</select></div>`;
-  html+=`<div class="panel-head my-section-head my-task-toolbar"><div class="my-task-toolbar-head"><h2>Мои поручения <span class="my-section-count">${tasks.length}</span></h2><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div>
+  html+=`<div class="panel-head my-section-head my-task-toolbar"><div class="my-task-toolbar-head"><h2>Мои поручения <span class="my-section-count">${taskGroups.length}</span></h2><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div>
     <div class="my-task-filters">
       ${filterControl('task-priority-filter','Приоритет',[['all','Все приоритеты'],...TASK_PRIORITIES],ui.taskPriority)}
       ${filterControl('task-order-filter','Сортировка',TASK_ORDERS,ui.taskOrder)}
@@ -476,9 +478,9 @@ function renderMyTasks(){
       ${filterControl('task-status-filter','Состояние',TASK_STATUS_FILTERS,ui.taskStatus)}
       ${filterControl('task-project-filter','Проект',projects,ui.taskProject)}
       ${filterControl('task-actor-filter','Актёр',actors,ui.taskActor)}
-    </div><div class="my-task-filter-footer"><span class="small muted">Показано ${tasks.length} из ${allTasks.length} поручений${ui.taskOrder==='linesAsc'||ui.taskOrder==='linesDesc'?' · Без количества реплик — в конце списка':''}</span>${filtered||ui.taskOrder!=='priority'?`<button class="btn ghost small" data-action="reset-task-filters">${icon('refresh')}Сбросить фильтры</button>`:''}</div>
+    </div><div class="my-task-filter-footer"><span class="small muted">Групп: ${taskGroups.length} · Показано ${tasks.length} из ${allTasks.length} поручений${ui.taskOrder==='linesAsc'||ui.taskOrder==='linesDesc'?' · По сумме реплик · Неполные данные в конце':''}</span>${filtered||ui.taskOrder!=='priority'?`<button class="btn ghost small" data-action="reset-task-filters">${icon('refresh')}Сбросить фильтры</button>`:''}</div>
     ${tasks.length?`<div class="my-task-bulk-bar" aria-live="polite"><label class="my-task-select-all"><input type="checkbox" id="bulk-task-select-all" ${selectedTasks.size===tasks.length?'checked':''} aria-label="Выбрать все показанные задачи"> Выбрать все показанные</label><span class="my-task-bulk-count">Выбрано: <strong>${selectedTasks.size}</strong></span><button type="button" class="btn ghost small" data-action="clear-task-selection" ${selectedTasks.size?'':'disabled'}>Снять выбор</button><button type="button" class="btn danger small" data-action="delete-selected-tasks" ${selectedTasks.size?'':'disabled'}>${icon('trash')}Удалить выбранные (${selectedTasks.size})</button></div>`:''}</div>`;
-  html+='<div class="my-priority-table">'+(tasksTable(tasks,true)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||filtered?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.query||filtered?'Попробуй изменить параметры фильтров или сбросить их.':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
+  html+='<div class="my-priority-table">'+(tasksTable(tasks,true,taskGroups)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||filtered?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.query||filtered?'Попробуй изменить параметры фильтров или сбросить их.':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
   return html;
 }
 function renderDebts(){
@@ -763,10 +765,10 @@ function taskCharacterVisual(p,ep,linked,character){
     `<span class="task-identity task-identity-unlinked">${photo}<span class="task-identity-copy"><strong>${e(character)}</strong></span></span>`;
 }
 
-function tasksTable(rows,global=false){
+function tasksTable(rows,global=false,groups=null){
   if(!rows.length)return '';
   const bulk=global&&ui.page==='mytasks';
-  const body=rows.map(({p,ep,t})=>{
+  const renderRow=({p,ep,t},group=null)=>{
     const linked=taskAssignment(state,ep,t);
     const actor=linked.actorName||'—';
     const character=linked.role?.character||(t.roleId?'Роль удалена':'—');
@@ -774,10 +776,24 @@ function tasksTable(rows,global=false){
     const workloadClass=linked.lineCount===null?'task-workload-unknown':linked.lineCount<=50?'task-workload-low':linked.lineCount<=100?'task-workload-medium':'task-workload-high';
     const checked=bulk&&selectedTasks.has(bulkTaskKey(p.id,ep.id,t.id));
     const statusRole=global?taskRoleStatusTarget(state,ep,t):null;
-    return `<tr class="task-priority-row priority-${e(taskPriority(t.priority))} ${t.done?'task-done':''} ${checked?'task-bulk-selected':''}" data-priority="${e(taskPriority(t.priority))}">${bulk?`<td class="task-bulk-cell"><input type="checkbox" class="task-bulk-checkbox" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" aria-label="Выбрать задачу ${e(t.title)}" ${checked?'checked':''}></td>`:''}<td class="task-completion-cell"><button class="task-check ${t.done?'done':''}" data-action="toggle-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" title="${t.done?'Вернуть в работу':'Выполнено'}" aria-pressed="${t.done}">${t.done?icon('check'):''}</button></td><td class="task-title-cell ${t.done?'done-text':''}"><strong class="task-row-title">${e(t.title)}</strong>${t.mine?' <span class="pill">Моя</span>':''}</td>${global?`<td class="task-project-cell">${taskProjectVisual(p,ep,linked)}</td>`:''}<td class="task-actor-cell">${taskActorVisual(linked)}${vacationTag(linked.actorId)}</td><td class="task-character-cell">${taskCharacterVisual(p,ep,linked,character)}</td><td><span class="task-line-count ${workloadClass}" title="${linked.lineCount===null?'Количество реплик не указано':linked.lineCount<=50?'Мало реплик (0–50)':linked.lineCount<=100?'Средний объём (51–100)':'Много реплик (101+)'}">${e(workload)}</span></td>${global?`<td class="task-role-stage-cell">${statusRole?
+    return `<tr ${group&&!expandedTaskGroups.has(group.key)?'hidden':''} class="task-priority-row ${group?'task-group-member':''} priority-${e(taskPriority(t.priority))} ${t.done?'task-done':''} ${checked?'task-bulk-selected':''}" data-priority="${e(taskPriority(t.priority))}">${bulk?`<td class="task-bulk-cell"><input type="checkbox" class="task-bulk-checkbox" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" aria-label="Выбрать задачу ${e(t.title)}" ${checked?'checked':''}></td>`:''}<td class="task-completion-cell"><button class="task-check ${t.done?'done':''}" data-action="toggle-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" title="${t.done?'Вернуть в работу':'Выполнено'}" aria-pressed="${t.done}">${t.done?icon('check'):''}</button></td><td class="task-title-cell ${t.done?'done-text':''}"><strong class="task-row-title">${e(t.title)}</strong>${t.mine?' <span class="pill">Моя</span>':''}</td>${global?`<td class="task-project-cell">${taskProjectVisual(p,ep,linked)}</td>`:''}<td class="task-actor-cell">${taskActorVisual(linked)}${vacationTag(linked.actorId)}</td><td class="task-character-cell">${taskCharacterVisual(p,ep,linked,character)}</td><td><span class="task-line-count ${workloadClass}" title="${linked.lineCount===null?'Количество реплик не указано':linked.lineCount<=50?'Мало реплик (0–50)':linked.lineCount<=100?'Средний объём (51–100)':'Много реплик (101+)'}">${e(workload)}</span></td>${global?`<td class="task-role-stage-cell">${statusRole?
       `<select class="row-select role-status task-linked-role-status status-${e(statusRole.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" aria-label="Статус обработки роли ${e(statusRole.character)} · ${e(linked.actorName)}" title="Меняет статус роли в серии">${options(ROLE_STAGES,statusRole.status)}</select>`:
       '<span class="task-role-stage-unlinked" title="Для изменения статуса задачи нужны назначенный актёр и привязанный персонаж">—</span>'}</td>`:''}<td><select class="task-priority-select" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" aria-label="Приоритет задачи ${e(t.title)}">${options(TASK_PRIORITIES,taskPriority(t.priority))}</select></td><td class="small ${dueClass(t.due,t.done)}">${t.due?dueLabel(t.due):'—'}</td><td class="task-actions-cell">${reaperShortcutButton(p,ep,true)}<button class="icon-btn" data-action="edit-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" title="Изменить задачу" aria-label="Изменить задачу">${icon('edit')}</button></td></tr>`;
-  }).join('');
+  };
+  const renderGroup=g=>{
+    if(g.rows.length===1)return renderRow(g.rows[0]);
+    const {p,ep,t}=g.rows[0], linked=taskAssignment(state,ep,t);
+    const expanded=expandedTaskGroups.has(g.key);
+    const titles=[...new Set(g.rows.map(x=>x.t.title))];
+    const known=g.roles.length-g.unknown;
+    const workload=known?g.total+' репл.'+(g.unknown?' + ?':''):'Не указано';
+    const color=g.unknown?'task-workload-unknown':g.total<=50?'task-workload-low':g.total<=100?'task-workload-medium':'task-workload-high';
+    const characters=g.roles.slice(0,6).map(({row,linked:role})=>`<span class="task-group-character">${e(role.character||'—')}${g.episodes.length>1?' · '+e(episodeLabel(row.p,row.ep)):''} <small>${role.lineCount===null?'?':role.lineCount}</small></span>`).join('');
+    const project=g.episodes.length===1?taskProjectVisual(p,ep,linked):`<span class="task-identity task-project-identity"><span class="task-identity-image task-project-image">${projectArt(p)}</span><span class="task-identity-copy"><strong>${e(p.title)}</strong><small>Серий: ${g.episodes.length}</small></span></span>`;
+    const completed=g.rows.filter(x=>x.t.done).length;
+    return `<tr class="task-group-summary ${g.done?'task-done':''}"><td colspan="2"><button type="button" class="btn ghost small task-group-toggle" data-action="toggle-task-group" data-group="${e(g.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Свернуть':'Раскрыть'} поручения">${icon('chevron')} ${g.rows.length}</button></td><td class="task-title-cell"><strong class="task-row-title">${e(titles.length===1?titles[0]:'Несколько поручений')}</strong><div class="small muted">${g.rows.length} задач · ${g.roles.length} ролей</div></td><td class="task-project-cell">${project}</td><td class="task-actor-cell">${taskActorVisual(linked)}${vacationTag(linked.actorId)}</td><td class="task-character-cell"><div class="task-group-characters">${characters}${g.roles.length>6?`<small>+ ещё ${g.roles.length-6} · раскрыть</small>`:''}</div></td><td><span class="task-line-count ${color}" title="${g.unknown?'Известная сумма; у '+g.unknown+' ролей количество не указано':'Сумма уникальных ролей в поручениях'}">${e(workload)}</span></td><td colspan="4"><span class="small muted">Выполнено: ${completed}/${g.rows.length} · ${expanded?'Свернуть':'Раскрыть для управления'}</span></td></tr>`+g.rows.map(row=>renderRow(row,g)).join('');
+  };
+  const body=bulk&&groups?groups.map(renderGroup).join(''):rows.map(row=>renderRow(row)).join('');
   return `<div class="table-wrap task-table-wrap"><table class="tasks-priority-table"><thead><tr>${bulk?'<th class="task-bulk-cell">Выбор</th>':''}<th class="task-completion-cell">Готово</th><th class="task-title-cell">Задача</th>${global?'<th>Проект</th>':''}<th>Актёр</th><th>Персонаж</th><th>Реплики</th>${global?'<th>Статус роли</th>':''}<th>Приоритет</th><th>Срок</th><th class="task-actions-cell"></th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -2017,6 +2033,7 @@ async function action(a,d,el){
     case 'role-subs':{const r=ep.roles.find(r=>r.id===d.item);if(r.subtitle)await openPath(r.subtitle);else roleForm(p.id,ep.id,r.id);break;}
     case 'choose-debt-actor':ui.debtActor=d.key||'';render();break;
     case 'reset-debt-filters':ui.debtProject='all';ui.debtActor='';ui.debtStatus='all';ui.query='';saveUI();render();break;
+    case 'toggle-task-group':if(expandedTaskGroups.has(d.group))expandedTaskGroups.delete(d.group);else expandedTaskGroups.add(d.group);render();break;
     case 'clear-task-selection':selectedTasks.clear();render();break;
     case 'delete-selected-tasks':{
       if(!selectedTasks.size)break;

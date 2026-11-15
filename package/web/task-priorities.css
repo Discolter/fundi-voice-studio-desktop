@@ -190,3 +190,13 @@ body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-hig
   display:inline-flex;align-items:center;min-height:37px;color:var(--muted);
   padding:0 10px;font-size:13px
 }
+
+/* Personal task groups: one visual summary per project and actor. */
+.tasks-priority-table tr.task-group-member[hidden]{display:none!important}
+.tasks-priority-table tr.task-group-summary>td{background:color-mix(in srgb,var(--lime,#80b1ff) 6%,var(--surface2,#19243a));vertical-align:middle}
+.tasks-priority-table .task-group-toggle{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.tasks-priority-table .task-group-toggle[aria-expanded=true] .icon{transform:rotate(90deg)}
+.tasks-priority-table .task-group-characters{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.tasks-priority-table .task-group-character{display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow-wrap:anywhere}
+.tasks-priority-table .task-group-character small{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.tasks-priority-table .task-group-member .task-title-cell{padding-left:18px}
