@@ -99,11 +99,14 @@ namespace FundiVoice {
                 }
                 if(!projectExists||!episodeExists||projectArchived)
                     throw new CloudFault(409,"missing_episode","Серия не найдена или находится в архиве.");
+                // The revision must be captured BEFORE the roster it protects.
+                // Otherwise an actor update between those reads could be overwritten
+                // by stale feed data using the actor's newer revision.
+                var state=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
                 var latest=CloudHttp.Request(server,"/v1/studio/tasks","GET",null,token);
                 if(JsonData.N(latest,"version")!=expectedSnapshotVersion)
                     throw new CloudFault(409,"task_version_conflict","Черновик изменился на сайте или в другой Studio. Сначала обнови и проверь роли.");
                 var roster=CloudHttp.Request(server,"/v1/studio/web/roster","GET",null,token);
-                var state=CloudHttp.Request(server,"/v1/studio/sync-status","GET",null,token);
                 var localProjection=ActorProjection.Build(workspace);
                 var local=new Dictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);
                 foreach(var raw in localProjection)
@@ -183,7 +186,7 @@ namespace FundiVoice {
                     foreach(var rawRole in JsonData.A(originalFeed,"roles"))
                     {
                         var role=JsonData.D(rawRole);
-                        if(JsonData.S(role,"projectId")==projectId&&JsonData.S(role,"episodeId")==episodeId)continue;
+                        if(JsonData.S(role,"projectId")==projectId&&JsonData.S(role,"episodeId")==episodeId){updatedActors.Add(id);continue;}
                         roles.Add(role);
                     }
                     Dictionary<string,object> draft;
@@ -220,19 +223,27 @@ namespace FundiVoice {
                 for(var i=0;i<published.Count;i++)
                 {
                     var actor=JsonData.D(published[i]);string id=JsonData.S(actor,"actorId");
-                    if(!updatedActors.Contains(id))continue;
                     Dictionary<string,object> localActor;
-                    if(local.TryGetValue(id,out localActor)&&JsonData.B(localActor,"enabled"))
+                    if(updatedActors.Contains(id)&&local.TryGetValue(id,out localActor)&&
+                       JsonData.B(localActor,"enabled")&&selectedRoles(localActor).Count>0)
                     {
                         actor["enabled"]=true;
                         actor["profile"]=localActor.ContainsKey("profile")?localActor["profile"]:actor["profile"];
                     }
+                    // The API rejects a non-null feed for ANY disabled actor,
+                    // including unrelated accounts retained in this full snapshot.
+                    if(!JsonData.B(actor,"enabled"))actor["feed"]=null;
                 }
-                var response=CloudHttp.Request(server,"/v1/studio/roster","PUT",new{
-                    baseRevision=JsonData.N(state,"revision"),
-                    requestId=Guid.NewGuid().ToString("D"),
-                    actors=published.ToArray()
-                },token);
+                var request=new Dictionary<string,object>{
+                    {"baseRevision",JsonData.N(state,"revision")},
+                    {"requestId",Guid.NewGuid().ToString("D")},
+                    {"actors",published.ToArray()}
+                };
+                // Older Cloud builds reject unknown JSON properties. Advertise
+                // the atomic owner-snapshot guard before using the new field.
+                if(JsonData.B(state,"publicationSnapshotGuard"))
+                    request["baseSnapshotVersion"]=expectedSnapshotVersion;
+                var response=CloudHttp.Request(server,"/v1/studio/roster","PUT",request,token);
                 lock(gate)
                 {
                     connection["revision"]=JsonData.N(response,"revision");

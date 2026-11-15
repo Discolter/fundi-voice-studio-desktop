@@ -57,6 +57,7 @@ const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the wo
 const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
 let syncedRoleSnapshotVersion=-1; // Version checked immediately before explicit episode publication.
+let rolePublishBusy=false;
 let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
 let textCastDraft=null;
 let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationSort:'easy',recommendationFilter:'all'};
@@ -177,6 +178,7 @@ const studioNavigation=createStudioNavigation({
 function cloudStatusNow(){return cloudHealth(cloud,taskSyncError,native);}
 function updateCloudIndicator(){
   updateRoleSyncBanner();
+  updateEpisodePublishButtons();
   const element=document.querySelector('#cloud-sync-indicator');
   if(!element)return;
   const health=cloudStatusNow();
@@ -184,6 +186,18 @@ function updateCloudIndicator(){
   element.title=health.description;
   const text=element.querySelector('.cloud-sync-text');
   if(text)text.textContent=health.label;
+}
+function updateEpisodePublishButtons(){
+  const disabled=!native||!cloud.connected||taskSyncBusy||refreshing||rolePublishBusy;
+  const label=rolePublishBusy?'Проверяем публикацию…':taskSyncBusy||refreshing?'Синхронизируем…':'Опубликовать роли';
+  const title=!cloud.connected?'Подключи Fundi Voice Cloud во вкладке «Доступ актёров».':
+    rolePublishBusy?'Дождись завершения публикации.':taskSyncBusy||refreshing?'Синхронизация черновика. Кнопка станет доступна после завершения.':
+    'Передать назначения только этой серии актёрам; остальные серии останутся без изменений';
+  for(const button of document.querySelectorAll('[data-action="publish-episode-roles"]')){
+    button.disabled=disabled;button.title=title;
+    const text=button.querySelector('.studio-publish-label');
+    if(text)text.textContent=label;
+  }
 }
 function roleSyncBannerHTML(){
   if(taskSyncConflicts.length){
@@ -246,6 +260,7 @@ let localEditRevision=0;
 async function syncStudioTasks(visible=false){
   if(!native||!cloud.connected||taskSyncBusy||modal.open)return false;
   taskSyncBusy=true;
+  updateCloudIndicator();
   let retry=false;
   try{
     if(saving||saveError)await flushSave();
@@ -321,7 +336,7 @@ async function syncStudioTasks(visible=false){
     if(error.roleConflicts&&visible)showRoleSyncConflicts();
     if(error.taskConflicts&&visible)showTaskSyncConflicts();
     return false;
-  }finally{taskSyncBusy=false;if(retry)scheduleTaskCloudSync();}
+  }finally{taskSyncBusy=false;updateCloudIndicator();if(retry)scheduleTaskCloudSync();}
 }
 function persist(){
   localEditRevision++;
@@ -369,6 +384,7 @@ function render(){
   if(ui.siteMode==='studio'&&ui.page==='casting')casting.mount(document.querySelector('#casting-root'));
   quickViews.refresh();
   studioNavigation.record();
+  updateEpisodePublishButtons();
 }
 function renderPage(c){
   if(ui.siteMode==='cabinet')return actorCabinet.render();
@@ -571,7 +587,7 @@ function acceptedEpisodeRolesForActors(p,ep){
 const episodePublishButton=(p,ep)=>native?
   `<button type="button" class="btn primary small studio-publish-roles" data-action="publish-episode-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}"
     title="Передать назначения только этой серии актёрам; остальные серии останутся без изменений"
-    ${!cloud.connected||taskSyncBusy?'disabled':''}>${icon('upload')}Опубликовать роли</button>`:'';
+    ${!cloud.connected||taskSyncBusy||refreshing||rolePublishBusy?'disabled':''}>${icon('upload')}<span class="studio-publish-label">Опубликовать роли</span></button>`:'';
 function episodeRoles(p,ep){
   const mine=state.settings.mode==='actor';
   const viewEp=withRoleReviews({projects:[p]},cloud.reviews||[]).projects[0].episodes.find(item=>item.id===ep.id);
@@ -1154,7 +1170,7 @@ async function refreshAllStudio(button){
   if(refreshing)return;
   if(!native){toast('Проверка сервера доступна в Windows Studio.');return;}
   if(!cloud.connected){toast('Сначала подключи Studio к Fundi Voice Cloud.',true);return;}
-  refreshing=true;if(button)button.disabled=true;
+  refreshing=true;if(button)button.disabled=true;updateEpisodePublishButtons();
   try{
     if(saving)await flushSave();
     if(!await syncStudioTasks(true))return;
@@ -2082,32 +2098,41 @@ async function action(a,d,el){
     case 'publish-episode-roles':{
       if(!native||!cloud.connected)throw Error('Для публикации подключи Fundi Voice Cloud.');
       if(!p||!ep)throw Error('Выбери серию в разделе ролей.');
+      if(rolePublishBusy)return;
       if(taskSyncBusy||refreshing)throw Error('Синхронизация ещё идёт. Повтори публикацию после её окончания.');
-      await flushSave();
-      if(saveError)throw Error('Черновик не сохранён: '+saveError);
-      // Synchronize owner-only tasks first, without changing published actor feeds.
-      if(!await syncStudioTasks(true)||syncedRoleSnapshotVersion<0)
-        throw Error('Не удалось согласовать список с облаком. Черновик остаётся локальным.');
-      const approvedEditRevision=localEditRevision;
-      const episodeName=episodeLabel(p,ep),assigned=ep.roles.filter(r=>r.actorId).length,
-        unassigned=ep.roles.length-assigned;
-      showModal('Опубликовать роли?',p.title+' · '+episodeName,
-        `<p>Назначено актёрам: <strong>${assigned}</strong>, без исполнителей: <strong>${unassigned}</strong>.</p>
-         <p>Актёры получат новые роли и изменения назначений <strong>только этой серии</strong>. Переназначенные роли исчезнут у прежних исполнителей. Другие серии и их черновики не затрагиваются.</p>
-         <p class="small muted">Нажатие «Обновить» и автоматическое сохранение не публикуют роли.</p>`,
-        'Опубликовать роли',async()=>{
-          if(localEditRevision!==approvedEditRevision)
-            throw Error('Черновик изменился после проверки. Закрой окно и проверь роли заново.');
-          const result=await api('cloud/roles/publish-episode',{
-            projectId:p.id,episodeId:ep.id,snapshotVersion:syncedRoleSnapshotVersion
+      rolePublishBusy=true;updateEpisodePublishButtons();
+      try{
+        await flushSave();
+        if(saveError)throw Error('Черновик не сохранён: '+saveError);
+        // Synchronize owner-only tasks first, without changing published actor feeds.
+        if(!await syncStudioTasks(true)||syncedRoleSnapshotVersion<0)
+          throw Error('Не удалось согласовать список с облаком. Черновик остаётся локальным.');
+        const approvedEditRevision=localEditRevision;
+        const approvedSnapshotVersion=syncedRoleSnapshotVersion;
+        const episodeName=episodeLabel(p,ep),assigned=ep.roles.filter(r=>r.actorId).length,
+          unassigned=ep.roles.length-assigned;
+        showModal('Опубликовать роли?',p.title+' · '+episodeName,
+          `<p>Назначено актёрам: <strong>${assigned}</strong>, без исполнителей: <strong>${unassigned}</strong>.</p>
+           <p>Актёры получат новые роли и изменения назначений <strong>только этой серии</strong>. Переназначенные роли исчезнут у прежних исполнителей. Другие серии и их черновики не затрагиваются.</p>
+           <p class="small muted">Нажатие «Обновить» и автоматическое сохранение не публикуют роли.</p>`,
+          'Опубликовать роли',async()=>{
+            if(localEditRevision!==approvedEditRevision)
+              throw Error('Черновик изменился после проверки. Закрой окно и проверь роли заново.');
+            if(rolePublishBusy)return;
+            rolePublishBusy=true;updateEpisodePublishButtons();
+            try{
+              const result=await api('cloud/roles/publish-episode',{
+                projectId:p.id,episodeId:ep.id,snapshotVersion:approvedSnapshotVersion
+              });
+              modal.close();
+              await refreshCloud(true);
+              render();
+              toast('Роли опубликованы: '+result.publishedRoles+' · актёров: '+result.affectedActors);
+              // Roster publish may update owner snapshot revision; recheck it normally.
+              scheduleTaskCloudSync();
+            }finally{rolePublishBusy=false;updateEpisodePublishButtons();}
           });
-          modal.close();
-          await refreshCloud(true);
-          render();
-          toast('Роли опубликованы: '+result.publishedRoles+' · актёров: '+result.affectedActors);
-          // Roster publish may update owner snapshot revision; recheck it normally.
-          scheduleTaskCloudSync();
-        });
+      }finally{rolePublishBusy=false;updateEpisodePublishButtons();}
       break;
     }
     case 'new-role':roleForm(p.id,ep.id);break;

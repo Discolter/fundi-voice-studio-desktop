@@ -27,7 +27,7 @@ for(const part of [
  'lock(syncGate)','expectedSnapshotVersion','/v1/studio/tasks',
  '/v1/studio/web/roster','/v1/studio/sync-status',
  'JsonData.S(role,"projectId")==projectId&&JsonData.S(role,"episodeId")==episodeId',
- 'roles.AddRange(specific)','requestId=Guid.NewGuid()','/v1/studio/roster'
+ 'roles.AddRange(specific)','"requestId",Guid.NewGuid()','/v1/studio/roster'
 ])assert.ok(method.includes(part),'Missing explicit publish safety check: '+part);
 assert.ok(method.indexOf('!=expectedSnapshotVersion')<method.indexOf('"/v1/studio/roster","PUT"'),
   'Do not publish without validating cloud snapshot version');
