@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {filterCastingCards} from '../package/web/casting.js';
+const cards=[{id:'one',state:'open',name:'Моб',projectTitle:'Психо',sourceUrl:'https://t.me/test/1',version:2},{id:'two',state:'closed',name:'Рейген',projectTitle:'Психо',version:3}];
+assert.deepEqual(filterCastingCards(cards,'open').map(c=>c.id),['one']);
+assert.deepEqual(filterCastingCards(cards,'closed').map(c=>c.id),['two']);
+assert.deepEqual(filterCastingCards(cards,'all').map(c=>c.id),['one','two']);
+assert.equal(filterCastingCards(cards,'closed','РЕЙГЕН')[0],cards[1]);
+const closed={...cards[0],state:'closed'};
+assert.equal(filterCastingCards([closed,cards[1]],'open').length,0);
+assert.equal(filterCastingCards([closed,cards[1]],'closed').length,2);
+const restored={...closed,state:'open'};
+assert.deepEqual(restored,cards[0]);
+assert.equal(filterCastingCards([restored,cards[1]],'open')[0],restored);
+console.log('PASS casting archive filters and restore');

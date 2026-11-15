@@ -28,6 +28,12 @@ async function portrait(file) {
   } finally {bitmap.close();}
 }
 
+// Closed castings are the archive: their existing IDs and uploaded probes stay intact.
+export function filterCastingCards(cards,filter,query='') {
+  const q=query.toLocaleLowerCase('ru');
+  return cards.filter(c=>(filter==='all'||c.state===filter)&&(!q||(c.name+' '+c.projectTitle).toLocaleLowerCase('ru').includes(q)));
+}
+
 export function createCasting({owner=false,request,uploadPart,download,identity=()=>''}) {
   const root=el('section','fv-casting');root.setAttribute('aria-label','Кастинг');
   let data=null,loading=false,error='',query='',filter='open',editor=null,transfer=null,epoch=0,identityKey='',lastLoad=0;
@@ -68,30 +74,51 @@ export function createCasting({owner=false,request,uploadPart,download,identity=
     const controls=add(root,'div','fvc-controls');
     const search=add(controls,'input');search.type='search';search.placeholder='Найти персонажа или проект';search.setAttribute('aria-label','Поиск кастинга');search.value=query;
     search.oninput=()=>{query=search.value;renderList();};
-    const select=add(controls,'select');select.setAttribute('aria-label','Статус кастинга');
-    for(const [value,label] of [['open','Открытые'],['closed','Закрытые'],['all','Все персонажи']]){const op=add(select,'option','',label);op.value=value;}
-    select.value=filter;select.onchange=()=>{filter=select.value;renderList();};
+    if(owner){
+      const tabs=add(controls,'div','fvc-actions');tabs.setAttribute('role','group');tabs.setAttribute('aria-label','Разделы кастинга');
+      const views=[['open','Активные'],['closed','Архив']];
+      const buttons=[];
+      for(const [value,label] of views){
+        const count=(data?.cards||[]).filter(c=>c.state===value).length;
+        const b=button(tabs,label+' · '+count,()=>{
+          filter=value;
+          for(const [state,tab] of buttons){tab.classList.toggle('primary',state===filter);tab.setAttribute('aria-pressed',String(state===filter));}
+          renderList();
+        },filter===value?'primary':'');
+        b.setAttribute('aria-pressed',String(filter===value));buttons.push([value,b]);
+      }
+    }else{
+      const select=add(controls,'select');select.setAttribute('aria-label','Статус кастинга');
+      for(const [value,label] of [['open','Открытые'],['closed','Закрытые'],['all','Все персонажи']]){const op=add(select,'option','',label);op.value=value;}
+      select.value=filter;select.onchange=()=>{filter=select.value;renderList();};
+    }
     grid=add(root,'div','fvc-grid');renderList();
     if(editor)drawEditor();
   }
   function renderList(){
     if(!grid)return;grid.replaceChildren();
     if(!data){add(grid,'p','fvc-empty',error?'Кастинг пока недоступен. Обнови данные после обновления сервера.':'Загружаем персонажей…');return;}
-    const q=query.toLocaleLowerCase('ru');
-    const cards=data.cards.filter(c=>(filter==='all'||c.state===filter)&&(!q||(c.name+' '+c.projectTitle).toLocaleLowerCase('ru').includes(q)));
-    if(!cards.length){add(grid,'div','fvc-empty',owner?'Здесь пока нет персонажей. Добавь карточку для нового кастинга.':'Здесь пока нет открытых персонажей. Загляни позже или выбери другой фильтр.');return;}
+    const cards=filterCastingCards(data.cards,filter,query);
+    if(!cards.length){add(grid,'div','fvc-empty',query?'По запросу ничего не найдено.':owner?(filter==='closed'?'Архив пуст. Завершённые кастинги появятся здесь.':'Нет активных кастингов. Добавь персонажа или восстанови кастинг из архива.'):'Здесь пока нет открытых персонажей. Загляни позже или выбери другой фильтр.');return;}
     for(const card of cards){
       const item=add(grid,'article','fvc-card'),top=add(item,'div','fvc-card-top');
       const pic=add(top,'div','fvc-portrait');
       if(/^data:image\/(webp|jpeg|png);base64,/.test(card.image||'')){const img=add(pic,'img');img.src=card.image;img.alt=card.name;img.loading='lazy';}
       else add(pic,'span','',card.name.slice(0,1));
-      const info=add(top,'div','fvc-card-info');add(info,'span','fvc-pill '+card.state,card.state==='open'?'Приём открыт':'Приём закрыт');add(info,'h3','',card.name);
+      const info=add(top,'div','fvc-card-info');add(info,'span','fvc-pill '+card.state,card.state==='open'?'Приём открыт':owner?'В архиве':'Приём закрыт');add(info,'h3','',card.name);
       if(card.projectTitle)add(info,'p','fvc-muted',card.projectTitle);
       const url=telegramCastingUrl(card.sourceUrl);
       if(url){const link=add(info,'a','fvc-source','↗ Исходник в Telegram');link.href=url;link.target='_blank';link.rel='noopener noreferrer';}
       if(card.notes)add(item,'p','fvc-notes',card.notes);
       if(owner){const edit=add(item,'div','fvc-actions');button(edit,'Редактировать',()=>{editor={...card};drawEditor();});
-        button(edit,card.state==='open'?'Закрыть приём':'Открыть приём',async()=>{await call('save',{...cardPayload(card),state:card.state==='open'?'closed':'open'});await refresh(true);});}
+        button(edit,card.state==='open'?'Завершить / в архив':'Восстановить кастинг',async()=>{
+          if(actionBusy||loading)return;
+          if(editor)throw Error('Сначала сохрани или закрой редактор персонажа.');
+          actionBusy=true;
+          try{await call('save',{...cardPayload(card),state:card.state==='open'?'closed':'open'});}
+          finally{actionBusy=false;}
+          await refresh(true);
+        });}
       else if(card.state==='open'){
         const drop=add(item,'label','fvc-drop'),input=add(drop,'input');input.type='file';input.accept='video/*,audio/*,.mkv,.ts,.mts,.m2ts,.mxf,.zip';input.hidden=true;input.disabled=!!transfer;
         add(drop,'strong','','↑ Сдать пробу');add(drop,'small','fvc-muted','Выбери файл или перетащи его сюда');
@@ -158,7 +185,7 @@ export function createCasting({owner=false,request,uploadPart,download,identity=
       if(!telegramCastingUrl(source.value.trim())){formError.textContent='Нужна ссылка вида https://t.me/канал/123.';return;}
       save.disabled=true;const e=epoch;
       try{await call('save',{id:editor.id||crypto.randomUUID(),version:editor.version||0,name:name.value.trim(),projectTitle:project.value.trim(),image,sourceUrl:source.value.trim(),notes:notes.value,state:editor.state||'open'});
-        if(e!==epoch)return;editor=null;await refresh(true);
+        if(e!==epoch)return;if(!editor.version)filter='open';editor=null;await refresh(true);
       }catch(issue){if(e===epoch)formError.textContent=issue.message;}finally{save.disabled=false;}
     };
     box.scrollIntoView({block:'nearest',behavior:'smooth'});name.focus();
