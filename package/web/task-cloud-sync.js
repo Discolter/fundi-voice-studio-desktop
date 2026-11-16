@@ -2,6 +2,7 @@
 // Never merge unrelated local paths or replace the user's project/actor data.
 // Optimistic revision and three-way merge prevent silent loss from concurrent edits.
 export const TASK_SYNC_BASELINE_KEY='fundi-voice-tasks-cloud-baseline-v1';
+import {archiveTask,mergeTaskHistory} from './task-history.js';
 
 const taskRecord=(project,ep,t)=>({
   id:t.id,projectId:project.id,episodeId:ep.id,title:t.title,due:t.due||'',
@@ -219,13 +220,16 @@ export function mergeTaskCatalog(local,remote,baseline=null){
 
 export function applyTaskSnapshot(state,tasks){
   let changed=false;
+  const incoming=new Set(tasks.map(t=>t.id));
   for(const p of state.projects||[])for(const ep of p.episodes||[]){
+    for(const task of ep.tasks||[])if(!incoming.has(task.id))archiveTask(state,p,ep,task,'cloud');
     const next=tasks.filter(t=>t.projectId===p.id&&t.episodeId===ep.id).map(t=>({
       id:t.id,title:t.title,due:t.due||'',priority:t.priority||'normal',done:!!t.done,
       actorId:t.actorId||'',roleId:t.roleId||'',mine:!!t.mine
     }));
     if(!same(ep.tasks,next)){ep.tasks=next;changed=true;}
   }
+  mergeTaskHistory(state);
   return changed;
 }
 

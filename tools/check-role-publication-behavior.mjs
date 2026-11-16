@@ -73,7 +73,7 @@ if(process.platform==='win32'){
       }
     }
 `+common.slice(end));
-    const sources=['LocalServer.cs','ReaperLaunch.cs','StudioCloud.cs','StudioRecovery.cs','StudioVacations.cs',
+    const sources=['LocalServer.cs','TaskHistory.cs','ReaperLaunch.cs','StudioCloud.cs','StudioRecovery.cs','StudioVacations.cs',
       'StudioFiles.cs','FileTransfers.cs','ReviewMailbox.cs','StudioNotifications.cs','UpdateNotice.cs']
       .map(name=>join(root,'package',name));
     const exe=join(temp,'PublicationChecks.exe');
