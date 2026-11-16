@@ -1221,7 +1221,7 @@ async function refreshCloud(renderPage=false){
     cloud=next;updateCloudIndicator();const appliedReviews=applyRoleReviews(state,next.reviews||[]);if(appliedReviews)persist();updateNotificationBadge();updateFileBadge();renderTransferNotice();
     if(changed&&modal.open&&modal.dataset.view==='recordings')renderStudioFiles();
     if(renderPage&&changed&&modal.open&&modal.querySelector('.studio-notification-list'))showStudioMessages();
-    else if(renderPage&&ui.page!=='software'&&(changed||appliedReviews)&&!modal.open&&!isActorPickerOpen()&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='recommendations'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
+    else if(renderPage&&(changed||appliedReviews)&&!modal.open&&!isActorPickerOpen()&&ui.page!=='software'&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='recommendations'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
   }catch{}
 }
 async function refreshAllStudio(button){
