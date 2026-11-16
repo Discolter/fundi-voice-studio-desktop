@@ -48,12 +48,12 @@ const begin=app.indexOf('function renderCard(p){');
 const end=app.indexOf('// Collapsible project strips',begin);
 assert.ok(begin>=0&&end>begin,'Project card function exists');
 const renderSource=app.slice(begin,end);
-const display=new Function('latestEpisodeRoleProgress','latestProjectEpisode','e','episodeLabel','projectArt','badge','ageBadge','icon','dueClass','dueLabel','expandedProjectRoles','state','actorForRole','actorPickAvatar','safeRoleImage','roleStageName',
+const display=new Function('latestEpisodeRoleProgress','latestProjectEpisode','e','episodeLabel','projectArt','badge','episodeAgeBadge','icon','dueClass','dueLabel','expandedProjectRoles','state','actorForRole','actorPickAvatar','safeRoleImage','roleStageName',
   renderSource+'; return renderCard;')(
   latestEpisodeRoleProgress,latestProjectEpisode,
   value=>String(value).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])),
   (_p,ep)=>'Серия '+ep.number,
-  ()=>'🖼',()=>'<span>Запись</span>',()=>'<span>11 дней</span>',
+  ()=>'🖼',()=>'<span>Запись</span>',ep=>'<span data-age-episode="'+ep.number+'">11 дней</span>',
   ()=>'⬈',()=>'',()=>'',new Set(),{actors:[{id:'actor-5',name:'Test Actor',telegram:'test_actor',avatar:'data:image/png;base64,YQ=='}]},
   (state,r)=>state.actors.find(a=>a.id===r.actorId),a=>a?.avatar?'<img src="'+a.avatar+'">':a?.name||'?',v=>v||'',s=>s
 );
@@ -82,6 +82,8 @@ assert.match(html,/class="project-accepted-count">4\/10/);
 assert.match(html,/project-progress-source/);
 assert.match(html,/Серия 8:/,'Label the episode used for role progress');
 assert.match(html,/card-meta">Серия 12/,'Keep latest episode in card subtitle');
+assert.match(html,/data-age-episode="12"/,'Age follows newest episode even if its roles are still empty');
+assert.match(app,/episodeAgeBadge\(ep,true\)/,'List view also displays episode age');
 assert.match(html,/Незавершённые роли · 6/);
 const blank={title:'Пустой',color:'violet',favorite:false,cover:'',episodes:[episode(2,0,0),episode(3,0,0)]};
 html=display(blank);

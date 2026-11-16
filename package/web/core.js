@@ -266,7 +266,7 @@ export function castText(state,p,episodeId='all') {
 }
 export function episodeLabel(p, ep) { return `${p.season ? `Сезон ${p.season} · ` : ''}${ep?.number ? `Серия ${String(ep.number).padStart(2,'0')}` : (ep?.title || 'Серия не указана')}`; }
 export function newEpisode(input={}) {
-  return { id: uid(), number:num(input.number), title:str(input.title,120), stage:'unset', due:'', notes:'', paths:{}, resources:[], tasks:[], roles:[], ...input };
+  return { id: uid(), createdAt:new Date().toISOString(), number:num(input.number), title:str(input.title,120), stage:'unset', due:'', notes:'', paths:{}, resources:[], tasks:[], roles:[], ...input };
 }
 // Carry forward actors and character portraits, not previous episode recordings.
 export function cloneEpisodeCast(sourceEpisode,state){
@@ -355,7 +355,7 @@ export function normalizeState(raw) {
     return {id:id(p.id),title:str(p.title,160).trim(),alias:str(p.alias,300),season:num(p.season),color:COLORS.includes(p.color)?p.color:'lime',symbol:['spark','hourglass','witch','bolt','swords','orbit','flower'].includes(p.symbol)?p.symbol:'spark',cover:safeCover(p.cover),priority:['normal','high','low'].includes(p.priority)?p.priority:'normal',root:str(p.root,2000),notes:str(p.notes,12000),favorite:!!p.favorite,archived:!!p.archived,hidden:!!p.hidden,createdAt:str(p.createdAt,50),updatedAt:str(p.updatedAt,50),lastOpened:str(p.lastOpened,50),episodes:p.episodes.map(ep=>{
       if(!ep || typeof ep!=='object') throw new Error('Некорректная серия.');
       for(const key of ['resources','tasks','roles']) if(ep[key] && (!Array.isArray(ep[key]) || ep[key].length>2000)) throw new Error('Слишком много записей в серии.');
-      return {id:id(ep.id),number:num(ep.number),title:str(ep.title,120),stage:STAGES.some(s=>s[0]===ep.stage)?ep.stage:'unset',due:dateValue(ep.due),notes:str(ep.notes,12000),paths:Object.fromEntries(PATHS.map(([key])=>[key,str(ep.paths?.[key],2000)])),
+      return {id:id(ep.id),createdAt:str(ep.createdAt,50),number:num(ep.number),title:str(ep.title,120),stage:STAGES.some(s=>s[0]===ep.stage)?ep.stage:'unset',due:dateValue(ep.due),notes:str(ep.notes,12000),paths:Object.fromEntries(PATHS.map(([key])=>[key,str(ep.paths?.[key],2000)])),
         resources:(ep.resources||[]).map(r=>({id:id(r.id),kind:KINDS.some(k=>k[0]===r.kind)?r.kind:'source',label:str(r.label,200)||'Материал',path:str(r.path,2000),folder:!!r.folder})),
         tasks:(ep.tasks||[]).map(t=>({id:id(t.id),title:str(t.title,500),done:!!t.done,mine:!!t.mine,due:dateValue(t.due),priority:taskPriority(t.priority),actorId:actorIdMap.get(t.actorId)||str(t.actorId,80),roleId:str(t.roleId,80)})).filter(t=>t.title.trim()),
         roles:(ep.roles||[]).map(normalizeRole).filter(r=>r.character.trim())};

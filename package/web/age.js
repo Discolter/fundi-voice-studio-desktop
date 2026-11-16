@@ -1,4 +1,4 @@
-// Role/project age is based on the persisted creation timestamp, never on the due date.
+// Role/project/episode age is based on creation timestamps, never on the due date.
 // Unknown legacy timestamps must not be replaced with today's date or guessed.
 export function ageInfo(value, now=new Date()){
   if(typeof value!=='string'||!value.trim())return null;
@@ -24,9 +24,20 @@ export function ageInfo(value, now=new Date()){
   return {days,label,level:days<=14?'green':days<=30?'yellow':'red',
     date:start.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'})};
 }
-export function ageBadge(value,showDate=false){
+export function ageBadge(value,showDate=false,estimated=false){
   const info=ageInfo(value);
-  const text=info?info.label:'дата неизвестна';
-  const title=info?'Создана: '+info.date+' · Возраст записи, не дедлайн':'Дата создания не сохранена для старой записи';
+  const text=info?(estimated?'≈ ':'')+info.label:'дата неизвестна';
+  const title=info?(estimated?'Приблизительно: '+info.date+' · По самой ранней сохранённой дате роли серии; точную дату можно указать в настройках серии':'Создана: '+info.date+' · Возраст записи, не дедлайн'):'Дата создания не сохранена для старой записи';
   return '<span class="fv-age fv-age-'+(info?info.level:'unknown')+'" title="'+title+'">◷ '+text+(showDate&&info?'<small class="fv-age-date">'+info.date+'</small>':'')+'</span>';
+}
+
+// Legacy role timestamps are only an estimate; never write it to the creation field.
+export function episodeAgeSource(episode,now=new Date()){
+  if(ageInfo(episode?.createdAt,now))return {value:episode.createdAt,estimated:false};
+  const first=(episode?.roles||[]).map(r=>r.createdAt).filter(v=>ageInfo(v,now)).sort((a,b)=>Date.parse(a)-Date.parse(b))[0];
+  return {value:first||'',estimated:!!first};
+}
+export function episodeAgeBadge(episode,showDate=false){
+  const {value,estimated}=episodeAgeSource(episode);
+  return ageBadge(value,showDate,estimated);
 }

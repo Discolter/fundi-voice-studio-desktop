@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {ageInfo,ageBadge} from '../package/web/age.js';
+import {ageInfo,ageBadge,episodeAgeSource,episodeAgeBadge} from '../package/web/age.js';
 assert.equal(ageInfo('',new Date('2026-10-25T00:00:00Z')),null);
 assert.equal(ageInfo('nonsense'),null);
 assert.equal(ageInfo('2026-10-11T11:00:00Z',new Date('2026-10-25T00:00:00Z')).level,'green');
@@ -10,7 +10,7 @@ assert.equal(ageInfo('2026-01-31T11:00:00Z',new Date('2026-03-01T00:00:00Z')).la
 assert.match(ageBadge(null),/дата неизвестна/);
 assert.match(ageBadge('2026-10-10T11:00:00Z',true),/fv-age-date/);
 
-import {seedState,newProject,newActor,normalizeState,actorPublicFeed} from '../package/web/core.js';
+import {seedState,newProject,newEpisode,newActor,normalizeState,actorPublicFeed,latestProjectEpisode} from '../package/web/core.js';
 const state=seedState(),actor=newActor({name:'Test',actorAccess:true}),project=newProject({title:'Demo'});
 project.episodes[0].roles.push({id:'r1',character:'Hero',actorId:actor.id,actor:actor.name,status:'waiting',createdAt:'2026-10-10T10:00:00.000Z'});
 state.actors.push(actor);state.projects.push(project);
@@ -24,3 +24,21 @@ oldProject.episodes[0].roles.push({id:'legacy',character:'Guest',status:'waiting
 legacy.projects.push(oldProject);
 assert.equal(normalizeState(legacy).projects[0].episodes[0].roles[0].createdAt,'');
 console.log('Studio age of roles and projects checks passed');
+
+// Episode age must be independent of project date and assignment progress.
+const seriesState=seedState(),series=newProject({title:'Series',createdAt:'2026-10-18T00:00:00.000Z',episodes:[newEpisode({number:'2',createdAt:'2026-10-19T00:00:00.000Z'}),newEpisode({number:'3',createdAt:'2026-11-16T00:00:00.000Z'})]});
+seriesState.projects.push(series);
+const later=latestProjectEpisode(normalizeState(seriesState).projects[0]);
+assert.equal(later.number,'3');
+assert.equal(later.createdAt,'2026-11-16T00:00:00.000Z');
+assert.deepEqual(episodeAgeSource(later),{value:later.createdAt,estimated:false});
+assert.equal(ageInfo(episodeAgeSource(later).value,new Date('2026-11-16T12:00:00Z')).days,0);
+assert.ok(Number.isFinite(Date.parse(newEpisode().createdAt)));
+const historical={id:'old',roles:[{createdAt:'2026-11-16T10:00:00Z'},{createdAt:'2026-11-15T09:00:00Z'},{createdAt:'invalid'}]};
+assert.deepEqual(episodeAgeSource(historical),{value:'2026-11-15T09:00:00Z',estimated:true});
+assert.match(episodeAgeBadge(historical),/≈/);
+assert.equal(historical.createdAt,undefined,'Never turn an estimate into saved creation date');
+assert.match(episodeAgeBadge({roles:[]}),/дата неизвестна/);
+assert.doesNotMatch(episodeAgeBadge(later),/≈/);
+const oldSeries=newProject({title:'Old Series'});delete oldSeries.episodes[0].createdAt;const oldState=seedState();oldState.projects.push(oldSeries);assert.equal(normalizeState(oldState).projects[0].episodes[0].createdAt,'');
+console.log('PASS: new, persisted, legacy and latest episode age');
