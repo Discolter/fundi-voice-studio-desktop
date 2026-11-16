@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {latestProjectEpisode,latestEpisodeRoleProgress,withRoleReviews} from '../package/web/core.js';
+import {latestProjectEpisode,latestEpisodeRoleProgress,withRoleReviews,selectProjects} from '../package/web/core.js';
 
 const roles=(total,accepted)=>Array.from({length:total},(_,i)=>({
   id:'role-'+i,actorId:'actor-'+i,status:i<accepted?'done':'waiting',character:'Актёр '+i
@@ -40,6 +40,26 @@ assert.equal(latestEpisodeRoleProgress({episodes:[]}).tone,'none');
 const before=JSON.stringify(project);
 latestEpisodeRoleProgress(project);
 assert.equal(JSON.stringify(project),before,'Reading progress must never modify saved project state');
+
+// Progress sorting follows the same episode and accepted statuses as the cards.
+const sortable=(title,total,accepted,favorite=false)=>({
+  title, favorite, archived:false, hidden:false,
+  episodes:[{...episode(1,total,accepted),resources:[],tasks:[]}]
+});
+const complete=sortable('Готовый',5,5),near=sortable('Почти',9,8),
+  half=sortable('Половина',100,50),smallHalf=sortable('Мало',4,2),
+  zero=sortable('Начатый',10,0,true),blankProject=sortable('Пустой',0,0,true);
+near.episodes.push({...episode(2,0,0),resources:[],tasks:[]});
+const projectState={projects:[half,zero,blankProject,near,smallHalf,complete]};
+const sorted=()=>selectProjects(projectState,{sort:'progress'});
+assert.deepEqual(sorted(),[complete,near,smallHalf,half,zero,blankProject],
+  'Sort by accepted fraction, remaining roles, and put empty projects last regardless of favorites');
+near.episodes[0].roles=roles(9,9);
+assert.deepEqual(sorted().slice(0,2),[complete,near],'Recompute progress when role statuses change');
+zero.episodes[0].roles=roles(10,10);
+assert.ok(sorted().indexOf(zero)<sorted().indexOf(half),'Updated roles move a project ahead');
+assert.deepEqual(selectProjects(projectState,{sort:'progress',filter:'favorite'}),[zero,blankProject]);
+assert.ok(selectProjects(projectState,{sort:'name'})[0].favorite,'Other sorts retain pinned favorites');
 
 // Exercise the real renderCard template with helper functions in isolation.
 const app=readFileSync('package/web/app.js','utf8');

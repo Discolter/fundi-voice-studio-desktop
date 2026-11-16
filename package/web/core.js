@@ -400,6 +400,12 @@ export function projectMatches(p,q) {
 }
 export function selectProjects(state,{query='',filter='all',sort='recent',archived=false,hidden=false}={}) {
   return state.projects.filter(p=>(hidden?!!p.hidden:!p.hidden&&p.archived===archived) && projectMatches(p,query) && (filter==='all' || (filter==='favorite'&&p.favorite) || (filter==='attention'&&((!p.root&&!p.episodes.some(ep=>ep.paths?.root)) || p.episodes.some(e=>e.stage==='unset'||(e.due&&e.due<today()&&e.stage!=='done')))) || p.episodes.some(e=>e.stage===filter))).sort((a,b)=>{
+    if(sort==='progress') {
+      const ap=latestEpisodeRoleProgress(a),bp=latestEpisodeRoleProgress(b);
+      if(!ap.total!==!bp.total) return ap.total?-1:1;
+      // Compare exact accepted fractions; use the remaining workload to break ties.
+      return bp.accepted*ap.total-ap.accepted*bp.total || ap.remaining-bp.remaining || a.title.localeCompare(b.title,'ru');
+    }
     if(a.favorite!==b.favorite) return a.favorite?-1:1;
     if(sort==='name') return a.title.localeCompare(b.title,'ru');
     if(sort==='due') return (nearestDue(a)||'9999').localeCompare(nearestDue(b)||'9999');

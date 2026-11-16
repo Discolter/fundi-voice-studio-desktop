@@ -10,7 +10,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
     review:'search', accepted:'check', note:'chat'
   };
   const sortIcons = {original:'list',workload:'users',actor:'users',
-    recent:'clock',due:'calendar',name:'list',priority:'bell',linesAsc:'sort',
+    recent:'clock',due:'calendar',name:'list',progress:'check',priority:'bell',linesAsc:'sort',
     linesDesc:'arrow',dueAsc:'calendar',dueDesc:'calendar',project:'folder',character:'star'};
   const priorityIcons = {all:'grid',urgent:'bell',high:'arrow',normal:'list',low:'clock'};
   const priorityDetails = {all:'Все поручения',urgent:'Сделать как можно скорее',high:'Высокая срочность',normal:'Стандартный приоритет',low:'Можно выполнить позже'};
@@ -30,7 +30,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
     all:'Показать все варианты','not-in-project':'Не добавлено в проект REAPER',
     original:'Исходная последовательность',workload:'Сначала самые загруженные',
     actor:'По имени актёра',recent:'Недавно открытые проекты',
-    due:'Ближайшие сроки первыми',name:'По алфавиту'
+    due:'Ближайшие сроки первыми',name:'По алфавиту',progress:'Самые готовые проекты первыми'
   };
   let openDropdown = null;
   let nextId = 0;
