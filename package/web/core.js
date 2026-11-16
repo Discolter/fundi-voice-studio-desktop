@@ -1,5 +1,6 @@
 import {roleVoiceFromActor} from './casting-assistant.js';
 import {normalizeDelivery} from './actor-statistics.js';
+import {mergeTaskHistory} from './task-history.js';
 export const SCHEMA = 1;
 export const STAGES = [
   ['unset', 'Этап не указан'], ['prep', 'Подготовка'], ['record', 'Запись'],
@@ -314,7 +315,7 @@ export function removeTaskTemplate(templates,index){
 }
 
 export function seedState() {
-  return {schema:SCHEMA,projects:[],actors:[],trash:[],settings:{mode:'studio',name:'Студия',myTelegram:'Discolter',studioRoot:'',folderTemplate:['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:[...DEFAULT_TASK_TEMPLATES],theme:'aurora',motion:true,onboardingSeen:false,workspaceVersion:2},updatedAt:new Date().toISOString()};
+  return {schema:SCHEMA,projects:[],actors:[],trash:[],taskHistory:[],settings:{mode:'studio',name:'Студия',myTelegram:'Discolter',studioRoot:'',folderTemplate:['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:[...DEFAULT_TASK_TEMPLATES],theme:'aurora',motion:true,onboardingSeen:false,workspaceVersion:2},updatedAt:new Date().toISOString()};
 }
 export const safeCover = value => typeof value==='string'&&value.length<=700000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
 export const safeRoleImage = value => typeof value==='string'&&value.length<=150000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
@@ -361,7 +362,9 @@ export function normalizeState(raw) {
     })};
   }
   const projects=raw.projects.map(normalizeProject).filter(p=>raw.settings?.workspaceVersion===2||!untouchedStarter(p)),trash=(Array.isArray(raw.trash)?raw.trash:[]).map(normalizeProject);
-  return {schema:SCHEMA,projects,actors,trash,settings:{mode:raw.settings?.mode==='actor'?'actor':'studio',name:str(raw.settings?.name,80)||'Студия',myTelegram:cleanTelegram(raw.settings?.myTelegram===undefined?'Discolter':raw.settings.myTelegram).replace(/[^a-zA-Z0-9_]/g,'').slice(0,80),studioRoot:str(raw.settings?.studioRoot,2000),folderTemplate:Array.isArray(raw.settings?.folderTemplate)?expandFolderKeys(raw.settings.folderTemplate):['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:normalizeTaskTemplates(raw.settings?.taskTemplates),theme:THEMES.some(([key])=>key===raw.settings?.theme)?raw.settings.theme:'aurora',motion:raw.settings?.motion!==false,onboardingSeen:raw.settings?.onboardingSeen===true,workspaceVersion:2},updatedAt:str(raw.updatedAt,50)};
+  const normalized={schema:SCHEMA,projects,actors,trash,settings:{mode:raw.settings?.mode==='actor'?'actor':'studio',name:str(raw.settings?.name,80)||'Студия',myTelegram:cleanTelegram(raw.settings?.myTelegram===undefined?'Discolter':raw.settings.myTelegram).replace(/[^a-zA-Z0-9_]/g,'').slice(0,80),studioRoot:str(raw.settings?.studioRoot,2000),folderTemplate:Array.isArray(raw.settings?.folderTemplate)?expandFolderKeys(raw.settings.folderTemplate):['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:normalizeTaskTemplates(raw.settings?.taskTemplates),theme:THEMES.some(([key])=>key===raw.settings?.theme)?raw.settings.theme:'aurora',motion:raw.settings?.motion!==false,onboardingSeen:raw.settings?.onboardingSeen===true,workspaceVersion:2},updatedAt:str(raw.updatedAt,50)};
+  mergeTaskHistory(normalized,raw.taskHistory);
+  return normalized;
 }
 export function projectProgress(p) {
   const steps = ['prep','record','edit','mix','review','done'];

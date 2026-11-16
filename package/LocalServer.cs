@@ -29,7 +29,7 @@ namespace FundiVoice {
             ".mp4", ".mkv", ".mov", ".webm", ".avi", ".srt", ".ass", ".ssa", ".vtt", ".txt", ".pdf", ".png", ".jpg", ".jpeg"
         };
         static readonly HashSet<string> StaticFiles = new HashSet<string>(StringComparer.Ordinal) {
-            "/", "/index.html", "/app.js", "/casting.js", "/casting.css", "/sidebar-colors.css", "/cloud-health.js", "/episode-debts.js", "/cloud-indicator.css", "/ass-role-import.css", "/ass-role-import.js", "/text-cast-import.js", "/navigation-history.js", "/actor-workload.js", "/actor-statistics.js", "/actor-statistics-view.js", "/actor-statistics.css", "/core.js", "/age.js", "/my-role-workload.js", "/task-bulk.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/file-browser.js", "/file-browser.css", "/visual-selects.js", "/visual-selects.css", "/task-priorities.css", "/task-cloud-sync.js", "/vacation-review.js", "/casting-assistant.js", "/update-notice.css", "/update-notice.js", "/site-manager.css", "/site-manager.js", "/actor-cabinet.css", "/actor-cabinet.js", "/quick-views.js", "/quick-views.css", "/recommendations.js", "/recommendations-view.js", "/recommendations.css", "/compact.css", "/multi-actor-roles.js", "/role-image-clipboard.js", "/role-image-viewer.js", "/role-image-viewer.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
+            "/", "/index.html", "/app.js", "/casting.js", "/casting.css", "/sidebar-colors.css", "/cloud-health.js", "/episode-debts.js", "/cloud-indicator.css", "/ass-role-import.css", "/ass-role-import.js", "/text-cast-import.js", "/navigation-history.js", "/actor-workload.js", "/actor-statistics.js", "/actor-statistics-view.js", "/actor-statistics.css", "/core.js", "/age.js", "/my-role-workload.js", "/task-bulk.js", "/task-history.js", "/file-tools.js", "/file-tools.css", "/styles.css", "/themes.css", "/animated-themes.css", "/file-browser.js", "/file-browser.css", "/visual-selects.js", "/visual-selects.css", "/task-priorities.css", "/task-cloud-sync.js", "/vacation-review.js", "/casting-assistant.js", "/update-notice.css", "/update-notice.js", "/site-manager.css", "/site-manager.js", "/actor-cabinet.css", "/actor-cabinet.js", "/quick-views.js", "/quick-views.css", "/recommendations.js", "/recommendations-view.js", "/recommendations.css", "/compact.css", "/multi-actor-roles.js", "/role-image-clipboard.js", "/role-image-viewer.js", "/role-image-viewer.css", "/icon.svg", "/brand-mark.png", "/favicon.ico"
         };
         static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = 9 * 1024 * 1024, RecursionLimit = 150 }; }
         static string S(Dictionary<string, object> d, string key) { object v; return d.TryGetValue(key, out v) && v != null ? Convert.ToString(v) : ""; }
@@ -271,6 +271,8 @@ namespace FundiVoice {
                     if (File.Exists(DataFile)) {
                         try { data = Json().DeserializeObject(File.ReadAllText(DataFile,Encoding.UTF8)); }
                         catch { throw new ArgumentException("Сохранённый workspace.json повреждён. Восстанови резервную копию через настройки. Исходный файл не перезаписан."); }
+                        var workspace=(Dictionary<string,object>)data;
+                        workspace["taskHistory"]=TaskHistoryStore.Recover(DataRoot,workspace);
                     }
                     SendJson(stream,200,new { state=data }); return;
                 }
@@ -349,7 +351,9 @@ namespace FundiVoice {
                 if (S(dataBody,"schema") != "1" || !dataBody.TryGetValue("projects",out projects) || !(projects is object[])) throw new ArgumentException("Неверный формат рабочего пространства.");
                 lock (SaveLock) {
                     string temp = DataFile + ".tmp";
-                    File.WriteAllText(temp,raw,new UTF8Encoding(false));
+                    var previous=File.Exists(DataFile)?Body(File.ReadAllText(DataFile,Encoding.UTF8)):new Dictionary<string,object>();
+                    dataBody["taskHistory"]=TaskHistoryStore.BeforeSave(DataRoot,previous,dataBody);
+                    File.WriteAllText(temp,Json().Serialize(dataBody),new UTF8Encoding(false));
                     if (File.Exists(DataFile)) File.Replace(temp,DataFile,Path.Combine(DataRoot,"workspace.previous.json"),true);
                     else File.Move(temp,DataFile);
                 }

@@ -1,5 +1,6 @@
 // Bulk selection for Studio's "Мои задачи". The key includes the project and episode
 // so tasks from different series cannot accidentally affect one another.
+import {archiveTask} from './task-history.js';
 export const bulkTaskKey=(projectId,episodeId,taskId)=>JSON.stringify([String(projectId),String(episodeId),String(taskId)]);
 
 export function retainVisibleTasks(selected,rows){
@@ -17,6 +18,8 @@ export function deleteBulkTasks(state,keys){
     let removedFromProject=0;
     for(const episode of project.episodes||[]){
       const previous=episode.tasks||[];
+      for(const task of previous)if(keys.has(bulkTaskKey(project.id,episode.id,task.id)))
+        archiveTask(state,project,episode,task);
       const remaining=previous.filter(task=>!keys.has(bulkTaskKey(project.id,episode.id,task.id)));
       const count=previous.length-remaining.length;
       if(count){episode.tasks=remaining;removedFromProject+=count;}

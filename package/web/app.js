@@ -24,6 +24,7 @@ import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,appl
 import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
+import {archiveTask,restoreTask,taskHistoryRows} from './task-history.js';
 import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
@@ -55,6 +56,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
+let taskHistoryQuery='';
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
 let syncedRoleSnapshotVersion=-1; // Version checked immediately before explicit episode publication.
 let rolePublishBusy=false;
@@ -486,7 +488,7 @@ function renderMyTasks(){
   const projects=[['all','Все проекты'],...taskProjects.map(p=>[p.id,p.title])];
   const actors=[['all','Все актёры'],...(hasUnassigned?[['unassigned','Без актёра']]:[]),...taskActors.map(a=>[a.id,a.name+vacationOptionSuffix(a.id)])];
   const filterControl=(id,label,choices,value)=>`<div class="my-task-filter"><label for="${id}">${label}</label><select id="${id}" aria-label="${label} поручений">${options(choices,value)}</select></div>`;
-  html+=`<div class="panel-head my-section-head my-task-toolbar"><div class="my-task-toolbar-head"><h2>Мои поручения <span class="my-section-count">${taskGroups.length}</span></h2><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div>
+  html+=`<div class="panel-head my-section-head my-task-toolbar"><div class="my-task-toolbar-head"><h2>Мои поручения <span class="my-section-count">${taskGroups.length}</span></h2><div class="btn-row"><button class="btn ghost small" data-action="task-history" aria-label="История удалённых поручений">${icon('restore')}История <span class="my-section-count">${taskHistoryRows(state).length}</span></button><button class="btn primary small" data-action="new-task">${icon('plus')}Добавить задачу</button></div></div>
     <div class="my-task-filters">
       ${filterControl('task-priority-filter','Приоритет',[['all','Все приоритеты'],...TASK_PRIORITIES],ui.taskPriority)}
       ${filterControl('task-order-filter','Сортировка',TASK_ORDERS,ui.taskOrder)}
@@ -499,6 +501,41 @@ function renderMyTasks(){
   html+='<div class="my-priority-table">'+(tasksTable(tasks,true,taskGroups)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||filtered?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.query||filtered?'Попробуй изменить параметры фильтров или сбросить их.':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
   return html;
 }
+function taskHistoryListHTML(){
+  const rows=taskHistoryRows(state,taskHistoryQuery);
+  const stamp=value=>{const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'}):'';};
+  return `<p class="small muted" role="status">Показано: ${rows.length} из ${taskHistoryRows(state).length}</p>`+
+    (rows.length?`<div class="task-history-list">${rows.map(entry=>{
+      const t=entry.task,episode=[entry.episodeNumber?'Серия '+entry.episodeNumber:'',entry.episodeTitle].filter(Boolean).join(' · ');
+      const source=entry.source==='backup'?'Из резервной копии':entry.source==='cloud'?'Удалено при синхронизации':'Удалено';
+      const at=stamp(entry.deletedAt);
+      return `<article class="task-history-entry priority-${e(t.priority)}"><div class="task-history-copy"><strong>${e(t.title)}</strong><div class="small muted">${e(entry.projectTitle||'Проект удалён')}${entry.season?' · Сезон '+e(entry.season):''}${episode?' / '+e(episode):''}</div><div class="small">${e([entry.actorName,entry.character].filter(Boolean).join(' · ')||'Без привязки к актёру')}${entry.lineCount!==null?' · '+entry.lineCount+' репл.':''}</div><div class="task-history-tags"><span class="pill">${e(taskPriorityName(t.priority))}</span><span class="small muted">${t.done?'Выполнена':'В работе'}${t.due?' · Срок: '+e(dueLabel(t.due)):''}</span></div></div><div class="task-history-origin"><span>${e(source)}</span>${at?`<time datetime="${e(entry.deletedAt)}">${e(at)}</time>`:'<small>Дата удаления неизвестна</small>'}</div><button type="button" class="btn ghost small" data-action="restore-task" data-history-id="${e(entry.id)}" aria-label="Восстановить поручение ${e(t.title)}">${icon('restore')}Восстановить</button></article>`;
+    }).join('')}</div>`:`<div class="my-empty my-empty-small">${icon('restore')}<strong>${taskHistoryQuery?'Ничего не найдено':'Удалённых поручений нет'}</strong><p>${taskHistoryQuery?'Попробуй другое название, актёра или персонажа.':'Удалённые поручения будут появляться здесь.'}</p></div>`);
+}
+function showTaskHistory(){
+  showModal('История поручений','Удалённые поручения можно восстановить вместе со сроком и приоритетом.',
+    `<label class="task-history-search">Поиск по задаче, проекту, актёру или персонажу<input type="search" id="task-history-search" value="${e(taskHistoryQuery)}" placeholder="Найти поручение" autocomplete="off"></label><div id="task-history-results">${taskHistoryListHTML()}</div><p class="small muted task-history-note">Прежние поручения добавлены из сохранившихся копий. Если записи не осталось ни в одной копии, она не появится в истории.</p>`,'',null);
+  modal.dataset.view='task-history';modal.classList.add('task-history-modal');
+}
+function restoreTaskFromHistory(id){
+  const entry=(state.taskHistory||[]).find(item=>item.id===id);if(!entry)return;
+  const complete=(pid,epid)=>{
+    const {p}=restoreTask(state,id,pid,epid);touch(p);render();showTaskHistory();
+    toast(p.hidden?'Поручение восстановлено в скрытый проект «'+p.title+'»':'Поручение восстановлено');
+  };
+  const p=getProject(entry.projectId),ep=p?.episodes.find(item=>item.id===entry.episodeId);
+  if(ep){complete(p.id,ep.id);return;}
+  if(!state.projects.length)throw Error('Сначала создай проект и серию для восстановления поручения.');
+  const choices=state.projects.map(p=>`<optgroup label="${e(p.title)}${p.hidden?' · Скрытый':p.archived?' · Архив':''}">${p.episodes.map(ep=>`<option value="${e(ep.id)}">${e(episodeLabel(p,ep))}</option>`).join('')}</optgroup>`).join('');
+  showModal('Восстановить поручение',entry.task.title,
+    `<p class="small muted">Исходная серия удалена или проект находится в корзине. Выбери, куда вернуть поручение.</p>${field('Проект и серия',`<select name="target" required><option value="">Выбери серию</option>${choices}</select>`)}`,
+    'Восстановить',data=>{const {p,ep}=resolveTarget(data.target);complete(p.id,ep.id);});
+}
+document.addEventListener('input',event=>{
+  if(event.target.id!=='task-history-search')return;
+  taskHistoryQuery=event.target.value;
+  const results=modal.querySelector('#task-history-results');if(results)results.innerHTML=taskHistoryListHTML();
+});
 function renderDebts(){
   const allProjects=activeProjects().slice().sort((a,b)=>a.title.localeCompare(b.title,'ru')||String(a.season||'').localeCompare(String(b.season||''),'ru'));
   if(ui.debtProject!=='all'&&!allProjects.some(p=>p.id===ui.debtProject)){ui.debtProject='all';saveUI();}
@@ -2054,7 +2091,7 @@ async function action(a,d,el){
     case 'delete-selected-tasks':{
       if(!selectedTasks.size)break;
       const keys=new Set(selectedTasks),count=keys.size;
-      confirmAction('Удалить выбранные задачи?',`Будут удалены <strong>${count}</strong> выбранных поручений из соответствующих проектов и серий. Остальные задачи, роли и файлы сохранятся. Удаление синхронизируется с Studio Web.`,'Удалить выбранные',()=>{
+      confirmAction('Удалить выбранные задачи?',`В историю будут перемещены <strong>${count}</strong> выбранных поручений. Их можно восстановить через кнопку «История» в «Моих поручениях». Удаление синхронизируется с Studio Web.`,'Удалить выбранные',()=>{
         const result=deleteBulkTasks(state,keys);
         selectedTasks.clear();
         if(result.removed){persist();toast('Удалено задач: '+result.removed);}
@@ -2092,9 +2129,11 @@ async function action(a,d,el){
       break;
     }
     case 'new-task':taskForm(p?.id,ep?.id);break;
+    case 'task-history':showTaskHistory();break;
+    case 'restore-task':restoreTaskFromHistory(d.historyId);break;
     case 'edit-task':taskForm(p.id,ep.id,d.item);break;
     case 'toggle-task':{const t=ep.tasks.find(t=>t.id===d.item);t.done=!t.done;touch(p);render();break;}
-    case 'delete-task':{const t=ep.tasks.find(t=>t.id===d.item);confirmAction('Удалить задачу?',e(t.title),'Удалить',()=>{ep.tasks=ep.tasks.filter(x=>x.id!==d.item);touch(p);});break;}
+    case 'delete-task':{const t=ep?.tasks.find(t=>t.id===d.item);if(!t)break;confirmAction('Удалить задачу?',e(t.title)+'<br>Поручение сохранится в истории, откуда его можно восстановить.','Удалить',()=>{archiveTask(state,p,ep,t);ep.tasks=ep.tasks.filter(x=>x.id!==d.item);touch(p);});break;}
     case 'publish-episode-roles':{
       if(!native||!cloud.connected)throw Error('Для публикации подключи Fundi Voice Cloud.');
       if(!p||!ep)throw Error('Выбери серию в разделе ролей.');

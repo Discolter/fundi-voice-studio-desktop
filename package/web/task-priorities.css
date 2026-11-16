@@ -2,6 +2,17 @@
 .my-task-toolbar{display:flex;flex-direction:column;align-items:stretch;gap:12px}
 .my-task-toolbar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;flex-wrap:wrap}
 .my-task-toolbar-head h2{margin:0}
+dialog.task-history-modal{width:min(1000px,calc(100vw - 32px));max-width:1000px}
+.task-history-search{display:grid;gap:8px;font-size:12px;color:var(--muted);margin-bottom:16px}
+.task-history-search input{width:100%}
+.task-history-list{display:grid;gap:10px}
+.task-history-entry{display:grid;grid-template-columns:minmax(0,1fr) 160px auto;align-items:center;gap:18px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.task-history-copy{min-width:0;display:grid;gap:7px;overflow-wrap:anywhere}
+.task-history-copy>strong{font-size:14px;color:var(--text)}
+.task-history-tags{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.task-history-origin{display:grid;gap:6px;font-size:11px;color:var(--muted)}
+.task-history-note{line-height:1.6;margin:18px 0 0}
+@media(max-width:650px){.task-history-entry{grid-template-columns:minmax(0,1fr);gap:12px}.task-history-entry>.btn{justify-self:start}.task-history-origin{display:flex;gap:8px;flex-wrap:wrap}.my-task-toolbar-head>.btn-row{flex-wrap:wrap}}
 .my-task-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;width:100%}
 .my-task-filter{min-width:0}
 .my-task-filter>label{display:block;margin:0 0 5px;color:var(--muted);font-size:11px;font-weight:600}
