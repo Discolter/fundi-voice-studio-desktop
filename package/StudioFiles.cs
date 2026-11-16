@@ -135,7 +135,7 @@ namespace FundiVoice {
         }
         public object Software(Dictionary<string,object> body){
             string action=JsonData.S(body,"action");
-            if(action!=""&&action!="save"&&action!="publish"&&action!="unpublish"&&action!="assets/begin"&&action!="assets/complete"&&action!="assets/delete")
+            if(action!=""&&action!="save"&&action!="publish"&&action!="unpublish"&&action!="assets/begin"&&action!="assets/part"&&action!="assets/complete"&&action!="assets/delete")
                 throw new CloudFault(400,"invalid_software_action","Неизвестное действие каталога ПО.");
             return FileRequest("/v1/studio/software"+(action==""?"":"/"+action),action==""?"GET":"POST",action==""?null:JsonData.D(body.ContainsKey("data")?body["data"]:null));
         }
