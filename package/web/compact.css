@@ -882,3 +882,42 @@ body[data-theme=light] .role-row.status-pickup,body[data-theme=silver] .role-row
 body[data-theme=light] .status-pickup,body[data-theme=silver] .status-pickup{color:#147572;border-color:#70b4ae}
 
 .my-role-status.status-pickup::before,.role-row.status-pickup .debt-status::before{content:"";display:inline-block;width:1em;height:1em;margin-right:.4em;vertical-align:-.12em;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m16 3 5 5-12 12-6 1 1-6Z M14 5l5 5 M3 21h18'/%3E%3C/svg%3E") center/contain no-repeat}
+
+/* Project cards: independent animated release-role previews. */
+.projects-grid{align-items:start}
+.compact-project .project-missing-toggle{display:inline-flex;align-items:center;gap:3px;padding:1px 4px;border-radius:5px;line-height:inherit;white-space:nowrap;cursor:pointer;font:inherit;background:transparent;border:0}
+.compact-project .project-missing-toggle:hover,.compact-project .project-missing-toggle:focus-visible{background:rgba(140,160,190,.14);color:var(--text)}
+.project-missing-toggle .icon{width:13px;height:13px;transform:rotate(90deg);transition:transform 280ms cubic-bezier(.22,1,.36,1)}
+.project-missing-toggle[aria-expanded="true"] .icon{transform:rotate(-90deg)}
+.project-missing-panel{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 320ms cubic-bezier(.22,1,.36,1),opacity 220ms ease;min-width:0}
+.project-missing-panel.is-expanded{grid-template-rows:1fr;opacity:1}
+.project-missing-clip{min-height:0;overflow:hidden}
+.project-missing-body{border-top:1px solid var(--line);padding:12px 0 13px}
+.project-missing-heading{font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:650;color:var(--muted);margin-bottom:8px}
+.project-missing-list{display:grid;gap:5px;max-height:280px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.project-missing-role{display:flex;align-items:center;gap:8px;min-width:0;padding:7px;border-radius:8px;background:rgba(140,160,190,.08)}
+.project-missing-character{width:38px;height:38px;flex:0 0 38px;border-radius:6px;object-fit:cover}
+.project-missing-placeholder{display:grid;place-items:center;background:rgba(140,160,190,.15);color:var(--muted)}
+.project-missing-placeholder .icon{width:18px;height:18px}
+.project-missing-identity{display:grid;gap:4px;min-width:0;flex:1}
+.project-missing-name{font-size:12px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-missing-actor{display:flex;align-items:center;gap:5px;min-width:0;font-size:10px;color:var(--muted)}
+.project-missing-actor .actor-pick-avatar{width:19px;height:19px;min-width:19px;flex:0 0 19px;font-size:8px;border-radius:50%;overflow:hidden}
+.project-missing-actor .actor-pick-avatar img{width:100%;height:100%;object-fit:cover}
+.project-missing-actor-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-missing-meta{display:grid;justify-items:end;gap:4px;flex-shrink:0;text-align:right;font-size:10px}
+.project-missing-status{font-weight:650;color:var(--muted)}
+.project-missing-status.status-waiting{color:#d8b66c}
+.project-missing-status.status-recording{color:#8bafff}
+.project-missing-status.status-received{color:#6dc3e7}
+.project-missing-status.status-processing{color:#c1a0f1}
+.project-missing-status.status-retake,.project-missing-status.status-pickup{color:#f68b90}
+body[data-theme=light] .project-missing-status.status-waiting,body[data-theme=silver] .project-missing-status.status-waiting{color:#8c681f}
+body[data-theme=light] .project-missing-status.status-recording,body[data-theme=silver] .project-missing-status.status-recording{color:#3c55a6}
+body[data-theme=light] .project-missing-status.status-received,body[data-theme=silver] .project-missing-status.status-received{color:#226f9a}
+body[data-theme=light] .project-missing-status.status-processing,body[data-theme=silver] .project-missing-status.status-processing{color:#7541a0}
+body[data-theme=light] .project-missing-status.status-retake,body[data-theme=silver] .project-missing-status.status-retake,body[data-theme=light] .project-missing-status.status-pickup,body[data-theme=silver] .project-missing-status.status-pickup{color:#a82c40}
+.project-missing-lines,.project-missing-empty{color:var(--muted)}
+.project-missing-empty{font-size:11px;padding:6px}
+body[data-motion=off] .project-missing-panel,body[data-motion=off] .project-missing-toggle .icon{transition:none}
+@media(prefers-reduced-motion:reduce){.project-missing-panel,.project-missing-toggle .icon{transition:none}}

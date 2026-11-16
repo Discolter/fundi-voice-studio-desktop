@@ -56,6 +56,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
+const expandedProjectRoles=new Set(); // Independent, ephemeral project-card disclosure.
 let taskHistoryQuery='';
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
 let syncedRoleSnapshotVersion=-1; // Version checked immediately before explicit episode publication.
@@ -415,12 +416,29 @@ function projectArt(p,large=false){return p.cover?`<img class="project-poster ${
 function renderCard(p){
   const newest=latestProjectEpisode(p);
   const {episode:ep,accepted,total,remaining,tone}=latestEpisodeRoleProgress(p);
+  const expanded=expandedProjectRoles.has(p.id);
+  const panelId='project-missing-'+p.id;
+  const toggleAttrs='type="button" class="project-missing-toggle project-remaining-count" data-action="toggle-project-missing" data-id="'+e(p.id)+'" aria-controls="'+e(panelId)+'" aria-expanded="'+expanded+'" title="Незавершённые роли"';
   const sourceLabel=ep?.id!==newest?.id
     ?'<span class="project-progress-source" title="'+e('Принятые роли в '+episodeLabel(p,ep))+'">Серия '+e(String(ep?.number||'?'))+':</span>'
     :'';
-  const progressLabel=total?'<span class="progress-text project-role-progress" data-progress="'+tone+'" title="'+e('Серия с распределёнными ролями: '+episodeLabel(p,ep)+' · принято '+accepted+' из '+total+' · осталось '+remaining)+'" aria-label="'+e('Принято '+accepted+' из '+total+'. Осталось '+remaining)+'">'+sourceLabel+'<strong class="project-accepted-count">'+accepted+'/'+total+'</strong><span>принято</span><span class="project-remaining-count">· осталось <b>'+remaining+'</b></span></span>':
-    '<span class="progress-text project-role-progress" data-progress="none" title="Роли в последней серии пока не добавлены">0 ролей</span>';
-  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,newest))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(newest)}${ageBadge(p.createdAt)}${progressLabel}${newest.due?`<span class="small ${dueClass(newest.due,newest.stage==='done')}">${dueLabel(newest.due)}</span>`:''}</div><div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+  const progressLabel=total?'<span class="progress-text project-role-progress" data-progress="'+tone+'" title="'+e('Серия с распределёнными ролями: '+episodeLabel(p,ep)+' · принято '+accepted+' из '+total+' · осталось '+remaining)+'" aria-label="'+e('Принято '+accepted+' из '+total+'. Осталось '+remaining)+'">'+sourceLabel+'<strong class="project-accepted-count">'+accepted+'/'+total+'</strong><span>принято</span><button '+toggleAttrs+'>· осталось <b>'+remaining+'</b>'+icon('chevron')+'</button></span>':
+    '<span class="progress-text project-role-progress" data-progress="none" title="Роли в последней серии пока не добавлены"><button '+toggleAttrs+'>0 ролей'+icon('chevron')+'</button></span>';
+  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,newest))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(newest)}${ageBadge(p.createdAt)}${progressLabel}${newest.due?`<span class="small ${dueClass(newest.due,newest.stage==='done')}">${dueLabel(newest.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+}
+
+function projectMissingRolesHTML(p,ep,panelId,expanded){
+  const roles=(ep?.roles||[]).filter(r=>r.status!=='done');
+  const rows=roles.map(r=>{
+    const actor=actorForRole(state,r),image=safeRoleImage(r.image);
+    const name=actor?.name||r.actor||'Не назначен';
+    const handle=actor?.telegram?'@'+String(actor.telegram).replace(/^@+/,''):'';
+    const characterImage=image?`<img class="project-missing-character" src="${e(image)}" alt="" loading="lazy">`:`<span class="project-missing-character project-missing-placeholder" aria-hidden="true">${icon('users')}</span>`;
+    const count=Number.isInteger(r.lineCount)&&r.lineCount>=0?`<span class="project-missing-lines">${r.lineCount} репл.</span>`:'';
+    return `<div class="project-missing-role" data-role-id="${e(r.id)}">${characterImage}<div class="project-missing-identity"><span class="project-missing-name" title="${e(r.character)}">${e(r.character)}</span><div class="project-missing-actor">${actorPickAvatar(actor||{name})}<span class="project-missing-actor-label" title="${e([name,handle].filter(Boolean).join(' · '))}">${e(handle||name)}</span></div></div><div class="project-missing-meta"><span class="project-missing-status status-${e(r.status)}">${e(roleStageName(r.status))}</span>${count}</div></div>`;
+  }).join('');
+  const message=ep?.roles?.length?'Все роли приняты':'Роли пока не добавлены';
+  return `<div id="${e(panelId)}" class="project-missing-panel${expanded?' is-expanded':''}" aria-hidden="${!expanded}"${expanded?'':' inert'}><div class="project-missing-clip"><div class="project-missing-body"><div class="project-missing-heading">Незавершённые роли · ${roles.length}</div><div class="project-missing-list">${rows||`<div class="project-missing-empty">${e(message)}</div>`}</div></div></div></div>`;
 }
 // Collapsible project strips, retaining all existing role cards and their project actions.
 function myRoleSummaryHTML(p,items){
@@ -1895,6 +1913,17 @@ function guide(step=0){
 }
 
 async function action(a,d,el){
+  if(a==='toggle-project-missing'){
+    const panel=el.closest('.project-card')?.querySelector('.project-missing-panel');
+    if(!panel)return;
+    const expanded=!expandedProjectRoles.has(d.id);
+    if(expanded)expandedProjectRoles.add(d.id);else expandedProjectRoles.delete(d.id);
+    el.setAttribute('aria-expanded',String(expanded));
+    panel.setAttribute('aria-hidden',String(!expanded));
+    panel.toggleAttribute('inert',!expanded);
+    panel.classList.toggle('is-expanded',expanded);
+    return;
+  }
   if(a==='actor-picker-toggle'){
     const picker=el.closest('.actor-picker'),menu=picker.querySelector('.actor-picker-menu'),opening=menu.hidden;
     closeActorPickers(picker);
