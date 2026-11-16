@@ -70,3 +70,5 @@
 @media(prefers-reduced-motion:reduce){
   .sidebar .nav-item,.sidebar .nav-item .icon{transition:none}
 }
+
+.sidebar .nav-item[data-nav="software"]{--nav-accent:#93baff;--nav-ink:#395fbc}
