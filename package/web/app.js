@@ -848,36 +848,72 @@ function taskCharacterVisual(p,ep,linked,character){
     `<span class="task-identity task-identity-unlinked">${photo}<span class="task-identity-copy"><strong>${e(character)}</strong></span></span>`;
 }
 
+function taskVoiceFolder(p,ep,role){
+  if(!role?.folder)return '';
+  const title=`Открыть папку голоса «${role.character}»`;
+  return `<button type="button" class="icon-btn task-voice-folder" data-action="role-folder" data-id="${e(p.id)}"
+    data-ep="${e(ep.id)}" data-item="${e(role.id)}" title="${e(title)}" aria-label="${e(title)}">${icon('folder')}</button>`;
+}
+
 function tasksTable(rows,global=false,groups=null){
   if(!rows.length)return '';
   const bulk=global&&ui.page==='mytasks';
-  const renderRow=({p,ep,t},group=null)=>{
+  const renderRow=({p,ep,t},group=false)=>{
+    const cell=(content,className='')=>`<td${className?` class="${className}"`:''}>${group?
+      `<div class="task-group-panel"><div class="task-group-clip"><div class="task-group-content">${content}</div></div></div>`:content}</td>`;
     const linked=taskAssignment(state,ep,t);
-    const actor=linked.actorName||'—';
     const character=linked.role?.character||(t.roleId?'Роль удалена':'—');
     const workload=linked.role?(linked.lineCount===null?'Не указано':linked.lineCount+' репл.'):'—';
     const workloadClass=linked.lineCount===null?'task-workload-unknown':linked.lineCount<=50?'task-workload-low':linked.lineCount<=100?'task-workload-medium':'task-workload-high';
     const checked=bulk&&selectedTasks.has(bulkTaskKey(p.id,ep.id,t.id));
     const statusRole=global?taskRoleStatusTarget(state,ep,t):null;
-    return `<tr ${group&&!expandedTaskGroups.has(group.key)?'hidden':''} class="task-priority-row ${group?'task-group-member':''} priority-${e(taskPriority(t.priority))} ${t.done?'task-done':''} ${checked?'task-bulk-selected':''}" data-priority="${e(taskPriority(t.priority))}">${bulk?`<td class="task-bulk-cell"><input type="checkbox" class="task-bulk-checkbox" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" aria-label="Выбрать задачу ${e(t.title)}" ${checked?'checked':''}></td>`:''}<td class="task-completion-cell"><button class="task-check ${t.done?'done':''}" data-action="toggle-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" title="${t.done?'Вернуть в работу':'Выполнено'}" aria-pressed="${t.done}">${t.done?icon('check'):''}</button></td><td class="task-title-cell ${t.done?'done-text':''}"><strong class="task-row-title">${e(t.title)}</strong>${t.mine?' <span class="pill">Моя</span>':''}</td>${global?`<td class="task-project-cell">${taskProjectVisual(p,ep,linked)}</td>`:''}<td class="task-actor-cell">${taskActorVisual(linked)}${vacationTag(linked.actorId)}</td><td class="task-character-cell">${taskCharacterVisual(p,ep,linked,character)}</td><td><span class="task-line-count ${workloadClass}" title="${linked.lineCount===null?'Количество реплик не указано':linked.lineCount<=50?'Мало реплик (0–50)':linked.lineCount<=100?'Средний объём (51–100)':'Много реплик (101+)'}">${e(workload)}</span></td>${global?`<td class="task-role-stage-cell">${statusRole?
-      `<select class="row-select role-status task-linked-role-status status-${e(statusRole.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" aria-label="Статус обработки роли ${e(statusRole.character)} · ${e(linked.actorName)}" title="Меняет статус роли в серии">${options(ROLE_STAGES,statusRole.status)}</select>`:
-      '<span class="task-role-stage-unlinked" title="Для изменения статуса задачи нужны назначенный актёр и привязанный персонаж">—</span>'}</td>`:''}<td><select class="task-priority-select" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" aria-label="Приоритет задачи ${e(t.title)}">${options(TASK_PRIORITIES,taskPriority(t.priority))}</select></td><td class="small ${dueClass(t.due,t.done)}">${t.due?dueLabel(t.due):'—'}</td><td class="task-actions-cell">${reaperShortcutButton(p,ep,true)}<button class="icon-btn" data-action="edit-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}" title="Изменить задачу" aria-label="Изменить задачу">${icon('edit')}</button></td></tr>`;
+    const keys=`data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}"`;
+    const priority=taskPriority(t.priority);
+    return `<tr class="task-priority-row ${group?'task-group-member':''} priority-${e(priority)} ${t.done?'task-done':''} ${checked?'task-bulk-selected':''}" data-priority="${e(priority)}">
+      ${bulk?cell(`<input type="checkbox" class="task-bulk-checkbox" ${keys} aria-label="Выбрать задачу ${e(t.title)}" ${checked?'checked':''}>`,'task-bulk-cell'):''}
+      ${cell(`<button class="task-check ${t.done?'done':''}" data-action="toggle-task" ${keys} title="${t.done?'Вернуть в работу':'Выполнено'}" aria-pressed="${t.done}">${t.done?icon('check'):''}</button>`,'task-completion-cell')}
+      ${cell(`<strong class="task-row-title">${e(t.title)}</strong>${t.mine?' <span class="pill">Моя</span>':''}`,`task-title-cell ${t.done?'done-text':''}`)}
+      ${global?cell(taskProjectVisual(p,ep,linked),'task-project-cell'):''}
+      ${cell(`${taskActorVisual(linked)}${vacationTag(linked.actorId)}`,'task-actor-cell')}
+      ${cell(taskCharacterVisual(p,ep,linked,character),'task-character-cell')}
+      ${cell(`<span class="task-line-count ${workloadClass}" title="${linked.lineCount===null?'Количество реплик не указано':linked.lineCount<=50?'Мало реплик (0–50)':linked.lineCount<=100?'Средний объём (51–100)':'Много реплик (101+)'}">${e(workload)}</span>`)}
+      ${global?cell(statusRole?
+        `<select class="row-select role-status task-linked-role-status status-${e(statusRole.status)}" ${keys} aria-label="Статус обработки роли ${e(statusRole.character)} · ${e(linked.actorName)}" title="Меняет статус роли в серии">${options(ROLE_STAGES,statusRole.status)}</select>`:
+        '<span class="task-role-stage-unlinked" title="Для изменения статуса задачи нужны назначенный актёр и привязанный персонаж">—</span>','task-role-stage-cell'):''}
+      ${cell(`<select class="task-priority-select" ${keys} aria-label="Приоритет задачи ${e(t.title)}">${options(TASK_PRIORITIES,priority)}</select>`)}
+      ${cell(t.due?dueLabel(t.due):'—',`small ${dueClass(t.due,t.done)}`)}
+      ${cell(`${global?taskVoiceFolder(p,ep,linked.role):''}${reaperShortcutButton(p,ep,true)}<button class="icon-btn" data-action="edit-task" ${keys} title="Изменить задачу" aria-label="Изменить задачу">${icon('edit')}</button>`,'task-actions-cell')}
+    </tr>`;
   };
-  const renderGroup=g=>{
-    if(g.rows.length===1)return renderRow(g.rows[0]);
+  const renderGroup=(g,index)=>{
+    if(g.rows.length===1)return `<tbody>${renderRow(g.rows[0])}</tbody>`;
     const {p,ep,t}=g.rows[0], linked=taskAssignment(state,ep,t);
     const expanded=expandedTaskGroups.has(g.key);
+    const panelId=`task-group-${index}`;
     const titles=[...new Set(g.rows.map(x=>x.t.title))];
     const known=g.roles.length-g.unknown;
     const workload=known?g.total+' репл.'+(g.unknown?' + ?':''):'Не указано';
     const color=g.unknown?'task-workload-unknown':g.total<=50?'task-workload-low':g.total<=100?'task-workload-medium':'task-workload-high';
-    const characters=g.roles.slice(0,6).map(({row,linked:role})=>`<span class="task-group-character">${e(role.character||'—')}${g.episodes.length>1?' · '+e(episodeLabel(row.p,row.ep)):''} <small>${role.lineCount===null?'?':role.lineCount}</small></span>`).join('');
+    const characters=g.roles.slice(0,6).map(({row,linked:role})=>`<span class="task-group-character">
+      <span>${e(role.character||'—')}${g.episodes.length>1?' · '+e(episodeLabel(row.p,row.ep)):''}</span>
+      <span class="task-group-character-tools"><small>${role.lineCount===null?'?':role.lineCount}</small>${taskVoiceFolder(row.p,row.ep,role.role)}</span>
+    </span>`).join('');
     const project=g.episodes.length===1?taskProjectVisual(p,ep,linked):`<span class="task-identity task-project-identity"><span class="task-identity-image task-project-image">${projectArt(p)}</span><span class="task-identity-copy"><strong>${e(p.title)}</strong><small>Серий: ${g.episodes.length}</small></span></span>`;
     const completed=g.rows.filter(x=>x.t.done).length;
-    return `<tr class="task-group-summary ${g.done?'task-done':''}"><td colspan="2"><button type="button" class="btn ghost small task-group-toggle" data-action="toggle-task-group" data-group="${e(g.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Свернуть':'Раскрыть'} поручения">${icon('chevron')} ${g.rows.length}</button></td><td class="task-title-cell"><strong class="task-row-title">${e(titles.length===1?titles[0]:'Несколько поручений')}</strong><div class="small muted">${g.rows.length} задач · ${g.roles.length} ролей</div></td><td class="task-project-cell">${project}</td><td class="task-actor-cell">${taskActorVisual(linked)}${vacationTag(linked.actorId)}</td><td class="task-character-cell"><div class="task-group-characters">${characters}${g.roles.length>6?`<small>+ ещё ${g.roles.length-6} · раскрыть</small>`:''}</div></td><td><span class="task-line-count ${color}" title="${g.unknown?'Известная сумма; у '+g.unknown+' ролей количество не указано':'Сумма уникальных ролей в поручениях'}">${e(workload)}</span></td><td colspan="4"><span class="small muted">Выполнено: ${completed}/${g.rows.length} · ${expanded?'Свернуть':'Раскрыть для управления'}</span></td></tr>`+g.rows.map(row=>renderRow(row,g)).join('');
+    return `<tbody><tr class="task-group-summary ${g.done?'task-done':''}">
+      <td colspan="2"><button type="button" class="btn ghost small task-group-toggle" data-action="toggle-task-group" data-group="${e(g.key)}"
+        aria-controls="${panelId}" aria-expanded="${expanded}" aria-label="Поручения актёра ${e(linked.actorName)} в проекте ${e(p.title)}">${icon('chevron')} ${g.rows.length}</button></td>
+      <td class="task-title-cell"><strong class="task-row-title">${e(titles.length===1?titles[0]:'Несколько поручений')}</strong><div class="small muted">Задач ${g.rows.length} · Ролей ${g.roles.length}</div></td>
+      <td class="task-project-cell">${project}</td><td class="task-actor-cell">${taskActorVisual(linked)}${vacationTag(linked.actorId)}</td>
+      <td class="task-character-cell"><div class="task-group-characters">${characters}${g.roles.length>6?`<small>+ ещё ${g.roles.length-6}</small>`:''}</div></td>
+      <td><span class="task-line-count ${color}" title="${g.unknown?'Известная сумма; у '+g.unknown+' ролей количество не указано':'Сумма уникальных ролей в поручениях'}">${e(workload)}</span></td>
+      <td colspan="4"><span class="small task-group-context">Поручения одного актёра в проекте</span><div class="small muted">Выполнено ${completed} из ${g.rows.length}</div></td>
+    </tr></tbody><tbody id="${panelId}" class="task-group-members${expanded?' is-expanded':''}" aria-hidden="${!expanded}"${expanded?'':' inert'}>
+      ${g.rows.map(row=>renderRow(row,true)).join('')}
+    </tbody>`;
   };
-  const body=bulk&&groups?groups.map(renderGroup).join(''):rows.map(row=>renderRow(row)).join('');
-  return `<div class="table-wrap task-table-wrap"><table class="tasks-priority-table"><thead><tr>${bulk?'<th class="task-bulk-cell">Выбор</th>':''}<th class="task-completion-cell">Готово</th><th class="task-title-cell">Задача</th>${global?'<th>Проект</th>':''}<th>Актёр</th><th>Персонаж</th><th>Реплики</th>${global?'<th>Статус роли</th>':''}<th>Приоритет</th><th>Срок</th><th class="task-actions-cell"></th></tr></thead><tbody>${body}</tbody></table></div>`;
+  const body=bulk&&groups?groups.map(renderGroup).join(''):`<tbody>${rows.map(row=>renderRow(row)).join('')}</tbody>`;
+  return `<div class="table-wrap task-table-wrap"><table class="tasks-priority-table"><thead><tr>${bulk?'<th class="task-bulk-cell">Выбор</th>':''}<th class="task-completion-cell">Готово</th><th class="task-title-cell">Задача</th>${global?'<th>Проект</th>':''}<th>Актёр</th><th>Персонаж</th><th>Реплики</th>${global?'<th>Статус роли</th>':''}<th>Приоритет</th><th>Срок</th><th class="task-actions-cell"></th></tr></thead>${body}</table></div>`;
 }
 
 function actorAvatar(a,large=false){return `<button type="button" class="actor-avatar ${large?'actor-avatar-large':''}" data-action="actor-avatar" data-actor="${e(a.id)}" title="Изменить аватар" aria-label="Аватар ${e(a.name)}">${a.avatar?`<img src="${e(a.avatar)}" alt="" draggable="false">`:e(a.name.slice(0,2).toUpperCase())}</button>`;}
@@ -1924,16 +1960,20 @@ function guide(step=0){
   if(!modal.open)modal.showModal();setTimeout(()=>modal.querySelector('#guide-next')?.focus(),30);
 }
 
+function updateDisclosure(button,panel,expanded){
+  button.setAttribute('aria-expanded',String(expanded));
+  panel.setAttribute('aria-hidden',String(!expanded));
+  panel.toggleAttribute('inert',!expanded);
+  panel.classList.toggle('is-expanded',expanded);
+}
+
 async function action(a,d,el){
   if(a==='toggle-project-missing'){
     const panel=el.closest('.project-card')?.querySelector('.project-missing-panel');
     if(!panel)return;
     const expanded=!expandedProjectRoles.has(d.id);
     if(expanded)expandedProjectRoles.add(d.id);else expandedProjectRoles.delete(d.id);
-    el.setAttribute('aria-expanded',String(expanded));
-    panel.setAttribute('aria-hidden',String(!expanded));
-    panel.toggleAttribute('inert',!expanded);
-    panel.classList.toggle('is-expanded',expanded);
+    updateDisclosure(el,panel,expanded);
     return;
   }
   if(a==='actor-picker-toggle'){
@@ -2124,11 +2164,24 @@ async function action(a,d,el){
     case 'text-cast-import':textCastForm(p.id,ep.id);break;
     case 'text-cast-back':if(textCastDraft)textCastForm(textCastDraft.pid,textCastDraft.epid,textCastDraft);break;
     case 'import-roles':await importRoles(p.id,ep.id);break;
-    case 'role-folder':{const r=ep.roles.find(r=>r.id===d.item);if(r.folder)await openPath(r.folder);else roleForm(p.id,ep.id,r.id);break;}
+    case 'role-folder':{
+      const episode=p?.episodes.find(episode=>episode.id===d.ep);
+      const role=episode?.roles.find(role=>role.id===d.item);
+      if(!role)break;
+      if(role.folder)await openPath(role.folder);else roleForm(p.id,episode.id,role.id);
+      break;
+    }
     case 'role-subs':{const r=ep.roles.find(r=>r.id===d.item);if(r.subtitle)await openPath(r.subtitle);else roleForm(p.id,ep.id,r.id);break;}
     case 'choose-debt-actor':ui.debtActor=d.key||'';render();break;
     case 'reset-debt-filters':ui.debtProject='all';ui.debtActor='';ui.debtStatus='all';ui.query='';saveUI();render();break;
-    case 'toggle-task-group':if(expandedTaskGroups.has(d.group))expandedTaskGroups.delete(d.group);else expandedTaskGroups.add(d.group);render();break;
+    case 'toggle-task-group':{
+      const panel=document.getElementById(el.getAttribute('aria-controls'));
+      if(!panel)break;
+      const expanded=!expandedTaskGroups.has(d.group);
+      if(expanded)expandedTaskGroups.add(d.group);else expandedTaskGroups.delete(d.group);
+      updateDisclosure(el,panel,expanded);
+      break;
+    }
     case 'clear-task-selection':selectedTasks.clear();render();break;
     case 'delete-selected-tasks':{
       if(!selectedTasks.size)break;

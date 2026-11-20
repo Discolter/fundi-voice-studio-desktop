@@ -54,7 +54,8 @@ for(const required of [
   "priority:taskPriority(data.priority)",
   "priority:ui.taskPriority||'all'",
   "order:ui.taskOrder",
-  "priority-${e(taskPriority(t.priority))}"
+  "const priority=taskPriority(t.priority)",
+  "priority-${e(priority)}"
 ]) assert.ok(app.includes(required),'Missing Studio UI wiring: '+required);
 for(const selector of ['tbody tr.task-priority-row','priority-urgent','priority-high','priority-normal','priority-low','.fv-dropdown-priority'])
   assert.ok(css.includes(selector),'Priority UI color is missing: '+selector);
