@@ -141,6 +141,33 @@ namespace FundiVoice {
             else throw new CloudFault(400,"invalid_casting_action","Неизвестное действие кастинга.");
             return FileRequest(path,action==""?"GET":"POST",action==""?null:JsonData.D(body.ContainsKey("data")?body["data"]:null));
         }
+        public object StudioResources(string action, Dictionary<string,object> body){
+            switch(action){
+                case "reserves":
+                case "software":
+                    return FileRequest("/v1/studio/"+action,"GET",null);
+                case "reserves/save":
+                case "reserves/remove":
+                case "software/save":
+                case "software/publish":
+                case "software/unpublish":
+                case "software/remove":
+                case "resources/files/begin":
+                case "resources/files/complete":
+                case "resources/files/remove":
+                case "resources/files/download":
+                    return FileRequest("/v1/studio/"+action,"POST",body);
+                default:
+                    throw new CloudFault(400,"invalid_resource_action","Неизвестное действие.");
+            }
+        }
+        public object StudioResourcePart(string id, string part, byte[] bytes){
+            Guid parsed;
+            int number;
+            if(!Guid.TryParseExact(id,"D",out parsed)||!Int32.TryParse(part,out number)||number<1||number>256||bytes.Length<1)
+                throw new CloudFault(400,"invalid_resource_part","Неверная часть файла.");
+            return FileRequest("/v1/studio/resources/files/"+parsed.ToString("D")+"/parts/"+number,"PUT",bytes);
+        }
         Dictionary<string,object> FileRequest(string path,string method,object body){
             lock(syncGate){
                 string server,token;

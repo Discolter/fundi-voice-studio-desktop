@@ -6,7 +6,12 @@ const html=readFileSync(new URL('web/index.html',base),'utf8');
 const host=readFileSync(new URL('LocalServer.cs',base),'utf8');
 const app=readFileSync(new URL('web/app.js',base),'utf8');
 const items=['projects','mytasks','debts','casting','actors','workload','actorportal',
-  'review','recommendations','settings','recovery','vacations'];
+  'review','recommendations','reserves','software','settings','recovery','vacations'];
+const studioMenu=app.match(/<nav>\$\{sidebarNav\.map[\s\S]*?<\/nav>/)?.[0];
+assert.match(studioMenu||'',/data-nav="recommendations"[\s\S]*studioResourceNavs\.map\(renderNavLink\)/,
+  'Resource tabs must be in the primary sidebar immediately after Recommendations');
+assert.match(app,/const studioResourceNavs=\[\['reserves'[^\]]+\],\['software'/,
+  'Reserve must be directly above Studio Software');
 for(const name of items){
   assert.ok(app.includes(name),name+' must exist in the Studio UI');
   assert.ok(css.includes('[data-nav="'+name+'"]'),name+' needs an explicit nav color');
