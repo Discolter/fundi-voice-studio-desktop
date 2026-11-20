@@ -22,6 +22,112 @@ function field(parent, label, name, type, value = '', max = 0) {
   return input;
 }
 
+function illustratedField(parent, label, name) {
+  const field = element(parent, 'div', 'fvr-picture-field');
+  const caption = element(field, 'span', '', label);
+  caption.id = 'fvr-reserve-' + name + '-label';
+  const select = element(field, 'select', 'fvr-picture-native');
+  select.name = name;
+  select.required = true;
+  select.tabIndex = -1;
+  select.setAttribute('aria-hidden', 'true');
+  select.dataset.fvVisualized = 'true';
+
+  const trigger = element(field, 'button', 'fvr-button fvr-picture-trigger');
+  trigger.type = 'button';
+  const current = element(trigger, 'span', 'fvr-picture-value');
+  current.id = 'fvr-reserve-' + name + '-value';
+  element(trigger, 'span', 'fvr-picture-arrow', '⌄').setAttribute('aria-hidden', 'true');
+  trigger.setAttribute('aria-labelledby', caption.id + ' ' + current.id);
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+
+  const menu = element(field, 'div', 'fvr-picture-menu');
+  menu.id = 'fvr-reserve-' + name + '-options';
+  menu.setAttribute('role', 'listbox');
+  menu.setAttribute('aria-labelledby', caption.id);
+  trigger.setAttribute('aria-controls', menu.id);
+  menu.hidden = true;
+  let options = [];
+
+  function renderChoice(node, option) {
+    node.replaceChildren();
+    if (option?.[2]) {
+      const image = element(node, 'img', 'fvr-picture-thumb');
+      image.alt = '';
+      image.decoding = 'async';
+      if (node !== current) image.loading = 'lazy';
+      image.addEventListener('error', () => { image.remove(); }, {once: true});
+      image.src = option[2];
+    }
+    element(node, 'span', '', option?.[1] || label);
+  }
+  function close() {
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+  function refreshValue() {
+    renderChoice(current, options[select.selectedIndex]);
+    trigger.removeAttribute('aria-invalid');
+  }
+  function open() {
+    if (select.disabled) return;
+    menu.replaceChildren();
+    for (const option of options) {
+      const row = element(menu, 'button', 'fvr-picture-option');
+      row.type = 'button';
+      row.tabIndex = -1;
+      row.setAttribute('role', 'option');
+      row.setAttribute('aria-selected', String(option[0] === select.value));
+      renderChoice(row, option);
+      row.addEventListener('click', () => {
+        close();
+        if (select.value !== option[0]) {
+          select.value = option[0];
+          select.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        trigger.focus();
+      });
+    }
+    menu.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    (menu.querySelector('[aria-selected="true"]') || menu.firstElementChild)?.focus();
+  }
+
+  trigger.addEventListener('click', () => { if (menu.hidden) open(); else close(); });
+  select.addEventListener('change', refreshValue);
+  select.addEventListener('invalid', event => {
+    event.preventDefault();
+    trigger.setAttribute('aria-invalid', 'true');
+    if (select.form.querySelector(':invalid:not(form)') === select) trigger.focus();
+  });
+  field.addEventListener('focusout', event => { if (!field.contains(event.relatedTarget)) close(); });
+  field.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !menu.hidden) {
+      event.preventDefault();
+      close();
+      trigger.focus();
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    if (menu.hidden) { open(); return; }
+    const items = Array.from(menu.children);
+    const index = items.indexOf(document.activeElement);
+    items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+  });
+
+  return {
+    select,
+    setOptions(next, desired) {
+      close();
+      options = next;
+      selectOptions(select, next, next.some(option => option[0] === desired) ? desired : '');
+      refreshValue();
+    }
+  };
+}
+
 export function createStudioResources({identity, context, request, put, resolveUrl, reservesChanged}) {
   let owner = null;
   let generation = 0;
@@ -168,12 +274,15 @@ export function createStudioResources({identity, context, request, put, resolveU
     if (item) element(form, 'p', 'fvr-muted', [item.projectTitle, item.episodeTitle].filter(Boolean).join(' · '));
     else {
       const group = element(form, 'div', 'fvr-fields');
-      project = field(group, 'Проект', 'project', 'select');
+      const projectsPicker = illustratedField(group, 'Проект', 'project');
+      project = projectsPicker.select;
       episode = field(group, 'Серия', 'episode', 'select');
-      role = field(group, 'Персонаж', 'role', 'select');
+      episode.dataset.fvVisualized = 'true';
+      const rolesPicker = illustratedField(group, 'Персонаж', 'role');
+      role = rolesPicker.select;
       actor = field(group, 'Резервный актёр', 'actor', 'select');
-      for (const select of [project, episode, role, actor]) select.required = true;
-      selectOptions(project, [['', 'Выбери проект'], ...projects.map(p => [p.id, p.title])], view.edits?.project);
+      episode.required = actor.required = true;
+      projectsPicker.setOptions([['', 'Выбери проект'], ...projects.map(p => [p.id, p.title, p.cover])], view.edits?.project);
       function chooseEpisode() {
         const p = projects.find(p => p.id === project.value);
         selectOptions(episode, [['', 'Выбери серию'], ...(p?.episodes || []).map(e => [e.id, e.title])], view.edits?.episode);
@@ -181,8 +290,8 @@ export function createStudioResources({identity, context, request, put, resolveU
       }
       function chooseRole() {
         const ep = projects.find(p => p.id === project.value)?.episodes.find(e => e.id === episode.value);
-        const options = (ep?.roles || []).map(r => [r.id, r.primaryName ? r.character + ' · ' + r.primaryName : r.character]);
-        selectOptions(role, [['', 'Выбери персонажа'], ...options], view.edits?.role);
+        const options = (ep?.roles || []).map(r => [r.id, r.primaryName ? r.character + ' · ' + r.primaryName : r.character, r.image]);
+        rolesPicker.setOptions([['', 'Выбери персонажа'], ...options], view.edits?.role);
         chooseActor();
       }
       function chooseActor() {
@@ -190,6 +299,7 @@ export function createStudioResources({identity, context, request, put, resolveU
           ?.roles.find(r => r.id === role.value);
         selectOptions(actor, [['', 'Выбери актёра'], ...actors.filter(a => !r?.primaryIds.includes(a.id))
           .map(a => [a.id, a.name])], view.edits?.actor);
+        actor.dispatchEvent(new Event('change'));
       }
       project.addEventListener('change', chooseEpisode);
       episode.addEventListener('change', chooseRole);

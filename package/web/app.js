@@ -2576,9 +2576,9 @@ function castingDownload(result){
 
 function reserveContext(){
   return {actors:state.actors.filter(a=>!a.retiredAt).map(a=>({id:a.id,name:a.name})),
-    projects:state.projects.map(p=>({id:p.id,title:p.title,episodes:p.episodes.map(ep=>({
+    projects:state.projects.map(p=>({id:p.id,title:p.title,cover:safeCover(p.cover),episodes:p.episodes.map(ep=>({
       id:ep.id,title:episodeLabel(ep),roles:ep.roles.map(r=>({
-        id:r.id,character:r.character,primaryIds:matchingCharacterRoles(ep,r).map(role=>role.actorId),
+        id:r.id,character:r.character,image:safeRoleImage(r.image),primaryIds:matchingCharacterRoles(ep,r).map(role=>role.actorId),
         primaryName:r.actorId?actorForRole(state,r)?.name||r.actor||'':''
       }))
     }))}))};

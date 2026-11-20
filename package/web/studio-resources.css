@@ -27,6 +27,22 @@
 .fvr-form { display:grid; gap:12px; }
 .fvr-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); gap:10px; }
 .fvr-form label { display:grid; gap:5px; min-width:0; }
+.fvr-picture-field { display:grid; gap:5px; min-width:0; position:relative; }
+.fvr-picture-native { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+.fvr-picture-trigger, .fvr-picture-value, .fvr-picture-option { display:flex; align-items:center; gap:8px; min-width:0; text-align:start; }
+.fvr-picture-trigger { justify-content:space-between; min-height:44px; }
+.fvr-picture-thumb { width:32px; height:42px; flex:none; border-radius:4px; object-fit:cover; }
+.fvr-picture-value, .fvr-picture-option > span { overflow-wrap:anywhere; }
+.fvr-picture-arrow { flex:none; }
+.fvr-picture-menu { position:absolute; inset:calc(100% + 4px) 0 auto; z-index:5; max-height:240px; overflow:auto;
+  padding:4px; border:1px solid var(--line, ButtonBorder); border-radius:8px;
+  background:var(--side, var(--panel, Canvas)); box-shadow:0 8px 24px #0004; }
+.fvr-picture-option { width:100%; padding:6px 8px; color:inherit; border:0; border-radius:5px;
+  background:transparent; font:inherit; cursor:pointer; }
+.fvr-picture-option:is(:hover, :focus-visible, [aria-selected="true"]) {
+  background:color-mix(in srgb,currentColor 12%,transparent);
+}
+.fvr-picture-trigger[aria-invalid="true"] { border-color:#c45061; }
 .fvr-form .fvr-check { display:flex; align-items:center; gap:8px; }
 .fvr-form select, .fvr-form input, .fvr-form textarea { min-width:0; }
 .fv-resources select option { color:CanvasText; background:Canvas; }
