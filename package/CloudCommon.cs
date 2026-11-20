@@ -64,9 +64,11 @@ namespace FundiVoice.Desktop {
             request.Accept="application/json";request.UserAgent="FundiVoice-Windows/1.6";
             if(!String.IsNullOrEmpty(token))request.Headers["Authorization"]="Bearer "+token;
             if(body!=null){
-                byte[] bytes=Encoding.UTF8.GetBytes(JsonData.Json().Serialize(body));
+                var binary=body as byte[];
+                byte[] bytes=binary??Encoding.UTF8.GetBytes(JsonData.Json().Serialize(body));
                 if(bytes.Length>8*1024*1024)throw new CloudFault(413,"payload_too_large","Слишком много данных для одной публикации. Уменьши число активных проектов.");
-                request.ContentType="application/json; charset=utf-8";request.ContentLength=bytes.Length;
+                request.ContentType=binary==null?"application/json; charset=utf-8":"application/octet-stream";
+                request.ContentLength=bytes.Length;
                 try{using(var output=request.GetRequestStream())output.Write(bytes,0,bytes.Length);}
                 catch(WebException error){throw Network(error);}
             }

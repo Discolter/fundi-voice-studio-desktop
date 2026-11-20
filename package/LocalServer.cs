@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Net;
 using System.Net.Sockets;
 using System.Collections;
@@ -146,8 +147,12 @@ namespace FundiVoice {
                             if (length < 0 || length > 8 * 1024 * 1024) { SendJson(stream, 413, new { error = "Рабочее пространство должно быть меньше 8 МБ." }); return; }
                             byte[] body = new byte[length]; int read = 0;
                             while (read < length) { int count = stream.Read(body, read, length-read); if (count == 0) throw new IOException("Передача данных прервалась."); read += count; }
-                            Route(stream, method, path.Substring(5), Encoding.UTF8.GetString(body));
-                        } else if (method == "GET" && StaticFiles.Contains(path)) {
+                            var part = Regex.Match(path, @"^/api/cloud/resources/files/([0-9a-fA-F-]{36})/parts/([1-9][0-9]{0,2})$");
+                            if (method == "PUT" && part.Success)
+                                SendJson(stream,200,Cloud.StudioResourcePart(part.Groups[1].Value,part.Groups[2].Value,body));
+                            else Route(stream, method, path.Substring(5), Encoding.UTF8.GetString(body));
+                        } else if (method == "GET" && (StaticFiles.Contains(path) ||
+                            path == "/software-library.js" || path == "/studio-resources.js" || path == "/studio-resources.css")) {
                             string name = path == "/" ? "index.html" : path.Substring(1);
                             string file = Path.Combine(WebRoot, name);
                             if (!File.Exists(file)) { SendJson(stream, 404, new { error = "Файл приложения не найден." }); return; }
@@ -320,6 +325,8 @@ namespace FundiVoice {
                     else if(route=="cloud/vacations/delete")result=Cloud.DeleteVacationRecord(S(dataBody,"kind"),S(dataBody,"value"));
                     else if(route=="cloud/vacations/events/read")result=Cloud.ReadVacationEvents(FundiVoice.Desktop.JsonData.A(dataBody,"ids"));
                     else if(route=="cloud/casting")result=Cloud.Casting(dataBody);
+                    else if(route=="cloud/resources")result=Cloud.StudioResources(S(dataBody,"action"),
+                        FundiVoice.Desktop.JsonData.D(dataBody.ContainsKey("data")?dataBody["data"]:null));
                     else if(route=="cloud/files")result=Cloud.FilesNow();
                     else if(route=="cloud/files/download"){
                         string folder=S(dataBody,"folder");
@@ -541,7 +548,7 @@ namespace FundiVoice {
         static void SendJson(NetworkStream stream,int status,object value){Send(stream,status,Encoding.UTF8.GetBytes(Json().Serialize(value)),"application/json; charset=utf-8");}
         static void Send(NetworkStream stream,int status,byte[] body,string mime){
             string label=status==200?"OK":status==404?"Not Found":status==403?"Forbidden":status==413?"Payload Too Large":"Bad Request";
-            string header="HTTP/1.1 "+status+" "+label+"\r\nContent-Type: "+mime+"\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://xsbeatjomlcegxmqnapw.supabase.co; connect-src 'self' https://xsbeatjomlcegxmqnapw.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'\r\n\r\n";
+            string header="HTTP/1.1 "+status+" "+label+"\r\nContent-Type: "+mime+"\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://xsbeatjomlcegxmqnapw.supabase.co https://fundi-voice-cloud.onrender.com; connect-src 'self' https://xsbeatjomlcegxmqnapw.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'\r\n\r\n";
             byte[] bytes=Encoding.ASCII.GetBytes(header);stream.Write(bytes,0,bytes.Length);stream.Write(body,0,body.Length);stream.Flush();
         }
     }
