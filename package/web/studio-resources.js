@@ -592,7 +592,7 @@ export function createStudioResources({identity, context, openProject, openActor
       if (!root) return;
       const view = page(kind);
       const fresh = !view.panel;
-      if (fresh) view.panel = element(null, 'section', 'fv-resources');
+      if (fresh) view.panel = element(null, 'section', 'fv-resources fvr-studio');
       root.replaceChildren(view.panel);
       if (fresh || kind === 'reserves') draw(kind, view);
       if (!fresh) return;

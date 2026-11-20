@@ -20,6 +20,11 @@
   color:inherit; font:inherit; border:1px solid color-mix(in srgb,currentColor 25%,transparent);
   border-radius:8px; padding:8px 11px; background:color-mix(in srgb,currentColor 7%,transparent);
 }
+.fvr-studio .fvr-card, .fvr-studio > input[type="search"] {
+  background:var(--surface, var(--panel)); border-color:var(--border, var(--stroke));
+}
+.fvr-studio > input[type="search"]::placeholder { color:var(--muted); opacity:1; }
+.fvr-studio > input[type="search"]:focus { border-color:var(--brand1, var(--accent)); }
 .fvr-button { display:inline-block; text-decoration:none; cursor:pointer; overflow-wrap:anywhere; }
 .fvr-button:hover { background:color-mix(in srgb,currentColor 16%,transparent); }
 .fvr-button:disabled { opacity:.55; cursor:wait; }
