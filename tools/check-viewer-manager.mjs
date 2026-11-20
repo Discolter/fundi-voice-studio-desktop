@@ -12,7 +12,9 @@ assert.match(host,/\/site-manager\.js/);
 assert.match(host,/\/site-manager\.css/);
 assert.match(html,/site-manager\.css/);
 assert.ok(host.includes("connect-src 'self' https://xsbeatjomlcegxmqnapw.supabase.co;"));
-assert.ok(host.includes("img-src 'self' data: https://xsbeatjomlcegxmqnapw.supabase.co;"));
+const imageSources=host.match(/img-src ([^;]+);/)?.[1].split(' ');
+assert.deepEqual(imageSources,["'self'",'data:','https://xsbeatjomlcegxmqnapw.supabase.co',
+  'https://fundi-voice-cloud.onrender.com']);
 const managerJS=fs.readFileSync(new URL('../package/web/site-manager.js',import.meta.url),'utf8');
 assert.ok(managerJS.includes("...(session?.access_token?{Authorization:'Bearer '+session.access_token}:{}),"));
 assert.ok(!managerJS.includes("Authorization:'Bearer '+(session?.access_token||config.key)"));
