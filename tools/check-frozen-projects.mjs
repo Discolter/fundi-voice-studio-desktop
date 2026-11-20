@@ -25,7 +25,7 @@ const visible=()=>({
  mine:myRoleRows(state).length, tasks:taskRows(state,{includeArchived:true}).length,
  actorRoles:actorAssignments(state,actor.id).length,
  workload:actorWorkloadRows(state).find(row=>row.actor.id===actor.id)?.total,
- recommendations:collectRecommendations(state,{connected:false},{now:new Date('2026-11-06')}).filter(r=>r.project?.id===project.id).length
+ recommendations:collectRecommendations(state,{connected:false},{now:new Date('2026-11-06')}).episodes.filter(r=>r.project?.id===project.id).length
 });
 const initial=visible();
 assert.equal(initial.active,1);

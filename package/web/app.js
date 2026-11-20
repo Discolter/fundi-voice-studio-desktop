@@ -9,7 +9,7 @@ import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAcce
 import {createSiteManager} from './site-manager.js';
 import {createActorCabinet} from './actor-cabinet.js';
 import {createQuickViews,roleSnapshot} from './quick-views.js';
-import {collectRecommendations,visibleRecommendations,sortRecommendations,muteRecommendation,recommendationMessage} from './recommendations.js';
+import {collectRecommendations,validRecommendationFilter} from './recommendations.js';
 import {renderRecommendationPage} from './recommendations-view.js';
 import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
@@ -58,6 +58,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
+const expandedRecommendationGroups=new Set();
 const expandedProjectRoles=new Set(); // Independent, ephemeral project-card disclosure.
 let taskHistoryQuery='';
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
@@ -65,7 +66,7 @@ let syncedRoleSnapshotVersion=-1; // Version checked immediately before explicit
 let rolePublishBusy=false;
 let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
 let textCastDraft=null;
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationSort:'easy',recommendationFilter:'all'};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationFilter:'all'};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name','progress'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
   ui.workloadIncludeArchive=saved.workloadIncludeArchive===true;
@@ -79,8 +80,7 @@ try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.la
   ui.actorStatIncludeArchive=saved.actorStatIncludeArchive!==false;
   ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
   ui.debtProject=typeof saved.debtProject==='string'&&saved.debtProject.length<=80?saved.debtProject:'all';
-  ui.recommendationSort=saved.recommendationSort==='urgent'?'urgent':'easy';
-  ui.recommendationFilter=['all','quick','urgent','actors','projects'].includes(saved.recommendationFilter)?saved.recommendationFilter:'all';
+  ui.recommendationFilter=validRecommendationFilter(saved.recommendationFilter);
 }catch{}
 const app=document.querySelector('#app'),modal=document.querySelector('#modal');
 const activeProjects=()=>state.projects.filter(p=>!p.archived&&!p.hidden);
@@ -98,8 +98,7 @@ const myRoleRows=(s,options)=>{
   return unfinishedMyRoleEpisodes(storedMyRoleRows(source),storedMyRoleRows(source,options));
 };
 const debtRows=(s,options)=>storedDebtRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
-const activeRecommendations=()=>visibleRecommendations(collectRecommendations(withRoleReviews(state,cloud.reviews||[]),cloud));
-const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).filter(a=>!a.retiredAt).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length,review:vacationReviewRows(state,cloud.vacations||[]).length,recommendations:activeRecommendations().length});
+const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).filter(a=>!a.retiredAt).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length,review:vacationReviewRows(state,cloud.vacations||[]).length});
 const studioResourceNavs=[['reserves','users','Запас'],['software','file','Студийное ПО']];
 const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['casting','mic','Кастинг'],['actors','users','Актёры'],['workload','workload','Нагрузка'],['actorportal','shield','Доступ актёров']];
 let recoveryRequests=[],recoveryCode='';
@@ -359,7 +358,7 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationSort:ui.recommendationSort,recommendationFilter:ui.recommendationFilter}));}catch{}}
+function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationFilter:ui.recommendationFilter}));}catch{}}
 function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if((['vacations','review'].includes(page)||page==='recommendations')&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles',actorKey='',characterKey=''){
   selectedTasks.clear();
@@ -386,7 +385,7 @@ function render(){
   const sidebarNav=ui.siteMode==='cabinet'?[['cabinet-home','grid','Главная']]:ui.siteMode==='site'?[['site-releases','grid','Релизы'],['site-news','file','Новости'],['site-notifications','bell','Уведомления'],['site-ratings','star','Оценки'],['site-users','users','Пользователи']]:navs;
   const section=ui.siteMode==='cabinet'?'Роли актёров':ui.siteMode==='site'?({releases:'Релизы',news:'Новости',notifications:'Уведомления',ratings:'Оценки',users:'Пользователи'}[ui.sitePage]||'Сайт'):([...navs,...studioResourceNavs].find(n=>n[0]===activePage)?.[2]||(ui.page==='vacations'?'Отпуска':ui.page==='recommendations'?'Рекомендации':ui.page==='review'?'Пересмотр':ui.page==='recovery'?'Сброс пароля':'Настройки'));
   const renderNavLink=([id,ic,label])=>`<button class="nav-item ${activePage===id?'active':''}" data-${ui.siteMode==='site'?'site-nav':ui.siteMode==='cabinet'?'cabinet':'nav'}="${ui.siteMode==='site'?id.slice(5):ui.siteMode==='cabinet'?'home':id}" title="${label}">${icon(ic)}<span>${label}</span>${['projects','actors','mytasks','debts'].includes(id)?`<span class="nav-count" aria-label="${id==='actors'?'Всего актёров':id==='mytasks'?'Моих ролей':id==='debts'?'Невыполненных записей':'Активных проектов'}: ${c[id]}">${c[id]}</span>`:''}</button>`;
-  app.innerHTML=`<div class="shell"><aside class="sidebar"><a class="brand" href="#" data-nav="projects" aria-label="Fundi Voice"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><div class="brand-title">Fundi Voice<span class="lime">.</span></div></a><nav>${sidebarNav.map(renderNavLink).join('')}${ui.siteMode==='studio'&&native&&cloud.connected?`<button class="nav-item" data-action="studio-files" aria-haspopup="dialog">${icon('file')}<span>Мои файлы</span><span class="nav-count nav-file-count" data-file-unread-count ${cloud.unreadFiles?'':'hidden'}>${cloud.unreadFiles>99?'99+':cloud.unreadFiles||''}</span></button>`:''}${ui.siteMode==='studio'?`<button class="nav-item vacation-review-nav ${ui.page==='review'?'active':''} ${c.review?'has-items':''}" data-nav="review" title="Пересмотр назначений из-за отпусков">${icon('review')}<span>Пересмотр</span>${c.review?`<span class="nav-count" aria-label="Ролей на пересмотр: ${c.review}">${c.review>99?'99+':c.review}</span>`:''}</button>`:''}${ui.siteMode==='studio'?`<button class="nav-item rec-nav ${ui.page==='recommendations'?'active':''}" data-nav="recommendations" title="Умные рекомендации для Studio">${icon('spark')}<span>Рекомендации</span>${c.recommendations?`<span class="nav-count" aria-label="Актуальных рекомендаций: ${c.recommendations}">${c.recommendations>99?'99+':c.recommendations}</span>`:''}</button>`:''}${ui.siteMode==='studio'?studioResourceNavs.map(renderNavLink).join(''):''}</nav><div class="sidebar-bottom">${ui.siteMode==='cabinet'?`<div class="nav-item" style="cursor:default;opacity:.7">${icon('eye')}<span>Режим просмотра</span></div>`:ui.siteMode==='site'?`<a class="nav-item" href="https://fundivoice-viewer-test.pages.dev/" target="_blank" rel="noopener noreferrer">${icon('external')}<span>Открыть сайт</span></a>`:`<button class="nav-item" data-action="help">${icon('help')}<span>Как пользоваться</span></button><button class="nav-item ${ui.page==='settings'?'active':''}" data-nav="settings">${icon('settings')}<span>Настройки</span></button><button class="nav-item studio-recovery-nav ${ui.page==='recovery'?'active':''}" data-nav="recovery" title="Сброс пароля" aria-label="Сброс пароля">${icon('password')}<span>Сброс пароля</span></button><button class="nav-item studio-vacation-nav ${ui.page==='vacations'?'active':''}" data-nav="vacations" title="Отпуска">${icon('vacation')}<span>Отпуска</span>${cloud.vacationUnread?`<b class="nav-count">${cloud.vacationUnread>99?'99+':cloud.vacationUnread}</b>`:''}</button>` }<div class="profile"><div class="avatar">${e(state.settings.name.slice(0,1).toUpperCase())}</div><div class="profile-name">${e(state.settings.name)}</div></div></div></aside><main class="main"><header class="topbar"><div class="site-topbar-group"><span class="topbar-title">${e(section)}</span><div class="site-mode-switch" role="group" aria-label="Рабочий режим"><button type="button" data-site-mode="studio" class="${ui.siteMode==='studio'?'active':''}" aria-pressed="${ui.siteMode==='studio'}">Студия</button><button type="button" data-site-mode="site" class="${ui.siteMode==='site'?'active':''}" aria-pressed="${ui.siteMode==='site'}">Сайт</button><button type="button" data-site-mode="cabinet" class="${ui.siteMode==='cabinet'?'active':''}" aria-pressed="${ui.siteMode==='cabinet'}">Роли актёров</button></div></div><div class="topbar-right">${ui.siteMode==='site'?`<span class="sm-toolbar-label">Управление зрительским сайтом</span>`:ui.siteMode==='cabinet'?`<span class="sm-toolbar-label">Проверка опубликованных назначений · только просмотр</span>`:`<button class="btn ghost studio-refresh-button" data-action="refresh-all" title="Проверить новые записи, уведомления и отпуска" aria-label="Обновить данные Studio" ${refreshing?'disabled':''}>${icon('refresh')}<span>${refreshing?'Обновляем…':'Обновить'}</span></button><button class="icon-btn notification-bell" data-action="studio-messages" title="Уведомления" aria-label="Уведомления">${icon('bell')}<b data-notification-count ${cloud.mailbox?.unread||cloud.mailbox?.failed?.length?'':'hidden'}>${cloud.mailbox?.unread||(cloud.mailbox?.failed?.length?'!':'')}</b></button><label class="search">${icon('search')}<span class="sr-only">Поиск</span><input id="search-input" placeholder="Поиск" value="${e(ui.query)}" autocomplete="off"><kbd>Ctrl K</kbd></label><div class="status-indicator" data-save-state="${saveStatusState()}"><span class="status-dot"></span><span id="save-status">${saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено'}</span></div><div class="cloud-sync-indicator" id="cloud-sync-indicator" data-cloud-state="${cloudStatusNow().code}" title="${e(cloudStatusNow().description)}" role="status" aria-live="polite"><span class="cloud-sync-dot"></span><span class="cloud-sync-text">${e(cloudStatusNow().label)}</span></div><button class="icon-btn" data-action="help" title="Как пользоваться" aria-label="Как пользоваться">${icon('help')}</button><button class="icon-btn mobile-settings" data-nav="settings" title="Настройки" aria-label="Настройки">${icon('settings')}</button>`}</div></header><div id="role-sync-alert">${roleSyncBannerHTML()}</div>${saveError?`<div class="save-warning">${e(saveError)} <button class="text-button" data-action="export">Скачать копию</button></div>`:''}<div class="content ${enter?'screen-enter':''}">${renderPage(c)}</div></main></div>`;
+  app.innerHTML=`<div class="shell"><aside class="sidebar"><a class="brand" href="#" data-nav="projects" aria-label="Fundi Voice"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><div class="brand-title">Fundi Voice<span class="lime">.</span></div></a><nav>${sidebarNav.map(renderNavLink).join('')}${ui.siteMode==='studio'&&native&&cloud.connected?`<button class="nav-item" data-action="studio-files" aria-haspopup="dialog">${icon('file')}<span>Мои файлы</span><span class="nav-count nav-file-count" data-file-unread-count ${cloud.unreadFiles?'':'hidden'}>${cloud.unreadFiles>99?'99+':cloud.unreadFiles||''}</span></button>`:''}${ui.siteMode==='studio'?`<button class="nav-item vacation-review-nav ${ui.page==='review'?'active':''} ${c.review?'has-items':''}" data-nav="review" title="Пересмотр назначений из-за отпусков">${icon('review')}<span>Пересмотр</span>${c.review?`<span class="nav-count" aria-label="Ролей на пересмотр: ${c.review}">${c.review>99?'99+':c.review}</span>`:''}</button>`:''}${ui.siteMode==='studio'?`<button class="nav-item rec-nav ${ui.page==='recommendations'?'active':''}" data-nav="recommendations" title="Готовность серий и незавершённые роли">${icon('spark')}<span>Рекомендации</span></button>`:''}${ui.siteMode==='studio'?studioResourceNavs.map(renderNavLink).join(''):''}</nav><div class="sidebar-bottom">${ui.siteMode==='cabinet'?`<div class="nav-item" style="cursor:default;opacity:.7">${icon('eye')}<span>Режим просмотра</span></div>`:ui.siteMode==='site'?`<a class="nav-item" href="https://fundivoice-viewer-test.pages.dev/" target="_blank" rel="noopener noreferrer">${icon('external')}<span>Открыть сайт</span></a>`:`<button class="nav-item" data-action="help">${icon('help')}<span>Как пользоваться</span></button><button class="nav-item ${ui.page==='settings'?'active':''}" data-nav="settings">${icon('settings')}<span>Настройки</span></button><button class="nav-item studio-recovery-nav ${ui.page==='recovery'?'active':''}" data-nav="recovery" title="Сброс пароля" aria-label="Сброс пароля">${icon('password')}<span>Сброс пароля</span></button><button class="nav-item studio-vacation-nav ${ui.page==='vacations'?'active':''}" data-nav="vacations" title="Отпуска">${icon('vacation')}<span>Отпуска</span>${cloud.vacationUnread?`<b class="nav-count">${cloud.vacationUnread>99?'99+':cloud.vacationUnread}</b>`:''}</button>` }<div class="profile"><div class="avatar">${e(state.settings.name.slice(0,1).toUpperCase())}</div><div class="profile-name">${e(state.settings.name)}</div></div></div></aside><main class="main"><header class="topbar"><div class="site-topbar-group"><span class="topbar-title">${e(section)}</span><div class="site-mode-switch" role="group" aria-label="Рабочий режим"><button type="button" data-site-mode="studio" class="${ui.siteMode==='studio'?'active':''}" aria-pressed="${ui.siteMode==='studio'}">Студия</button><button type="button" data-site-mode="site" class="${ui.siteMode==='site'?'active':''}" aria-pressed="${ui.siteMode==='site'}">Сайт</button><button type="button" data-site-mode="cabinet" class="${ui.siteMode==='cabinet'?'active':''}" aria-pressed="${ui.siteMode==='cabinet'}">Роли актёров</button></div></div><div class="topbar-right">${ui.siteMode==='site'?`<span class="sm-toolbar-label">Управление зрительским сайтом</span>`:ui.siteMode==='cabinet'?`<span class="sm-toolbar-label">Проверка опубликованных назначений · только просмотр</span>`:`<button class="btn ghost studio-refresh-button" data-action="refresh-all" title="Проверить новые записи, уведомления и отпуска" aria-label="Обновить данные Studio" ${refreshing?'disabled':''}>${icon('refresh')}<span>${refreshing?'Обновляем…':'Обновить'}</span></button><button class="icon-btn notification-bell" data-action="studio-messages" title="Уведомления" aria-label="Уведомления">${icon('bell')}<b data-notification-count ${cloud.mailbox?.unread||cloud.mailbox?.failed?.length?'':'hidden'}>${cloud.mailbox?.unread||(cloud.mailbox?.failed?.length?'!':'')}</b></button><label class="search">${icon('search')}<span class="sr-only">Поиск</span><input id="search-input" placeholder="Поиск" value="${e(ui.query)}" autocomplete="off"><kbd>Ctrl K</kbd></label><div class="status-indicator" data-save-state="${saveStatusState()}"><span class="status-dot"></span><span id="save-status">${saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено'}</span></div><div class="cloud-sync-indicator" id="cloud-sync-indicator" data-cloud-state="${cloudStatusNow().code}" title="${e(cloudStatusNow().description)}" role="status" aria-live="polite"><span class="cloud-sync-dot"></span><span class="cloud-sync-text">${e(cloudStatusNow().label)}</span></div><button class="icon-btn" data-action="help" title="Как пользоваться" aria-label="Как пользоваться">${icon('help')}</button><button class="icon-btn mobile-settings" data-nav="settings" title="Настройки" aria-label="Настройки">${icon('settings')}</button>`}</div></header><div id="role-sync-alert">${roleSyncBannerHTML()}</div>${saveError?`<div class="save-warning">${e(saveError)} <button class="text-button" data-action="export">Скачать копию</button></div>`:''}<div class="content ${enter?'screen-enter':''}">${renderPage(c)}</div></main></div>`;
   const selectAll=document.querySelector('#bulk-task-select-all');
   if(selectAll)selectAll.indeterminate=selectedTasks.size>0&&!selectAll.checked;
   if(focused){const input=document.querySelector('#search-input');input.focus();input.setSelectionRange(caret,caret);}
@@ -412,9 +411,9 @@ function heading(title,desc='',actions=''){return `<div class="page-head"><div><
 const modeSwitch=()=>`<div class="mode-switch"><button data-mode="studio" class="${state.settings.mode==='studio'?'active':''}">Все</button><button data-mode="actor" class="${state.settings.mode==='actor'?'active':''}">Мои</button></div>`;
 const empty=(title,action='',label='Добавить',data='')=>`<div class="empty">${icon('plus')}<h3>${e(title)}</h3>${action?`<button class="btn primary" data-action="${action}" ${data}>${e(label)}</button>`:''}</div>`;
 function renderRecommendations(){
-  return renderRecommendationPage(sortRecommendations(activeRecommendations(),ui.recommendationSort),{
-    sort:ui.recommendationSort,filter:ui.recommendationFilter,icon,escapeHTML:e
-  });
+  const source=withRoleReviews(state,cloud.reviews||[]);
+  const dashboard=collectRecommendations(source,cloud,{reservesForRole:studioResources.forRole});
+  return renderRecommendationPage(dashboard,{filter:ui.recommendationFilter,query:ui.query,icon,expanded:expandedRecommendationGroups});
 }
 function renderProjects(c){
   const hidden=ui.page==='hidden',archived=ui.page==='archive',projects=selectProjects(withRoleReviews(state,cloud.reviews||[]),{query:ui.query,filter:ui.filter,sort:ui.sort,archived,hidden});
@@ -1992,28 +1991,15 @@ async function action(a,d,el){
   }
   const p=getProject(d.id),ep=getEpisode(p,d.ep);
   switch(a){
-    case 'recommend-sort':ui.recommendationSort=d.sort==='urgent'?'urgent':'easy';saveUI();render();break;
-    case 'recommend-filter':ui.recommendationFilter=['all','quick','urgent','actors','projects'].includes(d.filterValue)?d.filterValue:'all';saveUI();render();break;
-    case 'recommend-snooze':
-    case 'recommend-hide':{
-      const item=activeRecommendations().find(x=>x.id===d.rec);
-      if(!item){render();break;}
-      muteRecommendation(item,{hours:a==='recommend-snooze'?24:0});
-      render();toast(a==='recommend-snooze'?'Отложено на 24 часа':'Совет скрыт до изменения данных');
+    case 'recommend-filter':
+      ui.recommendationFilter=validRecommendationFilter(d.filterValue);
+      saveUI();
+      render();
+      document.querySelector('.rec-filter[aria-pressed="true"]')?.focus({preventScroll:true});
       break;
-    }
-    case 'recommend-open-episode':{
-      ui.siteMode='studio';openProject(d.project,d.episode,d.tab==='tasks'?'tasks':'roles');break;
-    }
-    case 'recommend-remind':{
-      const item=activeRecommendations().find(x=>x.id===d.rec);
-      if(!item||item.type!=='remind')break;
-      const message=recommendationMessage(item);
-      await copyText(message);
-      const handle=cleanTelegram(item.actor?.telegram||'');
-      if(handle&&/^[a-zA-Z0-9_]{5,32}$/.test(handle))window.open('https://t.me/'+encodeURIComponent(handle),'_blank','noopener,noreferrer');
+    case 'recommend-open-episode':
+      openProject(d.project,d.episode,d.tab==='tasks'?'tasks':'roles');
       break;
-    }
     case 'close-modal':modal.close();break;
     case 'studio-files':await showStudioFiles();break;
     case 'vacation-review-transfer':vacationReviewTransferForm(d.id,d.ep,d.item);break;
@@ -2471,7 +2457,15 @@ document.addEventListener('input',event=>{
     return;
   }if(event.target.classList.contains('episode-unassigned-search')){const dropdown=event.target.closest('.episode-unassigned-dropdown');const q=event.target.value.trim().toLocaleLowerCase('ru');let visible=0;dropdown.querySelectorAll('.episode-unassigned-person').forEach(row=>{row.hidden=!row.dataset.unassignedSearch.includes(q);if(!row.hidden)visible++;});const empty=dropdown.querySelector('.episode-unassigned-no-matches');if(empty)empty.hidden=visible>0;return;}if(event.target.classList.contains('actor-picker-search')){fillActorPicker(event.target.closest('.actor-picker'),event.target.value);return;}if(event.target.name==='folderName'&&projectWizard?.step===3){const preview=modal.querySelector('#wizard-location');if(preview)preview.textContent=projectWizard.parent+'\\'+event.target.value;}if(event.target.id==='search-input'){ui.query=event.target.value;if(ui.page==='detail'||ui.page==='settings')ui.page='projects';render();}});
 document.addEventListener('toggle',event=>{
-  const el=event.target,key=el.dataset?.actorFold;if(el.tagName!=='DETAILS'||!key)return;
+  const el=event.target;
+  if(el.tagName!=='DETAILS')return;
+  const recommendationGroup=el.dataset.recommendationGroup;
+  if(recommendationGroup&&el.isConnected){
+    if(el.open)expandedRecommendationGroups.add(recommendationGroup);
+    else expandedRecommendationGroups.delete(recommendationGroup);
+    return;
+  }
+  const key=el.dataset.actorFold;if(!key)return;
   if(el.open){if(!ui.actorExpanded.includes(key))ui.actorExpanded.push(key);}else ui.actorExpanded=ui.actorExpanded.filter(x=>x!==key);
   saveUI();
 },true);
@@ -2674,7 +2668,9 @@ const studioResources=createStudioResources({
   },
   resolveUrl:async id=>new URL(contentPath(await api('cloud/resources',{
     action:'resources/files/download',data:{id}})),cloud.server).href,
-  reservesChanged:()=>{if(ui.siteMode==='studio'&&ui.page==='detail'&&!modal.open&&!isActorPickerOpen())render();}
+  reservesChanged:()=>{
+    if(ui.siteMode==='studio'&&['detail','recommendations'].includes(ui.page)&&!modal.open&&!isActorPickerOpen())render();
+  }
 });
 
 function reserveLinks(p,ep,role){
