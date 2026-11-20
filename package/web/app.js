@@ -2577,7 +2577,7 @@ function castingDownload(result){
 function reserveContext(){
   return {actors:state.actors.filter(a=>!a.retiredAt).map(a=>({id:a.id,name:a.name})),
     projects:state.projects.map(p=>({id:p.id,title:p.title,cover:safeCover(p.cover),episodes:p.episodes.map(ep=>({
-      id:ep.id,title:episodeLabel(ep),roles:ep.roles.map(r=>({
+      id:ep.id,title:episodeLabel(p,ep),roles:ep.roles.map(r=>({
         id:r.id,character:r.character,image:safeRoleImage(r.image),primaryIds:matchingCharacterRoles(ep,r).map(role=>role.actorId),
         primaryName:r.actorId?actorForRole(state,r)?.name||r.actor||'':''
       }))
@@ -2587,6 +2587,11 @@ function reserveContext(){
 const studioResources=createStudioResources({
   identity:()=>native&&cloud.connected?cloud.server:'',
   context:reserveContext,
+  episodeTitle:(projectId,episodeId)=>{
+    const project=getProject(projectId);
+    const episode=project?.episodes.find(ep=>ep.id===episodeId);
+    return episode?episodeLabel(project,episode):'';
+  },
   request:(action,data)=>api('cloud/resources',{action,data:data||{}}),
   put:async(id,part,body)=>{
     const response=await fetch('/api/cloud/resources/files/'+id+'/parts/'+part,{method:'PUT',

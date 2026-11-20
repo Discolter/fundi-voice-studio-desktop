@@ -128,7 +128,7 @@ function illustratedField(parent, label, name) {
   };
 }
 
-export function createStudioResources({identity, context, request, put, resolveUrl, reservesChanged}) {
+export function createStudioResources({identity, context, episodeTitle=()=>'', request, put, resolveUrl, reservesChanged}) {
   let owner = null;
   let generation = 0;
   let lastWarm = 0;
@@ -154,6 +154,10 @@ export function createStudioResources({identity, context, request, put, resolveU
     view.message = message || '';
     const status = view.panel?.querySelector('.fvr-status');
     if (status) status.textContent = view.message;
+  }
+
+  function reserveEpisodeTitle(reserve) {
+    return episodeTitle(reserve.projectId, reserve.episodeId) || reserve.episodeTitle;
   }
 
   async function load(kind, view) {
@@ -247,12 +251,12 @@ export function createStudioResources({identity, context, request, put, resolveU
       grid.replaceChildren();
       const needle = search.value.trim().toLocaleLowerCase('ru-RU');
       for (const entry of view.items) {
-        const labels = reserve ? [entry.character, entry.actorName, entry.projectTitle, entry.episodeTitle] :
+        const labels = reserve ? [entry.character, entry.actorName, entry.projectTitle, reserveEpisodeTitle(entry)] :
           [entry.draft.name, entry.draft.category, entry.draft.platform, entry.draft.version];
         if (!labels.join(' ').toLocaleLowerCase('ru-RU').includes(needle)) continue;
         const card = element(grid, 'article', 'fvr-card');
         element(card, 'h2', '', labels[0]);
-        const summary = reserve ? labels.slice(1).filter(Boolean).join(' · ') : labels.slice(1).filter(Boolean).join(' · ');
+        const summary = labels.slice(1).filter(Boolean).join(' · ');
         if (summary) element(card, 'p', 'fvr-muted', summary);
         element(card, 'span', 'fvr-muted', reserve ?
           (entry.confirmed ? 'Актёр подтвердил замену' : 'Ожидает согласия') :
@@ -271,7 +275,7 @@ export function createStudioResources({identity, context, request, put, resolveU
     element(form, 'h2', '', item ? item.character + ' · ' + item.actorName : 'Резервное назначение');
     let project, episode, role, actor;
     const {projects, actors} = context();
-    if (item) element(form, 'p', 'fvr-muted', [item.projectTitle, item.episodeTitle].filter(Boolean).join(' · '));
+    if (item) element(form, 'p', 'fvr-muted', [item.projectTitle, reserveEpisodeTitle(item)].filter(Boolean).join(' · '));
     else {
       const group = element(form, 'div', 'fvr-fields');
       const projectsPicker = illustratedField(group, 'Проект', 'project');
@@ -329,10 +333,10 @@ export function createStudioResources({identity, context, request, put, resolveU
       if (!item && (!r || !a)) return announce(view, 'Выбери персонажа и резервного актёра.');
       const saved = item || {projectId: p.id, episodeId: ep.id, roleId: r.id, actorId: a.id,
         projectTitle: p.title, episodeTitle: ep.title, character: r.character, actorName: a.name};
-      const {projectId, episodeId, roleId, actorId, projectTitle, episodeTitle, character, actorName} = saved;
+      const {projectId, episodeId, roleId, actorId, projectTitle, character, actorName} = saved;
       void run('reserves', view, async current => {
         await request('reserves/save', {id, revision: item?.revision || 0,
-          details: {projectId, episodeId, roleId, actorId, projectTitle, episodeTitle, character, actorName,
+          details: {projectId, episodeId, roleId, actorId, projectTitle, episodeTitle: reserveEpisodeTitle(saved), character, actorName,
             confirmed: view.edits.confirmed, notes: view.edits.notes}});
         if (current()) {
           view.selection = id;
