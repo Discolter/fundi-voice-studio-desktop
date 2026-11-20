@@ -1,4 +1,4 @@
-import {action, element, openResourceFile, requirements, selectOptions, showScreenshots, softwareCard} from './software-library.js';
+import {action, createSoftwareIconLoader, element, openResourceFile, requirements, selectOptions, showScreenshots, softwareCard, softwareIcon} from './software-library.js';
 
 const fields = [
   ['name', 'Название', 160], ['version', 'Версия', 70],
@@ -169,6 +169,7 @@ function reserveInfo({projects, actors}, entry) {
 
 export function createStudioResources({identity, context, openProject, openActor, request, put, resolveUrl,
   reservesChanged, reserveSelectionChanged = () => {}}) {
+  const icons = createSoftwareIconLoader(resolveUrl);
   let owner = null;
   let generation = 0;
   let lastWarm = 0;
@@ -177,6 +178,7 @@ export function createStudioResources({identity, context, openProject, openActor
 
   function reset() {
     ++generation;
+    icons.reset();
     owner = null;
     lastWarm = 0;
     warmPending = null;
@@ -243,6 +245,7 @@ export function createStudioResources({identity, context, openProject, openActor
     const changed = kind === 'reserves' && JSON.stringify(items) !== JSON.stringify(view.items);
     view.items = items;
     view.loaded = true;
+    if (kind === 'software') view.cardIcons = result.cardIcons === true;
     if (kind === 'reserves') lastWarm = Date.now();
     draw(kind, view);
     if (changed) reservesChanged();
@@ -343,6 +346,7 @@ export function createStudioResources({identity, context, openProject, openActor
         } else {
           softwareCard(grid, entry.draft, {
             label: entry.published ? 'Опубликовано · ' + entry.published.version : 'Черновик',
+            icons,
             open: () => changeSelection(kind, view, entry.id)
           });
         }
@@ -445,17 +449,44 @@ export function createStudioResources({identity, context, openProject, openActor
     });
   }
 
+  function iconEditor(form, view, item, selected) {
+    if (!view.cardIcons) return null;
+    const editor = element(form, 'section', 'fvr-icon-editor');
+    element(editor, 'h3', '', 'Иконка карточки');
+    if (!item) {
+      element(editor, 'p', 'fvr-muted', 'Сохрани черновик, чтобы добавить иконку.');
+      return null;
+    }
+    const row = element(editor, 'div', 'fvr-icon-editor-row');
+    const preview = element(row, 'div', 'fvr-icon-preview');
+    const chooser = field(row, 'Изображение', 'iconFileId', 'select');
+    chooser.setAttribute('aria-label', 'Иконка карточки');
+    const images = item.files.filter(file => file.ready && file.listed && file.screenshot);
+    selectOptions(chooser, [['', 'Без иконки'], ...images.map(file => [file.id, file.name])],
+      images.some(file => file.id === selected) ? selected : '');
+    const show = () => {
+      preview.replaceChildren();
+      softwareIcon(preview, chooser.value, icons);
+    };
+    chooser.addEventListener('change', show);
+    show();
+    action(row, 'Загрузить иконку', () => uploadResource('software', view, item, row, 'icon'));
+    return chooser;
+  }
+
   function softwareForm(view, target, item) {
     const currentDraft = view.edits || item?.draft || {};
     const form = element(target, 'form', 'fvr-form');
     element(form, 'h2', '', item?.draft.name || 'Новая программа');
     if (item?.published) {
       const pending = JSON.stringify(item.draft) !== JSON.stringify(item.published) ||
-        item.files.some(file => file.ready && file.listed !== file.published);
+        item.files.some(file => file.ready &&
+          (file.listed && (!file.iconOnly || file.id === item.draft.iconFileId)) !== file.published);
       element(form, 'p', 'fvr-muted', 'Опубликована версия ' + item.published.version +
         (pending ? ' · Есть неопубликованные изменения' : '') +
         ' · Скачиваний из каталога: ' + item.downloads);
     } else if (item) element(form, 'p', 'fvr-muted', 'Черновик');
+    const icon = iconEditor(form, view, item, currentDraft.iconFileId);
     const grid = element(form, 'div', 'fvr-fields');
     for (const [key, label, max, type = 'text'] of fields) {
       const input = field(type === 'textarea' ? form : grid, label, key, type, currentDraft[key], max);
@@ -471,6 +502,7 @@ export function createStudioResources({identity, context, openProject, openActor
       view.edits = Object.fromEntries(fields.map(([key]) => [key, String(data.get(key) || '')]));
       view.edits.requirement = requirement.value;
       view.edits.inHouse = internal.checked;
+      if (icon) view.edits.iconFileId = icon.value;
     }
     form.addEventListener('input', remember);
     form.addEventListener('change', remember);
@@ -525,6 +557,49 @@ export function createStudioResources({identity, context, openProject, openActor
     });
   }
 
+  function uploadResource(kind, view, item, parent, purpose) {
+    const screenshot = purpose !== 'file';
+    const iconOnly = purpose === 'icon';
+    const input = element(parent, 'input');
+    input.type = 'file';
+    input.hidden = true;
+    if (screenshot) input.accept = '.png,.jpg,.jpeg,.gif,.webp';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file) return;
+      void run(kind, view, async current => {
+        const id = crypto.randomUUID();
+        try {
+          const session = await request('resources/files/begin', {id, parentId: item.id,
+            kind: kind === 'reserves' ? 'reserve' : 'software', name: file.name, size: file.size, screenshot, iconOnly});
+          for (let start = 0, number = 1; start < file.size && !session.ready; start += session.partSize, number++) {
+            if (!current()) return '';
+            if (!session.completedParts.includes(number)) {
+              const part = file.slice(start, start + session.partSize);
+              await put(id, number, part);
+            }
+            announce(view, 'Загрузка ' + Math.min(100, Math.round((start + session.partSize) / file.size * 100)) + '%');
+          }
+          if (!current()) return '';
+          await request('resources/files/complete', {id});
+          await load(kind, view);
+          if (iconOnly && current()) {
+            const updated = view.items.find(entry => entry.id === item.id);
+            view.edits = {...(view.edits || updated?.draft || item.draft), iconFileId: id};
+            return 'Иконка загружена. Сохрани черновик или опубликуй программу.';
+          }
+          return 'Файл загружен.';
+        } catch (error) {
+          if (current()) await load(kind, view).catch(() => {});
+          throw error;
+        }
+      });
+    }, {once: true});
+    input.addEventListener('cancel', () => input.remove(), {once: true});
+    input.click();
+  }
+
   function fileManager(kind, view, target, item) {
     const reserve = kind === 'reserves';
     element(target, 'h3', '', reserve ? 'Резервные записи и файлы' : 'Файлы программы');
@@ -532,6 +607,7 @@ export function createStudioResources({identity, context, openProject, openActor
     for (const file of item.files) {
       const row = element(list, 'div', 'fvr-file');
       element(row, 'strong', '', file.name);
+      if (file.iconOnly) element(row, 'span', 'fvr-muted', 'Иконка');
       if (!file.ready) element(row, 'span', 'fvr-muted', 'Загрузка прервана');
       else if (file.ready && !file.screenshot) action(row, 'Скачать', () =>
         openResourceFile(file, resolveUrl, row, message => announce(view, message)));
@@ -545,45 +621,11 @@ export function createStudioResources({identity, context, openProject, openActor
         });
       });
     }
-    showScreenshots(target, item.files.filter(file => file.ready && file.screenshot && file.listed), resolveUrl);
+    showScreenshots(target, item.files.filter(file => file.ready && file.screenshot && file.listed && !file.iconOnly), resolveUrl);
     const picks = element(target, 'div', 'fvr-actions');
-    function choose(screenshot) {
-      const input = element(picks, 'input');
-      input.type = 'file';
-      input.hidden = true;
-      if (screenshot) input.accept = '.png,.jpg,.jpeg,.gif,.webp';
-      input.addEventListener('change', () => {
-        const file = input.files?.[0];
-        input.remove();
-        if (!file) return;
-        void run(kind, view, async current => {
-          const id = crypto.randomUUID();
-          try {
-            const session = await request('resources/files/begin', {id, parentId: item.id,
-              kind: reserve ? 'reserve' : 'software', name: file.name, size: file.size, screenshot});
-            for (let start = 0, number = 1; start < file.size && !session.ready; start += session.partSize, number++) {
-              if (!current()) return '';
-              if (!session.completedParts.includes(number)) {
-                const part = file.slice(start, start + session.partSize);
-                await put(id, number, part);
-              }
-              announce(view, 'Загрузка ' + Math.min(100, Math.round((start + session.partSize) / file.size * 100)) + '%');
-            }
-            if (!current()) return '';
-            await request('resources/files/complete', {id});
-            await load(kind, view);
-            return 'Файл загружен.';
-          } catch (error) {
-            if (current()) await load(kind, view).catch(() => {});
-            throw error;
-          }
-        });
-      }, {once: true});
-      input.addEventListener('cancel', () => input.remove(), {once: true});
-      input.click();
-    }
-    action(picks, reserve ? 'Загрузить запись или файл' : 'Загрузить файл', () => choose(false));
-    if (!reserve) action(picks, 'Загрузить скриншот', () => choose(true));
+    action(picks, reserve ? 'Загрузить запись или файл' : 'Загрузить файл',
+      () => uploadResource(kind, view, item, picks, 'file'));
+    if (!reserve) action(picks, 'Загрузить скриншот', () => uploadResource(kind, view, item, picks, 'screenshot'));
   }
 
   return {
