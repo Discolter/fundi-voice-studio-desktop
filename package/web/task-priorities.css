@@ -36,6 +36,7 @@ dialog.task-history-modal{width:min(1000px,calc(100vw - 32px));max-width:1000px}
 .tasks-priority-table .task-actions-cell{width:1%;white-space:nowrap}
 .tasks-priority-table .task-completion-cell .task-check{margin-inline:auto}
 .tasks-priority-table .task-title-cell{overflow-wrap:anywhere}
+.my-priority-table .task-title-cell{min-width:132px}
 .tasks-priority-table .task-actions-cell .icon-btn{vertical-align:middle}
 .tasks-priority-table .task-actor-cell,.tasks-priority-table .task-character-cell{font-size:12px;font-weight:600;min-width:105px}
 .tasks-priority-table .task-character-cell{min-width:130px}
@@ -210,7 +211,7 @@ body[data-theme=silver] .tasks-priority-table .task-line-count.task-workload-hig
 }
 body:is([data-theme="light"],[data-theme="silver"]) .tasks-priority-table{--task-group-accent:#7453b0}
 .tasks-priority-table tr.task-group-summary>td{background:var(--task-group-heading);vertical-align:middle}
-.tasks-priority-table tbody tr.task-group-member{background:var(--task-group-background)}
+.tasks-priority-table tbody tr.task-group-member{background:var(--task-group-background);box-shadow:inset 0 -1px var(--line)}
 .tasks-priority-table tbody tr.task-group-member:hover{background:var(--task-group-heading)}
 .tasks-priority-table tr.task-group-summary>td:first-child,
 .tasks-priority-table tbody tr.task-priority-row.task-group-member>td:first-child{border-left:4px solid var(--task-group-accent)}
@@ -228,7 +229,7 @@ body:is([data-theme="light"],[data-theme="silver"]) .tasks-priority-table{--task
 }
 .task-group-members.is-expanded .task-group-panel{grid-template-rows:1fr;opacity:1}
 .task-group-clip{min-height:0;overflow:hidden}
-.task-group-content{padding-block:12px;border-bottom:1px solid var(--line)}
+.task-group-content{padding-block:12px}
 .tasks-priority-table .task-group-characters{display:flex;flex-direction:column;gap:4px;font-size:12px}
 .tasks-priority-table .task-group-character{display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow-wrap:anywhere}
 .tasks-priority-table .task-group-character-tools{display:inline-flex;align-items:center;gap:5px;flex:none}
