@@ -44,6 +44,7 @@
 }
 .fvr-picture-trigger[aria-invalid="true"] { border-color:#c45061; }
 .fvr-form .fvr-check { display:flex; align-items:center; gap:8px; }
+.fvr-form .fvr-check input { width:1rem; height:1rem; flex:none; margin:0; padding:0; }
 .fvr-form select, .fvr-form input, .fvr-form textarea { min-width:0; }
 .fv-resources select option { color:CanvasText; background:Canvas; }
 .fvr-form textarea { resize:vertical; }
@@ -54,5 +55,66 @@
 .fvr-gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:10px; }
 .fvr-gallery img { width:100%; max-height:320px; object-fit:contain; border-radius:7px; }
 .fvr-version > span { margin-inline-start:8px; }
-.fvr-role-reserves { display:flex; align-items:center; flex-wrap:wrap; gap:3px 6px; margin-top:5px; font-size:.83em; }
-.fvr-role-reserves button { font:inherit; color:inherit; text-decoration:underline; background:none; border:0; padding:2px 3px; cursor:pointer; }
+.fvr-reserve-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); }
+.fvr-reserve-preview:empty { display:none; }
+.fvr-reserve-summary { display:grid; gap:12px; }
+.fvr-reserve-subject, .fvr-reserve-people {
+  display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));
+}
+.fvr-reserve-subject > h2 { display:grid; min-width:0; }
+.fvr-reserve-people { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.fvr-reserve-person {
+  display:grid; gap:5px; align-content:start; min-width:0; padding:9px; border-radius:10px;
+  background:color-mix(in srgb,currentColor 5%,transparent);
+}
+.fvr-reserve-backup-actor { background:color-mix(in srgb,var(--lime,#a6cf83) 12%,transparent); }
+.fvr-reserve-label { font-size:.78rem; font-weight:650; opacity:.82; overflow-wrap:anywhere; }
+.fvr-reserve-identity {
+  display:flex; align-items:center; gap:9px; width:100%; min-width:0; padding:6px;
+  border:1px solid transparent; border-radius:8px; background:none; color:inherit;
+  text-align:start; font:inherit; overflow-wrap:anywhere;
+}
+.fvr-reserve-project, .fvr-reserve-character { padding:8px; background:color-mix(in srgb,currentColor 5%,transparent); }
+.fvr-reserve-actor { padding:3px; }
+button.fvr-reserve-identity { cursor:pointer; }
+button.fvr-reserve-identity::after, button.fvr-role-reserve::after {
+  content:''; flex:none; width:6px; height:6px; margin-inline-start:auto; opacity:.65;
+  border-top:1.5px solid currentColor; border-right:1.5px solid currentColor; transform:rotate(45deg);
+}
+button.fvr-reserve-identity:hover, button.fvr-role-reserve:hover {
+  background:color-mix(in srgb,currentColor 11%,transparent); border-color:color-mix(in srgb,currentColor 24%,transparent);
+}
+button.fvr-reserve-identity:focus-visible, button.fvr-role-reserve:focus-visible,
+.fvr-reserve-target:focus { outline:2px solid currentColor; outline-offset:2px; }
+.fvr-reserve-copy, .fvr-role-reserve-copy { display:grid; gap:2px; min-width:0; }
+.fvr-reserve-copy small, .fvr-role-reserve-copy small { font-size:.8em; opacity:.77; }
+.fvr-reserve-poster, .fvr-reserve-avatar {
+  display:grid; place-items:center; position:relative; flex:none; overflow:hidden;
+  font-size:.8rem; font-weight:700; background:color-mix(in srgb,currentColor 13%,transparent);
+}
+.fvr-reserve-poster { width:46px; height:64px; border-radius:5px; }
+.fvr-reserve-avatar { width:38px; height:38px; border-radius:8px; }
+.fvr-reserve-poster img, .fvr-reserve-avatar img {
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+}
+.fvr-picture-field:has(select[name="actor"]) .fvr-picture-thumb { width:32px; height:32px; border-radius:6px; }
+.fvr-reserve-actions { justify-content:space-between; }
+.fvr-reserve-status { font-size:.83rem; opacity:.85; }
+.fvr-reserve-status::before, .fvr-role-reserve::before {
+  content:''; display:inline-block; flex:none; width:6px; height:6px; border-radius:50%; background:#d2a858;
+}
+.fvr-reserve-status::before { vertical-align:middle; margin-inline-end:6px; }
+.fvr-reserve-status[data-confirmed="true"]::before, .fvr-role-reserve[data-confirmed="true"]::before { background:#68b28a; }
+.fvr-role-reserves { display:grid; gap:5px; margin-top:6px; }
+button.fvr-role-reserve {
+  display:flex; align-items:center; gap:7px; width:fit-content; max-width:100%; padding:4px 8px;
+  border:1px solid color-mix(in srgb,currentColor 15%,transparent); border-radius:8px;
+  background:color-mix(in srgb,currentColor 6%,transparent); color:inherit; cursor:pointer;
+  text-align:start; font:inherit; font-size:.84rem; overflow-wrap:anywhere;
+}
+.fvr-role-reserve .actor-pick-avatar, .fvr-role-reserve .studio-owner-actor-picture {
+  width:30px; height:30px; flex:0 0 30px; border-radius:6px;
+}
+@media (max-width:440px) {
+  .fvr-reserve-people { grid-template-columns:minmax(0,1fr); }
+}

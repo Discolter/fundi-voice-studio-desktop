@@ -52,7 +52,9 @@ function illustratedField(parent, label, name) {
 
   function renderChoice(node, option) {
     node.replaceChildren();
-    if (option?.[2]) {
+    if (name === 'actor' && option?.[0]) {
+      reserveArtwork(node, 'fvr-picture-thumb fvr-reserve-avatar', option[2], option[1]);
+    } else if (option?.[2]) {
       const image = element(node, 'img', 'fvr-picture-thumb');
       image.alt = '';
       image.decoding = 'async';
@@ -128,7 +130,45 @@ function illustratedField(parent, label, name) {
   };
 }
 
-export function createStudioResources({identity, context, episodeTitle=()=>'', request, put, resolveUrl, reservesChanged}) {
+function initials(name) {
+  return Array.from(name.trim()).slice(0, 2).join('').toLocaleUpperCase('ru-RU');
+}
+
+function reserveArtwork(parent, className, source, name) {
+  const art = element(parent, 'span', className, initials(name));
+  art.setAttribute('aria-hidden', 'true');
+  if (source) {
+    const image = element(art, 'img');
+    image.alt = '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.addEventListener('error', () => image.remove(), {once: true});
+    image.src = source;
+  }
+}
+
+function reserveIdentity(parent, className, title, follow) {
+  const card = element(parent, follow ? 'button' : 'div', 'fvr-reserve-identity ' + className);
+  if (follow) {
+    card.type = 'button';
+    card.title = title;
+    card.addEventListener('click', follow);
+  }
+  return card;
+}
+
+function reserveInfo({projects, actors}, entry) {
+  const project = projects.find(p => p.id === entry.projectId);
+  const episode = project?.episodes.find(ep => ep.id === entry.episodeId);
+  const role = episode?.roles.find(r => r.id === entry.roleId);
+  const primary = actors.find(a => a.id === role?.primaryId) || (role?.primaryName ? {name: role.primaryName} : null);
+  const backup = actors.find(a => a.id === entry.actorId) || (entry.actorName ? {name: entry.actorName} : null);
+  return {project, episode, role, primary, backup, projectTitle: project?.title || entry.projectTitle,
+    episodeTitle: episode?.title || entry.episodeTitle, character: role?.character || entry.character};
+}
+
+export function createStudioResources({identity, context, openProject, openActor, request, put, resolveUrl,
+  reservesChanged, reserveSelectionChanged = () => {}}) {
   let owner = null;
   let generation = 0;
   let lastWarm = 0;
@@ -156,8 +196,42 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
     if (status) status.textContent = view.message;
   }
 
-  function reserveEpisodeTitle(reserve) {
-    return episodeTitle(reserve.projectId, reserve.episodeId) || reserve.episodeTitle;
+  function reserveSummary(parent, {project, episode, role, primary, backup, projectTitle, episodeTitle, character}) {
+    if (!projectTitle) return;
+    const summary = element(parent, 'div', 'fvr-reserve-summary');
+    const subject = element(summary, 'div', 'fvr-reserve-subject');
+    const projectCard = reserveIdentity(subject, 'fvr-reserve-project', 'Открыть проект «' + projectTitle + '»',
+      project && (() => openProject(project.id, episode?.id)));
+    reserveArtwork(projectCard, 'fvr-reserve-poster', project?.cover, projectTitle);
+    const title = element(projectCard, 'span', 'fvr-reserve-copy');
+    element(title, 'strong', '', projectTitle);
+    if (episodeTitle) element(title, 'small', '', episodeTitle);
+    if (character) {
+      const heading = element(subject, 'h2');
+      const roleCard = reserveIdentity(heading, 'fvr-reserve-character', 'Открыть роль «' + character + '»',
+        role && (() => openProject(project.id, episode.id, role.id)));
+      if (role?.image) reserveArtwork(roleCard, 'fvr-reserve-avatar', role.image, character);
+      element(roleCard, 'span', '', character);
+    }
+
+    if (!role && !primary && !backup) return;
+    const people = element(summary, 'div', 'fvr-reserve-people');
+    function person(label, actor, className, emptyText) {
+      const slot = element(people, 'div', 'fvr-reserve-person ' + className);
+      element(slot, 'span', 'fvr-reserve-label', label);
+      if (!actor) {
+        element(slot, 'span', 'fvr-muted', emptyText);
+        return;
+      }
+      const card = reserveIdentity(slot, 'fvr-reserve-actor', 'Открыть карточку актёра «' + actor.name + '»',
+        actor.id && (() => openActor(actor.id)));
+      reserveArtwork(card, 'fvr-reserve-avatar', actor.avatar, actor.name);
+      const copy = element(card, 'span', 'fvr-reserve-copy');
+      element(copy, 'strong', '', actor.name);
+      if (actor.handle) element(copy, 'small', '', actor.handle);
+    }
+    if (role || primary) person('Основной актёр', primary, 'fvr-reserve-primary-actor', 'Не назначен');
+    person('Резервный актёр', backup, 'fvr-reserve-backup-actor', 'Выбери актёра');
   }
 
   async function load(kind, view) {
@@ -204,11 +278,13 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
   }
 
   function changeSelection(kind, view, selection) {
+    if (view.selection === selection) return;
     view.selection = selection;
     view.newId = selection === 'new' ? crypto.randomUUID() : null;
     view.edits = null;
     view.message = '';
     draw(kind, view);
+    if (kind === 'reserves') reserveSelectionChanged();
   }
 
   function draw(kind, view) {
@@ -231,9 +307,10 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
       return;
     }
     const item = view.items.find(entry => entry.id === view.selection);
+    const catalog = reserve ? context() : null;
     if (item || view.selection === 'new') {
       const target = element(panel, 'article', 'fvr-card');
-      if (reserve) reserveForm(view, target, item);
+      if (reserve) reserveForm(view, target, item, catalog);
       else softwareForm(view, target, item);
       if (item) fileManager(kind, view, target, item);
       return;
@@ -246,22 +323,30 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
     search.placeholder = reserve ? 'Найти актёра, проект или персонажа' : 'Найти программу';
     search.setAttribute('aria-label', search.placeholder);
     search.value = view.query || '';
-    const grid = element(panel, 'div', 'fvr-grid');
+    const grid = element(panel, 'div', reserve ? 'fvr-grid fvr-reserve-grid' : 'fvr-grid');
     function showRows() {
       grid.replaceChildren();
       const needle = search.value.trim().toLocaleLowerCase('ru-RU');
       for (const entry of view.items) {
-        const labels = reserve ? [entry.character, entry.actorName, entry.projectTitle, reserveEpisodeTitle(entry)] :
+        const info = reserve ? reserveInfo(catalog, entry) : null;
+        const labels = reserve ? [info.character, info.projectTitle, info.episodeTitle, info.primary?.name,
+          info.primary?.handle, info.backup?.name, info.backup?.handle] :
           [entry.draft.name, entry.draft.category, entry.draft.platform, entry.draft.version];
         if (!labels.join(' ').toLocaleLowerCase('ru-RU').includes(needle)) continue;
         const card = element(grid, 'article', 'fvr-card');
-        element(card, 'h2', '', labels[0]);
-        const summary = labels.slice(1).filter(Boolean).join(' · ');
-        if (summary) element(card, 'p', 'fvr-muted', summary);
-        element(card, 'span', 'fvr-muted', reserve ?
-          (entry.confirmed ? 'Актёр подтвердил замену' : 'Ожидает согласия') :
-          (entry.published ? 'Опубликовано · ' + entry.published.version : 'Черновик'));
-        action(card, 'Открыть', () => changeSelection(kind, view, entry.id));
+        if (reserve) {
+          reserveSummary(card, info);
+          const actions = element(card, 'div', 'fvr-actions fvr-reserve-actions');
+          const status = element(actions, 'span', 'fvr-reserve-status', entry.confirmed ? 'Согласие получено' : 'Ожидает согласия');
+          status.dataset.confirmed = String(entry.confirmed);
+          action(actions, 'Открыть резерв', () => changeSelection(kind, view, entry.id));
+        } else {
+          element(card, 'h2', '', labels[0]);
+          const summary = labels.slice(1).filter(Boolean).join(' · ');
+          if (summary) element(card, 'p', 'fvr-muted', summary);
+          element(card, 'span', 'fvr-muted', entry.published ? 'Опубликовано · ' + entry.published.version : 'Черновик');
+          action(card, 'Открыть', () => changeSelection(kind, view, entry.id));
+        }
       }
       if (view.items.length && !grid.children.length)
         element(grid, 'p', 'fvr-muted', 'По этому запросу ничего не найдено.');
@@ -270,13 +355,13 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
     showRows();
   }
 
-  function reserveForm(view, target, item) {
+  function reserveForm(view, target, item, catalog) {
     const form = element(target, 'form', 'fvr-form');
-    element(form, 'h2', '', item ? item.character + ' · ' + item.actorName : 'Резервное назначение');
     let project, episode, role, actor;
-    const {projects, actors} = context();
-    if (item) element(form, 'p', 'fvr-muted', [item.projectTitle, reserveEpisodeTitle(item)].filter(Boolean).join(' · '));
+    const {projects, actors} = catalog;
+    if (item) reserveSummary(form, reserveInfo(catalog, item));
     else {
+      element(form, 'h2', '', 'Резервное назначение');
       const group = element(form, 'div', 'fvr-fields');
       const projectsPicker = illustratedField(group, 'Проект', 'project');
       project = projectsPicker.select;
@@ -284,8 +369,16 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
       episode.dataset.fvVisualized = 'true';
       const rolesPicker = illustratedField(group, 'Персонаж', 'role');
       role = rolesPicker.select;
-      actor = field(group, 'Резервный актёр', 'actor', 'select');
-      episode.required = actor.required = true;
+      const actorsPicker = illustratedField(group, 'Резервный актёр', 'actor');
+      actor = actorsPicker.select;
+      episode.required = true;
+      const preview = element(form, 'div', 'fvr-reserve-preview');
+      function updatePreview() {
+        preview.replaceChildren();
+        reserveSummary(preview, reserveInfo(catalog, {
+          projectId: project.value, episodeId: episode.value, roleId: role.value, actorId: actor.value
+        }));
+      }
       projectsPicker.setOptions([['', 'Выбери проект'], ...projects.map(p => [p.id, p.title, p.cover])], view.edits?.project);
       function chooseEpisode() {
         const p = projects.find(p => p.id === project.value);
@@ -299,15 +392,19 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
         chooseActor();
       }
       function chooseActor() {
-        const r = projects.find(p => p.id === project.value)?.episodes.find(e => e.id === episode.value)
-          ?.roles.find(r => r.id === role.value);
-        selectOptions(actor, [['', 'Выбери актёра'], ...actors.filter(a => !r?.primaryIds.includes(a.id))
-          .map(a => [a.id, a.name])], view.edits?.actor);
-        actor.dispatchEvent(new Event('change'));
+        const ep = projects.find(p => p.id === project.value)?.episodes.find(e => e.id === episode.value);
+        const r = ep?.roles.find(r => r.id === role.value);
+        const assigned = new Set(r ? ep.roles.filter(peer => peer.characterKey === r.characterKey)
+          .flatMap(peer => peer.primaryIds) : []);
+        actorsPicker.setOptions([['', 'Выбери актёра'], ...actors
+          .filter(a => a.available !== false && !assigned.has(a.id))
+          .map(a => [a.id, a.handle ? a.name + ' · ' + a.handle : a.name, a.avatar])], view.edits?.actor);
+        updatePreview();
       }
       project.addEventListener('change', chooseEpisode);
       episode.addEventListener('change', chooseRole);
       role.addEventListener('change', chooseActor);
+      actor.addEventListener('change', updatePreview);
       chooseEpisode();
     }
     const confirmed = field(form, 'Актёр согласился подменить исполнителя', 'confirmed', 'checkbox',
@@ -334,12 +431,13 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
       const saved = item || {projectId: p.id, episodeId: ep.id, roleId: r.id, actorId: a.id,
         projectTitle: p.title, episodeTitle: ep.title, character: r.character, actorName: a.name};
       const {projectId, episodeId, roleId, actorId, projectTitle, character, actorName} = saved;
+      const episodeTitle = reserveInfo(catalog, saved).episodeTitle;
       void run('reserves', view, async current => {
         await request('reserves/save', {id, revision: item?.revision || 0,
-          details: {projectId, episodeId, roleId, actorId, projectTitle, episodeTitle: reserveEpisodeTitle(saved), character, actorName,
+          details: {projectId, episodeId, roleId, actorId, projectTitle, episodeTitle, character, actorName,
             confirmed: view.edits.confirmed, notes: view.edits.notes}});
         if (current()) {
-          view.selection = id;
+          changeSelection('reserves', view, id);
           view.edits = null;
           await load('reserves', view);
         }
@@ -421,8 +519,7 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
     void run(kind, view, async current => {
       await request(kind + '/remove', {id: item.id, revision: item.revision});
       if (current()) {
-        view.selection = '';
-        view.edits = null;
+        changeSelection(kind, view, '');
         await load(kind, view);
       }
       return 'Запись удалена.';
@@ -497,15 +594,16 @@ export function createStudioResources({identity, context, episodeTitle=()=>'', r
       const fresh = !view.panel;
       if (fresh) view.panel = element(null, 'section', 'fv-resources');
       root.replaceChildren(view.panel);
+      if (fresh || kind === 'reserves') draw(kind, view);
       if (!fresh) return;
-      draw(kind, view);
-    if (owner && !view.loaded && (kind !== 'reserves' || !warmPending))
+      if (owner && !view.loaded && (kind !== 'reserves' || !warmPending))
         void run(kind, view, async () => { await load(kind, view); return ''; });
     },
     openReserve(id) {
       const view = page('reserves');
       changeSelection('reserves', view, id);
     },
+    reserveSelection() { return page('reserves').selection; },
     forRole(projectId, episodeId, roleId) {
       return page('reserves').items.filter(r => r.projectId === projectId && r.episodeId === episodeId && r.roleId === roleId);
     },

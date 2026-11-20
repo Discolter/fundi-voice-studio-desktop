@@ -27,7 +27,7 @@ import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
 import {archiveTask,restoreTask,taskHistoryRows} from './task-history.js';
-import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
+import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterKey,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
@@ -160,13 +160,15 @@ const studioNavigation=createStudioNavigation({
   read:()=>({
     siteMode:ui.siteMode,sitePage:ui.sitePage,page:ui.page,
     project:ui.project,episode:ui.episode,tab:ui.tab,
+    reserve:ui.page==='reserves'?studioResources.reserveSelection():null,
     cabinet:ui.siteMode==='cabinet'?actorCabinet.navigationState():null
   }),
   restore:route=>{
     ui.siteMode=['studio','site','cabinet'].includes(route.siteMode)?route.siteMode:'studio';
     ui.sitePage=['releases','news','notifications','ratings','users'].includes(route.sitePage)?route.sitePage:'releases';
-    const sections=['projects','archive','hidden','detail','mytasks','debts','actors','workload','actorportal','settings','review','recommendations','vacations','recovery'];
+    const sections=['projects','archive','hidden','detail','mytasks','debts','actors','workload','actorportal','settings','review','recommendations','vacations','recovery','reserves','software'];
     ui.page=sections.includes(route.page)?route.page:'projects';
+    if(ui.page==='reserves')studioResources.openReserve(typeof route.reserve==='string'?route.reserve:'');
     const project=state.projects.find(p=>p.id===route.project);
     ui.project=project?.id||null;
     const episode=project?.episodes.find(ep=>ep.id===route.episode);
@@ -2574,24 +2576,41 @@ function castingDownload(result){
  const a=document.createElement('a');a.href=(cloud.server||'https://fundi-voice-cloud.onrender.com')+result.downloadPath;a.download=result.fileName||'';a.target='_blank';a.rel='noopener noreferrer';document.body.append(a);a.click();a.remove();
 }
 
+const reserveActorAvatar=actor=>safeCover(actor?.avatarPreview)||safeCover(actor?.avatar);
 function reserveContext(){
-  return {actors:state.actors.filter(a=>!a.retiredAt).map(a=>({id:a.id,name:a.name})),
+  const actors=state.actors.map(a=>({id:a.id,name:a.name,avatar:reserveActorAvatar(a),
+    handle:a.telegram?'@'+a.telegram:'',available:!a.retiredAt}));
+  const names=new Map(actors.map(a=>[a.id,a.name]));
+  return {actors,
     projects:state.projects.map(p=>({id:p.id,title:p.title,cover:safeCover(p.cover),episodes:p.episodes.map(ep=>({
       id:ep.id,title:episodeLabel(p,ep),roles:ep.roles.map(r=>({
-        id:r.id,character:r.character,image:safeRoleImage(r.image),primaryIds:matchingCharacterRoles(ep,r).map(role=>role.actorId),
-        primaryName:r.actorId?actorForRole(state,r)?.name||r.actor||'':''
+        id:r.id,character:r.character,image:safeRoleImage(r.image),characterKey:normalizeAssCharacter(r.character),
+        primaryId:r.actorId,primaryIds:r.actorId?[r.actorId]:[],primaryName:names.get(r.actorId)||r.actor||''
       }))
     }))}))};
+}
+
+function openReserveProject(projectId,episodeId,roleId){
+  const project=getProject(projectId);
+  if(!project)return;
+  const episode=project.episodes.find(ep=>ep.id===episodeId);
+  const role=episode?.roles.find(r=>r.id===roleId);
+  openProject(project.id,episode?.id,'roles',role?episodeRoleActorKey(state,role):'',role?episodeRoleCharacterKey(role):'');
+  const row=role&&document.querySelector(`.cast-table tr[data-qv-role="${CSS.escape(role.id)}"]`);
+  if(row){
+    row.classList.add('fvr-reserve-target');
+    row.tabIndex=-1;
+    row.focus({preventScroll:true});
+    row.scrollIntoView({block:'center'});
+  }
 }
 
 const studioResources=createStudioResources({
   identity:()=>native&&cloud.connected?cloud.server:'',
   context:reserveContext,
-  episodeTitle:(projectId,episodeId)=>{
-    const project=getProject(projectId);
-    const episode=project?.episodes.find(ep=>ep.id===episodeId);
-    return episode?episodeLabel(project,episode):'';
-  },
+  openProject:openReserveProject,
+  openActor:id=>actorDetails(id,'roles'),
+  reserveSelectionChanged:()=>{if(ui.siteMode==='studio'&&ui.page==='reserves')studioNavigation.record();},
   request:(action,data)=>api('cloud/resources',{action,data:data||{}}),
   put:async(id,part,body)=>{
     const response=await fetch('/api/cloud/resources/files/'+id+'/parts/'+part,{method:'PUT',
@@ -2608,10 +2627,17 @@ const studioResources=createStudioResources({
 function reserveLinks(p,ep,role){
   const entries=studioResources.forRole(p.id,ep.id,role.id).filter(item=>item.actorId!==role.actorId);
   if(!entries.length)return '';
-  return '<div class="fvr-role-reserves"><span>Запас</span>'+entries.map(item=>
-    '<button type="button" data-action="reserve-open" data-id="'+e(item.id)+'" title="'+
-    (item.confirmed?'Актёр подтвердил замену':'Ожидает согласия')+'">'+
-    e(state.actors.find(a=>a.id===item.actorId)?.name||item.actorName)+'</button>').join('')+'</div>';
+  return `<div class="fvr-role-reserves">${entries.map(item=>{
+    const actor=state.actors.find(a=>a.id===item.actorId);
+    const name=actor?.name||item.actorName;
+    const consent=item.confirmed?'Согласие получено':'Ожидает согласия';
+    const label=`Открыть запас: ${name}. ${consent}`;
+    return `<button type="button" class="fvr-role-reserve" data-action="reserve-open" data-id="${e(item.id)}"
+      data-confirmed="${item.confirmed===true}" title="${e(label)}" aria-label="${e(label)}">
+      ${actorPickAvatar({name,avatar:reserveActorAvatar(actor)})}<span class="fvr-role-reserve-copy">
+        <small>Резервный актёр</small><strong>${e(name)}</strong>
+      </span></button>`;
+  }).join('')}</div>`;
 }
 
 const casting=createCasting({owner:true,identity:()=>cloud.server+'|'+cloud.connected,
