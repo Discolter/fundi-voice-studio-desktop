@@ -1,5 +1,7 @@
 import {createStudioResources} from './studio-resources.js';
 import {createStudioCalendar} from './studio-calendar.js';
+import {mountCalendarLinkPicker} from './calendar-link-picker.js';
+import {normalizeCalendarEntry} from './core.js';
 import {contentPath} from './software-library.js';
 import {createCasting} from './casting.js';
 import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js';
@@ -104,11 +106,14 @@ const studioResourceNavs=[['reserves','users','Запас'],['software','file','
 const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['casting','mic','Кастинг'],['actors','users','Актёры'],['workload','workload','Нагрузка'],['actorportal','shield','Доступ актёров']];
 let recoveryRequests=[],recoveryCode='';
 const vacationFor=id=>(cloud.vacations||[]).find(v=>v.actorId===id&&(v.status==='active'||v.status==='planned'));
-const mountCalendar=createStudioCalendar({
+const studioCalendar=createStudioCalendar({
   openEvent:event=>{
     if(event.kind==='vacation')navigate('vacations');
     else openProject(event.projectId,event.episodeId,event.kind==='task'?'tasks':'roles');
-  }
+  },
+  editEntry:calendarEntryForm,
+  describeLink:describeCalendarLink,
+  openLink:link=>{void openCalendarLink(link).catch(error=>toast(error.message,true));}
 });
 const activeVacation=id=>vacationFor(id)?.status==='active';
 const vacationTag=id=>{const retired=(state.actors||[]).find(a=>a.id===id)?.retiredAt;if(retired)return '<span class="studio-vacation-tag deleted-actor-tag" title="Актёр исключён из состава, назначение ожидает пересмотра">Удалённый актёр</span>';const v=vacationFor(id);return v?`<span class="studio-vacation-tag ${v.status==='active'?'active':'planned'}" title="${e((v.status==='active'?'В отпуске · роль можно назначить заранее, запись после возвращения':'Запланирован отпуск')+(v.startDate?' · с '+v.startDate:'')+(v.endDate?' по '+v.endDate:' · Бессрочно'))}">${icon('vacation')}${v.status==='active'?'В отпуске':'Отпуск скоро'}</span>`:'';};
@@ -401,8 +406,8 @@ function render(){
     studioResources.warm();
     if(ui.page==='reserves'||ui.page==='software')
       studioResources.mount(document.querySelector('#studio-resources-root'),ui.page);
-    if(ui.page==='calendar')mountCalendar(document.querySelector('#studio-calendar-root'),{
-      projects:state.projects,vacations:cloud.vacations||[],
+    if(ui.page==='calendar')studioCalendar.mount(document.querySelector('#studio-calendar-root'),{
+      entries:state.calendarEntries,projects:state.projects,vacations:cloud.vacations||[],
       actorName:id=>state.actors.find(actor=>actor.id===id)?.name
     });
   }
@@ -1395,6 +1400,142 @@ const field=(label,html,hint='',full=false)=>{const existing=html.match(/<(?:inp
 const input=(name,value='',type='text',extra='')=>`<input name="${name}" type="${type}" value="${e(value)}" ${extra}>`;
 const area=(name,value,placeholder='')=>`<textarea name="${name}" placeholder="${e(placeholder)}">${e(value)}</textarea>`;
 const trimPath=v=>String(v||'').trim().replace(/^"(.*)"$/,'$1');
+function calendarEntryForm(date,id){
+  const previous=state.calendarEntries.find(entry=>entry.id===id);
+  if(id&&!previous){toast('Запись уже удалена.',true);return;}
+  const entryId=previous?.id||uid();
+  const defaults=previous||{date,title:'',time:'',notes:'',links:[]};
+  const body=`<div class="form-grid">
+    ${field('Название',input('title',defaults.title,'text','required maxlength="160"'),'',true)}
+    ${field('Дата',input('date',defaults.date,'date','required min="0001-01-01" max="9999-12-31"'))}
+    ${field('Время (необязательно)',input('time',defaults.time,'time'))}
+    ${field('Заметка',`<textarea name="notes" maxlength="4000">${e(defaults.notes)}</textarea>`,'',true)}
+    </div><section id="calendar-link-picker" class="calendar-link-picker" aria-labelledby="calendar-link-heading"></section>`;
+  showModal(previous?'Изменить запись':'Новая запись в календаре','',body,'Сохранить',async data=>{
+    const entry=normalizeCalendarEntry({...data,id:entryId,links:readLinks()});
+    if(!entry)throw new Error('Укажи название и дату записи.');
+    const index=state.calendarEntries.findIndex(item=>item.id===entryId);
+    if(index<0)state.calendarEntries.push(entry);
+    else state.calendarEntries[index]=entry;
+    persist();
+    if(native)await flushSave();
+    if(saveError)throw new Error(saveError);
+    if(!picker.isConnected||!modal.open)return;
+    modal.close();
+    studioCalendar.selectDate(entry.date);
+    render();
+    document.querySelector(`[data-calendar-entry="${CSS.escape(entry.id)}"] .studio-calendar-edit`)?.focus({preventScroll:true});
+    toast(previous?'Запись обновлена':'Запись добавлена в календарь');
+  },{extra:previous?'<button type="button" id="calendar-delete-entry" class="btn danger small">Удалить запись</button>':''});
+  const picker=modal.querySelector('#calendar-link-picker');
+  const readLinks=mountCalendarLinkPicker(picker,{links:defaults.links,loadTargets:calendarLinkTargets,describeLink:describeCalendarLink});
+  modal.querySelector('#calendar-delete-entry')?.addEventListener('click',()=>{
+    confirmAction('Удалить запись?',`Запись <strong>${e(defaults.title)}</strong> будет удалена из календаря.`,
+      'Удалить запись',async()=>{
+        state.calendarEntries=state.calendarEntries.filter(entry=>entry.id!==entryId);
+        persist();
+        if(native)await flushSave();
+        if(saveError)throw new Error(saveError);
+      });
+  });
+}
+
+function calendarActorLink(actor){
+  return {kind:'actor',id:actor.id,label:actor.name,
+    detail:actor.telegram?('@'+actor.telegram.replace(/^@/,'')):''};
+}
+
+function calendarProjectLink(kind,p,ep,item){
+  const projectDetail=[p.season&&'Сезон '+p.season,p.hidden?'Скрытый проект':p.archived?'Архив':''].filter(Boolean).join(' · ');
+  if(kind==='project')return {kind,id:p.id,label:p.title,detail:projectDetail};
+  const series=episodeLabel(p,ep);
+  if(kind==='episode')return {kind,id:ep.id,projectId:p.id,label:series,detail:p.title};
+  const label=kind==='role'?item.character:kind==='task'?item.title:item.label;
+  const detail=[p.title,series,kind==='role'&&item.actor].filter(Boolean).join(' · ');
+  return {kind,id:item.id,projectId:p.id,episodeId:ep.id,label,detail};
+}
+
+const calendarCatalogPages={reserve:'reserves',software:'software'};
+async function calendarLinkTargets(kind){
+  if(kind==='actor')return state.actors.filter(actor=>!actor.retiredAt).map(calendarActorLink);
+  if(kind==='material'){
+    const projects=state.projects.map(project=>({...project,hidden:false,archived:false}));
+    return materialRows({projects}).filter(({r})=>r.path).map(({p,ep,r})=>calendarProjectLink(kind,p,ep,r));
+  }
+  if(Object.hasOwn(calendarCatalogPages,kind)){
+    if(!native||!cloud.connected)throw new Error('Для этой привязки нужно подключение к облаку студии.');
+    const items=await studioResources.linkItems(calendarCatalogPages[kind]);
+    if(kind==='software')return items.map(item=>{
+      const software=item.draft||item.published||{};
+      return {kind,id:item.id,label:software.name||'Программа',detail:[software.category,software.version].filter(Boolean).join(' · ')};
+    });
+    return items.map(item=>{
+      const project=getProject(item.projectId);
+      const episode=project?.episodes.find(entry=>entry.id===item.episodeId);
+      const role=episode?.roles.find(entry=>entry.id===item.roleId);
+      const actor=state.actors.find(entry=>entry.id===item.actorId);
+      return {kind,id:item.id,label:role?.character||actor?.name||item.actorName||'Резерв',
+        detail:[project?.title,episode&&episodeLabel(project,episode),actor?.name||item.actorName].filter(Boolean).join(' · ')};
+    });
+  }
+  if(kind==='project')return state.projects.map(project=>calendarProjectLink(kind,project));
+  return state.projects.flatMap(p=>p.episodes.flatMap(ep=>{
+    if(kind==='episode')return [calendarProjectLink(kind,p,ep)];
+    const rows=kind==='role'?ep.roles:ep.tasks;
+    return rows.map(item=>calendarProjectLink(kind,p,ep,item));
+  }));
+}
+
+function localCalendarLink(link){
+  if(link.kind==='actor'){
+    const actor=state.actors.find(item=>item.id===link.id);
+    return actor?{description:calendarActorLink(actor)}:null;
+  }
+  const kind=link.kind;
+  const projectId=kind==='project'?link.id:link.projectId;
+  const p=state.projects.find(item=>item.id===projectId);
+  if(!p)return null;
+  if(kind==='project')return {p,description:calendarProjectLink(kind,p)};
+  const ep=p.episodes.find(item=>item.id===(kind==='episode'?link.id:link.episodeId));
+  if(!ep)return null;
+  if(kind==='episode')return {p,ep,description:calendarProjectLink(kind,p,ep)};
+  const item=kind==='role'?ep.roles.find(row=>row.id===link.id):
+    kind==='task'?ep.tasks.find(row=>row.id===link.id):resolveMaterial({...p,hidden:false},ep,link.id);
+  if(!item||(kind==='material'&&!item.path))return null;
+  return {p,ep,item,description:calendarProjectLink(kind,p,ep,item)};
+}
+
+function describeCalendarLink(link){
+  if(link.kind==='url')return link;
+  if(Object.hasOwn(calendarCatalogPages,link.kind))return {...link,available:native&&cloud.connected};
+  return localCalendarLink(link)?.description||{...link,available:false};
+}
+
+async function openCalendarLink(link){
+  const kind=link.kind;
+  if(kind==='url'){window.open(link.url,'_blank','noopener,noreferrer');return;}
+  if(Object.hasOwn(calendarCatalogPages,kind)){
+    const page=calendarCatalogPages[kind];
+    const items=await studioResources.linkItems(page);
+    if(ui.siteMode!=='studio'||ui.page!=='calendar')return;
+    if(!items.some(item=>item.id===link.id))throw new Error('Связанная запись больше недоступна.');
+    if(kind==='reserve')studioResources.openReserve(link.id);
+    else studioResources.openSoftware(link.id);
+    navigate(page);
+    return;
+  }
+  const target=localCalendarLink(link);
+  if(!target)throw new Error('Связанная запись больше недоступна.');
+  const {p,ep,item}=target;
+  switch(kind){
+    case 'actor':actorDetails(link.id,'roles');break;
+    case 'project':openProject(p.id);break;
+    case 'episode':openProject(p.id,ep.id);break;
+    case 'role':openReserveProject(p.id,ep.id,item.id);break;
+    case 'task':openProject(p.id,ep.id,'tasks');taskForm(p.id,ep.id,item.id);break;
+    case 'material':await openPath(item.path);break;
+  }
+}
 function pathField(name,value,type='folder') {return `<div class="input-action">${input(name,value,'text',`placeholder="Полный путь"`)}<button class="btn ghost" type="button" data-action="pick-path" data-field="${name}" data-type="${type}" title="Выбрать на компьютере">${icon('folder')}</button></div>`;}
 function coverEditor(value,label='Картинка проекта',avatar=false){return `<div class="field full"><label>${e(label)}</label><div class="project-cover-editor"><div class="cover-preview ${avatar?'avatar-preview':''}" id="cover-preview">${value?`<img src="${e(value)}" alt="${avatar?'Аватар':'Выбранная обложка'}">`:icon('file')}</div><div class="btn-row"><button type="button" class="btn ghost small" data-action="choose-cover">Выбрать картинку</button><button type="button" class="text-button" data-action="remove-cover">Убрать</button></div></div>${input('cover',value,'hidden')}<input type="file" id="project-cover-input" data-kind="${avatar?'avatar':'cover'}" accept="image/png,image/jpeg,image/webp" hidden></div>`;}
 async function loadProjectCover(file){

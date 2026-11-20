@@ -602,6 +602,16 @@ export function createStudioResources({identity, context, openProject, openActor
       const view = page('reserves');
       changeSelection('reserves', view, id);
     },
+    openSoftware(id) {
+      const view = page('software');
+      changeSelection('software', view, id);
+    },
+    async linkItems(kind) {
+      const view = page(kind);
+      if (!owner) return [];
+      await load(kind, view);
+      return view.items;
+    },
     reserveSelection() { return page('reserves').selection; },
     forRole(projectId, episodeId, roleId) {
       return page('reserves').items.filter(r => r.projectId === projectId && r.episodeId === episodeId && r.roleId === roleId);
