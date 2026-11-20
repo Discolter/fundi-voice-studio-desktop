@@ -1,90 +1,157 @@
-// Presentation for Studio's read-only smart recommendations.
-const TITLES={
-  received:'Проверить полученную запись',
-  processing:'Завершить обработку персонажа',
-  remind:'Напомнить актёру о записи',
-  'vacation-return':'Скоро закончится отпуск',
-  'vacation-start':'Скоро начнётся отпуск',
-  assign:'Назначить актёра',
-  reassign:'Переназначить роль',
-  'finish-episode':'Завершить серию',
-  'deadline-risk':'Проверить сроки проекта',
-  workload:'Проверить нагрузку актёра',
-  task:'Завершить поручение'
-};
-const isImage = value=>typeof value==='string'&&value.length<710000&&/^data:image\/(?:png|jpeg|webp);base64,[a-zA-Z0-9+/]+={0,2}$/.test(value);
-const urgencyLabel=n=>n>=4?'Просрочено':n>=3?'Срочно':n===2?'По сроку':'Планово';
-const urgencyClass=n=>n>=3?'urgent':n===2?'soon':'normal';
-const roleStatus=r=>({received:'Получено',processing:'Обрабатываю',waiting:'Жду запись',retake:'На перезапись',pickup:'Дописать',recording:'В записи'}[r?.status]||'');
-const escapeData = (fn,s)=>fn(String(s==null?'':s));
-function avatar(actor,e){
-  if(!actor)return '';
-  const img=isImage(actor.avatarPreview)?actor.avatarPreview:isImage(actor.avatar)?actor.avatar:'';
-  return '<span class="rec-avatar" title="'+e(actor.name||'Актёр')+'">'+
-    (img?'<img src="'+e(img)+'" alt="" loading="lazy">':e(String(actor.name||'?').slice(0,2).toLocaleUpperCase('ru')))+'</span>';
+import {dateValue, episodeLabel, escapeHTML as e, roleStageName, safeCover, safeRoleImage, stageName} from './core.js';
+import {roleVoiceLabel} from './casting-assistant.js';
+import {RECOMMENDATION_FILTERS, searchRecommendationEpisodes} from './recommendations.js';
+
+const plural = new Intl.PluralRules('ru');
+const dateFormat = new Intl.DateTimeFormat('ru-RU', {day: 'numeric', month: 'short'});
+const quantity = (count, one, few, many) =>
+  count + ' ' + ({one, few, many}[plural.select(count)] || many);
+const rolesCount = count => quantity(count, 'роль', 'роли', 'ролей');
+const recordsCount = count => quantity(count, 'запись', 'записи', 'записей');
+const linesCount = count => quantity(count, 'реплика', 'реплики', 'реплик');
+const tasksCount = count => quantity(count, 'поручение', 'поручения', 'поручений');
+
+function actorLink(actor, name = '') {
+  if (!actor) return e(name);
+  return `<button type="button" class="rec-text-link" data-qv-open="actor" data-qv-actor="${e(actor.id)}">${e(actor.name)}</button>`;
 }
-function pictures(item,e,icon){
-  const cover=isImage(item.project?.cover)?item.project.cover:'';
-  const roleImage=isImage(item.role?.image)?item.role.image:'';
-  return '<div class="rec-visual">'+
-    (cover?'<img class="rec-poster" src="'+e(cover)+'" alt="" loading="lazy">':
-      '<span class="rec-poster rec-placeholder">'+icon(item.project?'folder':item.actor?'users':'spark')+'</span>')+
-    (roleImage?'<img class="rec-character" src="'+e(roleImage)+'" alt="" loading="lazy">':'')+
-    avatar(item.actor,e)+'</div>';
+
+function episodeLink(project, episode, label, tab = 'roles') {
+  return `<button type="button" class="btn ghost small" data-action="recommend-open-episode"
+    data-project="${e(project.id)}" data-episode="${e(episode.id)}" data-tab="${tab}">${label}</button>`;
 }
-function buttons(item,e,icon){
-  const main=item.type==='remind'?'<button class="btn primary small" data-action="recommend-remind" data-rec="'+e(item.id)+'">'+icon('chat')+'Сообщение</button>':
-  item.role?'<button class="btn primary small" data-qv-open="role" data-qv-project="'+e(item.project.id)+'" data-qv-episode="'+e(item.episode.id)+'" data-qv-role="'+e(item.role.id)+'">'+icon('arrow')+'Карточка роли</button>':
-  item.type==='task'||item.episode?'<button class="btn primary small" data-action="recommend-open-episode" data-project="'+e(item.project.id)+'" data-episode="'+e(item.episode.id)+'" data-tab="'+(item.type==='task'?'tasks':'roles')+'">'+icon('arrow')+'Открыть серию</button>':
-  item.actor?'<button class="btn primary small" data-qv-open="actor" data-qv-actor="'+e(item.actor.id)+'">'+icon('users')+'Открыть актёра</button>':'';
-  const secondary=item.type==='remind'||item.type==='workload'?
-     '<button class="btn ghost small" data-qv-open="actor" data-qv-actor="'+e(item.actor.id)+'">Актёр</button>':
-     (item.type==='vacation-start'||item.type==='vacation-return')?
-     '<button class="btn ghost small" data-nav="vacations">Отпуска</button>':'';
-  return '<div class="rec-card-actions">'+main+secondary+
-    '<button class="btn ghost small rec-defer" data-action="recommend-snooze" data-rec="'+e(item.id)+'" title="Убрать рекомендацию на сутки">'+icon('clock')+'На завтра</button>'+
-    '<button class="rec-dismiss" data-action="recommend-hide" data-rec="'+e(item.id)+'" aria-label="Скрыть рекомендацию" title="Скрыть до изменения данных">'+icon('close')+'</button></div>';
+
+function dateTag(value, day, label = '') {
+  const due = dateValue(value);
+  if (!due) return '';
+  return `<time class="rec-date${due < day ? ' due-over' : ''}" datetime="${e(due)}">${e(label)}
+    ${e(dateFormat.format(new Date(due + 'T12:00:00')))}</time>`;
 }
-function card(item,e,icon){
-  const meta=[];
-  if(item.project)meta.push(item.project.title);
-  if(item.episode)meta.push('Серия '+(item.episode.number||item.episode.title||'?'));
-  if(item.role)meta.push(item.role.character||'Персонаж');
-  if(item.actor)meta.push(item.actor.name||'Актёр');
-  if(item.task)meta.push(item.task.title||'Поручение');
-  return '<article class="rec-card" data-severity="'+urgencyClass(item.priority)+'">'+
-    pictures(item,e,icon)+
-    '<div class="rec-card-body"><div class="rec-tags"><span class="rec-priority">'+urgencyLabel(item.priority)+'</span>'+
-    '<span class="rec-effort">'+icon('clock')+' ≈ '+item.effort+' мин</span>'+
-    (item.role?'<span class="rec-role-status">'+e(roleStatus(item.role))+'</span>':'')+'</div>'+
-    '<h3>'+e(TITLES[item.type]||'Проверить задачу')+'</h3>'+
-    '<p class="rec-context">'+meta.map(v=>e(v)).join(' · ')+'</p>'+
-    '<p class="rec-explain">'+e(item.detail||'')+'</p>'+
-    buttons(item,e,icon)+'</div></article>';
+
+function recordingStatus(row) {
+  if (row.actor?.retiredAt) return 'Актёр выбыл · нужна замена';
+  if (row.missingActor) return 'Профиль актёра не найден';
+  if (row.vacation) return row.vacation.status === 'active' ? 'В отпуске' : 'Отпуск до дедлайна';
+  if (row.needsActor) return 'Актёр не назначен';
+  return roleStageName(row.role.status);
 }
-export function renderRecommendationPage(items,{sort='easy',filter='all',icon,escapeHTML}={}){
-  const e=value=>escapeData(escapeHTML,value);
-  const urgent=items.filter(x=>x.priority>=3).length;
-  const quick=items.filter(x=>x.effort<=5).length;
-  const tabs=[['all','Все',items.length],['quick','Быстрые',quick],['urgent','Срочные',urgent],['actors','Актёры',items.filter(x=>!!x.actor).length],['projects','Проекты',items.filter(x=>!!x.project).length]];
-  const filtered=items.filter(x=>
-    filter==='quick'?x.effort<=5:filter==='urgent'?x.priority>=3:filter==='actors'?!!x.actor:filter==='projects'?!!x.project:true);
-  const visible=filtered.slice(0,120);
-  return '<section class="rec-page">'+
-    '<div class="page-head rec-head"><div><h1>Рекомендации</h1><span class="heading-meta">Умный обзор состояния проектов, ролей и актёров · без автоматического изменения статусов</span></div>'+
-    '<div class="page-actions"><button class="btn ghost" data-action="refresh-all">'+icon('refresh')+'Обновить данные</button></div></div>'+
-    '<div class="rec-summary">'+
-    '<div><strong>'+items.length+'</strong><span>Актуальных</span></div>'+
-    '<div><strong>'+urgent+'</strong><span>Срочных</span></div>'+
-    '<div><strong>'+quick+'</strong><span>Быстрых задач</span></div></div>'+
-    '<div class="rec-toolbar"><div class="rec-filters">'+tabs.map(([key,name,count])=>
-       '<button class="rec-filter '+(filter===key?'active':'')+'" data-action="recommend-filter" data-filter-value="'+key+'">'+name+' <span>'+count+'</span></button>').join('')+'</div>'+
-    '<div class="rec-sort" role="group" aria-label="Сортировать рекомендации">'+
-    '<button data-action="recommend-sort" data-sort="easy" class="'+(sort==='easy'?'active':'')+'">От лёгких</button>'+
-    '<button data-action="recommend-sort" data-sort="urgent" class="'+(sort==='urgent'?'active':'')+'">По срочности</button></div></div>'+
-    (visible.length?'<div class="rec-list">'+visible.map(x=>card(x,e,icon)).join('')+'</div>':
-       '<div class="rec-empty">'+icon('check')+'<h3>Всё под контролем</h3><p>По выбранному фильтру нет задач, требующих внимания. Рекомендации появятся после изменения статусов, дедлайнов или отпусков.</p></div>')+
-    (filtered.length>visible.length?'<p class="rec-footer">Показаны первые '+visible.length+' из '+filtered.length+' рекомендаций. Отсортируй или выбери фильтр.</p>':'')+
-    '<p class="rec-footer">«На завтра» скрывает совет на 24 часа. «Скрыть» — до изменения связанных данных. Напоминания актёрам не отправляются без твоего действия.</p>'+
-    '</section>';
+
+function roleRow(item, row, recording, day) {
+  const {role, actor, actorName, voice, workload} = row;
+  const image = safeRoleImage(role.image);
+  const status = recording ? recordingStatus(row) : roleStageName(role.status);
+  const work = recording && workload?.pending
+    ? recordsCount(workload.pending) + ' в работе' +
+      (workload.pendingLines ? ' · ' + linesCount(workload.pendingLines) : '')
+    : '';
+  const voiceLabel = row.needsActor && voice ? roleVoiceLabel(voice) + ' голос' : '';
+  const reserves = recording ? row.reserves.map(reserve =>
+    `<button type="button" class="rec-reserve" data-action="reserve-open" data-id="${e(reserve.id)}">
+      Запас · ${e(reserve.name)} <small>${reserve.confirmed ? 'Согласие получено' : 'Ожидает согласия'}</small>
+    </button>`).join('') : '';
+  const candidates = recording ? row.candidates.map(candidate =>
+    `<span>${actorLink(candidate.actor)} <small>${recordsCount(candidate.pending)} в работе</small></span>`).join('') : '';
+  const meta = [status, voiceLabel, Number.isInteger(role.lineCount) ? linesCount(role.lineCount) : '']
+    .filter(Boolean).map(e).join(' · ');
+  return `<li class="rec-role">
+    <div class="rec-role-top">
+      ${image ? `<img class="rec-role-image" src="${e(image)}" alt="" loading="lazy">` : ''}
+      <div class="rec-role-info">
+        <button type="button" class="rec-text-link rec-character" data-qv-open="role"
+          data-qv-project="${e(item.project.id)}" data-qv-episode="${e(item.episode.id)}"
+          data-qv-role="${e(role.id)}">${e(role.character)}</button>
+        ${actorName ? `<span class="rec-actor">${actorLink(actor, actorName)}</span>` : ''}
+        <div class="rec-role-meta${row.needsActor ? ' needs-actor' : ''}">
+          <span>${meta}</span>${dateTag(role.due, day, 'до')}
+        </div>
+        ${work ? `<small class="rec-load">У актёра ${e(work)}</small>` : ''}
+      </div>
+    </div>
+    ${reserves ? `<div class="rec-options">${reserves}</div>` : ''}
+    ${candidates ? `<div class="rec-candidates"><small>Кого спросить</small><div class="rec-options">${candidates}</div></div>` : ''}
+  </li>`;
+}
+
+function workSection(title, rows, label, renderRow, key, expanded) {
+  if (!rows.length) return '';
+  const first = rows.slice(0, 3);
+  const rest = rows.slice(3);
+  return `<section class="rec-work">
+    <h3>${title} <span>${e(label(rows.length))}</span></h3>
+    <ul>${first.map(renderRow).join('')}</ul>
+    ${rest.length ? `<details data-recommendation-group="${e(key)}"${expanded.has(key) ? ' open' : ''}><summary>Ещё ${e(label(rest.length))}</summary>
+      <ul>${rest.map(renderRow).join('')}</ul></details>` : ''}
+  </section>`;
+}
+
+function episodeCard(item, day, icon, expanded) {
+  const {project, episode, recording, post, tasks, onlyActor, dates, total, accepted, remaining, nearFinish} = item;
+  const cover = safeCover(project.cover);
+  const priority = {high: 'Высокий приоритет', low: 'Низкий приоритет'}[project.priority];
+  const deadlineTags = [
+    dateTag(dates.episode, day, 'Серия до'),
+    dateTag(dates.recording, day, 'Запись до'),
+    dateTag(dates.post, day, 'Обработка до'),
+    dateTag(dates.tasks, day, 'Поручения до')
+  ].filter(Boolean).join('');
+  const progress = total ? `<div class="rec-progress">
+      <span>${remaining ? (plural.select(remaining) === 'one' ? 'Осталась ' : 'Осталось ') + e(rolesCount(remaining)) : 'Все роли приняты'}</span>
+      <progress max="${total}" value="${accepted}" aria-label="Роли приняты"></progress>
+      <span>${accepted} / ${total}</span>
+    </div>` : '';
+  const waiting = onlyActor ? `<p class="rec-waiting">Ждём одного актёра · ${actorLink(onlyActor.actor, onlyActor.actorName)}</p>` : '';
+  const taskContent = task => `<li class="rec-task"><span>${e(task.title)}</span>${dateTag(task.due, day, 'до')}</li>`;
+  const sections = [
+    workSection('Запись', recording, rolesCount, row => roleRow(item, row, true, day), episode.id + '|recording', expanded),
+    workSection('Проверка и обработка', post, rolesCount, row => roleRow(item, row, false, day), episode.id + '|post', expanded),
+    workSection('Поручения', tasks, tasksCount, taskContent, episode.id + '|tasks', expanded)
+  ].join('');
+  return `<article class="rec-card" data-recommendation-episode="${e(episode.id)}" data-near-finish="${nearFinish}">
+    <header class="rec-card-head">
+      ${cover ? `<img class="rec-poster" src="${e(cover)}" alt="" loading="lazy">` :
+        `<span class="rec-poster rec-placeholder" aria-hidden="true">${icon('folder')}</span>`}
+      <div class="rec-identity">
+        <h2>${e(project.title)}</h2>
+        <div class="rec-episode">${e(episodeLabel(project, episode))}${episode.number && episode.title ? ' · ' + e(episode.title) : ''}</div>
+        <div class="rec-stage">${e(stageName(episode.stage))}${priority ? ' · ' + e(priority) : ''}</div>
+      </div>
+      <div class="rec-card-actions">
+        ${episodeLink(project, episode, 'Открыть серию')}
+        ${tasks.length ? episodeLink(project, episode, 'Поручения', 'tasks') : ''}
+      </div>
+    </header>
+    ${progress}
+    ${deadlineTags ? `<div class="rec-dates">${deadlineTags}</div>` : ''}
+    ${waiting}
+    ${sections ? `<div class="rec-work-grid">${sections}</div>` : ''}
+  </article>`;
+}
+
+function freeActorsSection(actors, expanded) {
+  if (!actors.length) return '';
+  return `<details class="rec-free" data-recommendation-group="free-actors"${expanded.has('free-actors') ? ' open' : ''}>
+    <summary>Актёры без ожидающих записей <span>${actors.length}</span></summary>
+    <ul>${actors.map(({actor}) => `<li>${actorLink(actor)}${actor.voiceGroup
+      ? ` <small>${e(roleVoiceLabel(actor.voiceGroup))} голос</small>` : ''}</li>`).join('')}</ul>
+  </details>`;
+}
+
+export function renderRecommendationPage({day, episodes, freeActors}, {filter = 'all', query = '', icon, expanded = new Set()} = {}) {
+  const found = searchRecommendationEpisodes(episodes, query);
+  const activeFilter = RECOMMENDATION_FILTERS.find(option => option.key === filter) || RECOMMENDATION_FILTERS[0];
+  const visible = found.filter(activeFilter.matches);
+  const emptyText = !episodes.length ? 'В активных сериях пока нет ролей или открытых поручений.' :
+    query.trim() ? 'По этому запросу серии не найдены.' : 'По выбранному фильтру серий нет.';
+  return `<section class="rec-page">
+    <div class="page-head"><h1>Рекомендации</h1></div>
+    <div class="rec-filters" role="group" aria-label="Фильтр серий">
+      ${RECOMMENDATION_FILTERS.map(option => `<button type="button" class="rec-filter"
+        aria-pressed="${activeFilter === option}" data-action="recommend-filter" data-filter-value="${option.key}">
+        ${option.label} <span>${found.filter(option.matches).length}</span>
+      </button>`).join('')}
+    </div>
+    ${visible.length ? `<div class="rec-list">${visible.map(item => episodeCard(item, day, icon, expanded)).join('')}</div>`
+      : `<div class="rec-empty">${e(emptyText)}</div>`}
+    ${freeActorsSection(freeActors, expanded)}
+  </section>`;
 }
