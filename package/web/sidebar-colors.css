@@ -19,6 +19,7 @@
 .sidebar .nav-item[data-nav="recommendations"]{--nav-accent:#f5a6d2;--nav-ink:#a03e79}
 .sidebar .nav-item[data-nav="reserves"]{--nav-accent:#99e8ab;--nav-ink:#347650}
 .sidebar .nav-item[data-nav="software"]{--nav-accent:#adbfff;--nav-ink:#4762a6}
+.sidebar .nav-item[data-nav="calendar"]{--nav-accent:#c5b7f5;--nav-ink:#694eaa}
 .sidebar .nav-item[data-nav="settings"]{--nav-accent:#a8cafa;--nav-ink:#456eab}
 .sidebar .nav-item[data-nav="recovery"]{--nav-accent:#ffacbe;--nav-ink:#a83f58}
 .sidebar .nav-item[data-nav="vacations"]{--nav-accent:#f0d083;--nav-ink:#906422}

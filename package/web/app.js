@@ -1,4 +1,5 @@
 import {createStudioResources} from './studio-resources.js';
+import {createStudioCalendar} from './studio-calendar.js';
 import {contentPath} from './software-library.js';
 import {createCasting} from './casting.js';
 import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js';
@@ -99,10 +100,16 @@ const myRoleRows=(s,options)=>{
 };
 const debtRows=(s,options)=>storedDebtRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
 const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).filter(a=>!a.retiredAt).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length,review:vacationReviewRows(state,cloud.vacations||[]).length});
-const studioResourceNavs=[['reserves','users','Запас'],['software','file','Студийное ПО']];
+const studioResourceNavs=[['reserves','users','Запас'],['software','file','Студийное ПО'],['calendar','calendar','Календарь']];
 const navs=[['projects','grid','Проекты'],['mytasks','tasks','Мои задачи'],['debts','debts','Долги'],['casting','mic','Кастинг'],['actors','users','Актёры'],['workload','workload','Нагрузка'],['actorportal','shield','Доступ актёров']];
 let recoveryRequests=[],recoveryCode='';
 const vacationFor=id=>(cloud.vacations||[]).find(v=>v.actorId===id&&(v.status==='active'||v.status==='planned'));
+const mountCalendar=createStudioCalendar({
+  openEvent:event=>{
+    if(event.kind==='vacation')navigate('vacations');
+    else openProject(event.projectId,event.episodeId,event.kind==='task'?'tasks':'roles');
+  }
+});
 const activeVacation=id=>vacationFor(id)?.status==='active';
 const vacationTag=id=>{const retired=(state.actors||[]).find(a=>a.id===id)?.retiredAt;if(retired)return '<span class="studio-vacation-tag deleted-actor-tag" title="Актёр исключён из состава, назначение ожидает пересмотра">Удалённый актёр</span>';const v=vacationFor(id);return v?`<span class="studio-vacation-tag ${v.status==='active'?'active':'planned'}" title="${e((v.status==='active'?'В отпуске · роль можно назначить заранее, запись после возвращения':'Запланирован отпуск')+(v.startDate?' · с '+v.startDate:'')+(v.endDate?' по '+v.endDate:' · Бессрочно'))}">${icon('vacation')}${v.status==='active'?'В отпуске':'Отпуск скоро'}</span>`:'';};
 const vacationOptionSuffix=id=>{const v=vacationFor(id);return v?(v.status==='active'?' · ⛔ В отпуске':' · ◷ Отпуск скоро'):'';};
@@ -359,7 +366,7 @@ function flushSave(){
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
 function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationFilter:ui.recommendationFilter}));}catch{}}
-function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if((['vacations','review'].includes(page)||page==='recommendations')&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
+function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if((['vacations','review'].includes(page)||['recommendations','calendar'].includes(page))&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles',actorKey='',characterKey=''){
   selectedTasks.clear();
   const p=getProject(id);if(!p)return;
@@ -394,6 +401,10 @@ function render(){
     studioResources.warm();
     if(ui.page==='reserves'||ui.page==='software')
       studioResources.mount(document.querySelector('#studio-resources-root'),ui.page);
+    if(ui.page==='calendar')mountCalendar(document.querySelector('#studio-calendar-root'),{
+      projects:state.projects,vacations:cloud.vacations||[],
+      actorName:id=>state.actors.find(actor=>actor.id===id)?.name
+    });
   }
   quickViews.refresh();
   studioNavigation.record();
@@ -404,6 +415,7 @@ function renderPage(c){
   if(ui.siteMode==='site')return siteManager.render(ui.sitePage);
   if(ui.page==='casting')return '<div id="casting-root"></div>';
   if(ui.page==='reserves'||ui.page==='software')return '<div id="studio-resources-root"></div>';
+  if(ui.page==='calendar')return heading('Календарь')+'<div id="studio-calendar-root"></div>';
   if(ui.page==='detail')return renderDetail();if(ui.page==='actors')return renderActors();if(ui.page==='workload')return renderWorkload();if(ui.page==='mytasks')return renderMyTasks();if(ui.page==='debts')return renderDebts();if(ui.page==='vacations')return renderVacations();
   if(ui.page==='recommendations')return renderRecommendations();if(ui.page==='review')return renderVacationReview();if(ui.page==='recovery')return renderRecoveries();if(ui.page==='actorportal')return renderActorPortal();if(ui.page==='settings')return renderSettings();return renderProjects(c);
 }
