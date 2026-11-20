@@ -497,7 +497,8 @@ export function createStudioResources({identity, context, openProject, openActor
     const internal = field(form, 'Наши разработки', 'inHouse', 'checkbox', currentDraft.inHouse);
     const controls = element(form, 'div', 'fvr-actions');
     element(controls, 'button', 'fvr-button fvr-primary', 'Сохранить черновик').type = 'submit';
-    function remember() {
+    function remember(event) {
+      if (event?.target.type === 'file') return;
       const data = new FormData(form);
       view.edits = Object.fromEntries(fields.map(([key]) => [key, String(data.get(key) || '')]));
       view.edits.requirement = requirement.value;
