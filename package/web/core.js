@@ -85,6 +85,58 @@ const num = v => v === '' || v === null || v === undefined ? '' : (/^\d{1,4}$/.t
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 export const validDate = v => {if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const d=new Date(v+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===v;};
 export const dateValue = v => validDate(v) ? v : '';
+export const CALENDAR_LINK_TYPES = Object.freeze({
+  project:'Проект', episode:'Серия', role:'Роль', actor:'Актёр', task:'Поручение',
+  material:'Материал или папка', reserve:'Запас', software:'Студийное ПО', url:'Веб-ссылка'
+});
+
+export function calendarLinkKey(link) {
+  return JSON.stringify(link.kind==='url'?[link.kind,link.url]:
+    [link.kind,link.id,link.projectId||'',link.episodeId||'']);
+}
+
+export function normalizeCalendarLink(value) {
+  if(!value||typeof value.kind!=='string'||!Object.hasOwn(CALENDAR_LINK_TYPES,value.kind))return null;
+  const {kind}=value;
+  const label=str(value.label,200).trim(),detail=str(value.detail,400).trim();
+  if(kind==='url'){
+    const address=str(value.url,2049).trim();
+    if(address.length>2048)return null;
+    let url;
+    try{url=new URL(address);}catch{return null;}
+    if(!['https:','http:'].includes(url.protocol)||url.username||url.password||url.href.length>2048)return null;
+    return {kind,url:url.href,label:label||url.hostname,detail:''};
+  }
+  const id=str(value.id,120);
+  const item={kind,id,label:label||CALENDAR_LINK_TYPES[kind],detail};
+  if(!id)return null;
+  if(['episode','role','task','material'].includes(kind)){
+    item.projectId=str(value.projectId,80);
+    if(!item.projectId)return null;
+  }
+  if(['role','task','material'].includes(kind)){
+    item.episodeId=str(value.episodeId,80);
+    if(!item.episodeId)return null;
+  }
+  return item;
+}
+
+export function normalizeCalendarEntry(value) {
+  if(!value||typeof value!=='object')return null;
+  const title=str(value.title,160).trim(),date=dateValue(value.date);
+  if(!title||!date)return null;
+  const time=typeof value.time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)?value.time:'';
+  const links=[],seen=new Set();
+  for(const rawLink of Array.isArray(value.links)?value.links:[]){
+    const link=normalizeCalendarLink(rawLink);
+    if(!link)continue;
+    const key=calendarLinkKey(link);
+    if(seen.has(key))continue;
+    seen.add(key);
+    links.push(link);
+  }
+  return {id:str(value.id,80),title,date,time,notes:str(value.notes,4000),links};
+}
 export const stageName = id => STAGES.find(s=>s[0]===id)?.[1] || STAGES[0][1];
 export const roleStageName = id => ROLE_STAGES.find(s=>s[0]===(id==='processed'?'processing':id))?.[1] || ROLE_STAGES[0][1];
 export const kindName = id => KINDS.find(s=>s[0]===id)?.[1] || 'Материал';
@@ -315,7 +367,7 @@ export function removeTaskTemplate(templates,index){
 }
 
 export function seedState() {
-  return {schema:SCHEMA,projects:[],actors:[],trash:[],taskHistory:[],settings:{mode:'studio',name:'Студия',myTelegram:'Discolter',studioRoot:'',folderTemplate:['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:[...DEFAULT_TASK_TEMPLATES],theme:'aurora',motion:true,onboardingSeen:false,workspaceVersion:2},updatedAt:new Date().toISOString()};
+  return {schema:SCHEMA,projects:[],actors:[],trash:[],taskHistory:[],calendarEntries:[],settings:{mode:'studio',name:'Студия',myTelegram:'Discolter',studioRoot:'',folderTemplate:['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:[...DEFAULT_TASK_TEMPLATES],theme:'aurora',motion:true,onboardingSeen:false,workspaceVersion:2},updatedAt:new Date().toISOString()};
 }
 export const safeCover = value => typeof value==='string'&&value.length<=700000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
 export const safeRoleImage = value => typeof value==='string'&&value.length<=150000&&/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(value)?value:'';
@@ -363,6 +415,8 @@ export function normalizeState(raw) {
   }
   const projects=raw.projects.map(normalizeProject).filter(p=>raw.settings?.workspaceVersion===2||!untouchedStarter(p)),trash=(Array.isArray(raw.trash)?raw.trash:[]).map(normalizeProject);
   const normalized={schema:SCHEMA,projects,actors,trash,settings:{mode:raw.settings?.mode==='actor'?'actor':'studio',name:str(raw.settings?.name,80)||'Студия',myTelegram:cleanTelegram(raw.settings?.myTelegram===undefined?'Discolter':raw.settings.myTelegram).replace(/[^a-zA-Z0-9_]/g,'').slice(0,80),studioRoot:str(raw.settings?.studioRoot,2000),folderTemplate:Array.isArray(raw.settings?.folderTemplate)?expandFolderKeys(raw.settings.folderTemplate):['source','voices','render','video','audio','subs','characterSubs','premiere'],taskTemplates:normalizeTaskTemplates(raw.settings?.taskTemplates),theme:THEMES.some(([key])=>key===raw.settings?.theme)?raw.settings.theme:'aurora',motion:raw.settings?.motion!==false,onboardingSeen:raw.settings?.onboardingSeen===true,workspaceVersion:2},updatedAt:str(raw.updatedAt,50)};
+  normalized.calendarEntries=(Array.isArray(raw.calendarEntries)?raw.calendarEntries:[])
+    .map(normalizeCalendarEntry).filter(Boolean).map(entry=>({...entry,id:id(entry.id)}));
   mergeTaskHistory(normalized,raw.taskHistory);
   return normalized;
 }

@@ -1,13 +1,19 @@
 import {element} from './software-library.js';
+import {CALENDAR_LINK_TYPES} from './core.js';
 
-const eventLabels = {episode: 'Дедлайн серии', task: 'Поручение', vacation: 'Отпуск'};
+const eventLabels = {manual: 'Запись', episode: 'Дедлайн серии', task: 'Поручение', vacation: 'Отпуск'};
 const weekdayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const monthFormat = new Intl.DateTimeFormat('ru-RU', {month: 'long', year: 'numeric'});
 const dayFormat = new Intl.DateTimeFormat('ru-RU', {weekday: 'long', day: 'numeric', month: 'long'});
 const shortDateFormat = new Intl.DateTimeFormat('ru-RU', {day: 'numeric', month: 'short', year: 'numeric'});
 const eventPlural = new Intl.PluralRules('ru-RU');
 const capitalize = text => text[0].toLocaleUpperCase('ru-RU') + text.slice(1);
-const calendarDate = (year, month, day) => new Date(year, month, day, 12);
+const calendarDate = (year, month, day) => {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setFullYear(year, month, day);
+  return date;
+};
 const dateKey = date => [
   String(date.getFullYear()).padStart(4, '0'),
   String(date.getMonth() + 1).padStart(2, '0'),
@@ -28,7 +34,7 @@ function seriesLabel(project, episode) {
   ].filter(Boolean).join(' · ') || 'Серия';
 }
 
-function schedule({projects = [], tasks, vacations = [], actorName = () => ''}) {
+function schedule({entries = [], projects = [], tasks, vacations = [], actorName = () => ''}) {
   const dated = new Map(), breaks = [];
   const episodeKey = (projectId, episodeId) => JSON.stringify([projectId, episodeId]);
   const tasksByEpisode = new Map();
@@ -38,22 +44,25 @@ function schedule({projects = [], tasks, vacations = [], actorName = () => ''}) 
     tasksByEpisode.get(key).push(task);
   }
 
-  function addDeadline(date, event) {
+  function addDated(date, event) {
     if (!parseDay(date)) return;
     if (!dated.has(date)) dated.set(date, []);
     dated.get(date).push(event);
   }
 
+  for (const entry of [...entries].sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'ru'))) {
+    addDated(entry.date, {kind: 'manual', title: entry.title, entry});
+  }
   for (const project of projects) {
     if (project.hidden || project.archived) continue;
     for (const episode of project.episodes || []) {
       const context = {projectId: project.id, episodeId: episode.id};
       const series = seriesLabel(project, episode);
       if (episode.stage !== 'done')
-        addDeadline(episode.due, {...context, kind: 'episode', title: project.title, detail: series});
+        addDated(episode.due, {...context, kind: 'episode', title: project.title, detail: series});
       const entries = tasks ? tasksByEpisode.get(episodeKey(project.id, episode.id)) : episode.tasks;
       for (const task of entries || []) {
-        if (!task.done && task.title) addDeadline(task.due, {
+        if (!task.done && task.title) addDated(task.due, {
           ...context, kind: 'task', title: task.title, detail: project.title + ' · ' + series
         });
       }
@@ -84,19 +93,42 @@ function button(parent, className, label, run) {
   return control;
 }
 
-export function createStudioCalendar({openEvent}) {
+export function createStudioCalendar({openEvent, editEntry, describeLink, openLink}) {
   let selected = '';
 
-  return function mount(root, data) {
+  function mount(root, data) {
     const eventsOn = schedule(data);
     const section = element(null, 'section', 'studio-calendar');
     section.setAttribute('aria-label', 'Календарь студии');
     root.replaceChildren(section);
 
     function select(day, focus) {
-      selected = dateKey(day);
+      const key = dateKey(day);
+      if (!parseDay(key)) return;
+      selected = key;
       draw();
       section.querySelector(focus)?.focus({preventScroll: true});
+    }
+
+    function drawEntry(parent, entry) {
+      const card = element(parent, 'article', 'studio-calendar-event studio-calendar-entry');
+      card.dataset.eventKind = 'manual';
+      card.dataset.calendarEntry = entry.id;
+      const header = element(card, 'div', 'studio-calendar-entry-header');
+      element(header, 'span', 'studio-calendar-type', entry.time || 'Весь день');
+      button(header, 'btn ghost small studio-calendar-edit', 'Изменить', () => editEntry(entry.date, entry.id));
+      element(card, 'strong', '', entry.title);
+      if (entry.notes) element(card, 'p', 'studio-calendar-notes', entry.notes);
+      if (!entry.links.length) return;
+      const links = element(card, 'div', 'studio-calendar-entry-links');
+      for (const link of entry.links) {
+        const display = describeLink(link);
+        const target = button(links, 'studio-calendar-link', '', () => openLink(link));
+        target.disabled = display.available === false;
+        target.title = target.disabled ? 'Связь сейчас недоступна' : (display.detail || '');
+        element(target, 'small', '', CALENDAR_LINK_TYPES[link.kind]);
+        element(target, 'span', '', display.label);
+      }
     }
 
     function draw() {
@@ -157,7 +189,7 @@ export function createStudioCalendar({openEvent}) {
         for (const item of events.slice(0, 2)) {
           const marker = element(markers, 'span', 'studio-calendar-marker');
           marker.dataset.eventKind = item.kind;
-          element(marker, 'span', '', item.title);
+          element(marker, 'span', '', [item.entry?.time, item.title].filter(Boolean).join(' '));
         }
         if (events.length > 2) element(markers, 'span', 'studio-calendar-more', '+' + (events.length - 2));
       }
@@ -167,9 +199,11 @@ export function createStudioCalendar({openEvent}) {
 
       const agenda = element(layout, 'aside', 'studio-calendar-panel studio-calendar-agenda');
       element(agenda, 'h2', '', capitalize(dayFormat.format(current)));
+      button(agenda, 'btn primary small studio-calendar-add', 'Добавить запись', () => editEntry(selected));
       const events = eventsOn(selected);
       if (!events.length) element(agenda, 'p', 'studio-calendar-empty', 'На этот день ничего не запланировано.');
       for (const event of events) {
+        if (event.kind === 'manual') { drawEntry(agenda, event.entry); continue; }
         const item = button(agenda, 'studio-calendar-event', '', () => openEvent(event));
         item.dataset.eventKind = event.kind;
         element(item, 'span', 'studio-calendar-type', eventLabels[event.kind]);
@@ -178,5 +212,6 @@ export function createStudioCalendar({openEvent}) {
       }
     }
     draw();
-  };
+  }
+  return {mount,selectDate: date => { if (parseDay(date)) selected = date; }};
 }
