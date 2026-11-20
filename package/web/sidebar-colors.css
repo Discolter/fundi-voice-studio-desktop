@@ -17,6 +17,8 @@
 .sidebar .nav-item[data-action="studio-files"]{--nav-accent:#7bdfce;--nav-ink:#23796c}
 .sidebar .nav-item[data-nav="review"]{--nav-accent:#ffb98d;--nav-ink:#9b571c}
 .sidebar .nav-item[data-nav="recommendations"]{--nav-accent:#f5a6d2;--nav-ink:#a03e79}
+.sidebar .nav-item[data-nav="reserves"]{--nav-accent:#99e8ab;--nav-ink:#347650}
+.sidebar .nav-item[data-nav="software"]{--nav-accent:#adbfff;--nav-ink:#4762a6}
 .sidebar .nav-item[data-nav="settings"]{--nav-accent:#a8cafa;--nav-ink:#456eab}
 .sidebar .nav-item[data-nav="recovery"]{--nav-accent:#ffacbe;--nav-ink:#a83f58}
 .sidebar .nav-item[data-nav="vacations"]{--nav-accent:#f0d083;--nav-ink:#906422}
@@ -28,6 +30,11 @@
 .sidebar .nav-item[data-site-nav="ratings"]{--nav-accent:#f1d07d;--nav-ink:#8f6c24}
 .sidebar .nav-item[data-site-nav="users"]{--nav-accent:#baabf8;--nav-ink:#6e59ab}
 .sidebar .nav-item[data-cabinet="home"]{--nav-accent:#81dfce;--nav-ink:#237d70}
+
+@media(min-width:581px){
+  .sidebar nav{min-height:0;overflow-y:auto;scrollbar-width:thin}
+  .sidebar-bottom{flex-shrink:0}
+}
 
 .sidebar .nav-item .icon{color:var(--nav-accent);transition:color .18s ease}
 .sidebar .nav-item:is(:hover,:focus-visible){
