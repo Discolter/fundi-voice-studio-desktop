@@ -1,4 +1,4 @@
-import {action, element, openResourceFile, requirements, selectOptions, showScreenshots} from './software-library.js';
+import {action, element, openResourceFile, requirements, selectOptions, showScreenshots, softwareCard} from './software-library.js';
 
 const fields = [
   ['name', 'Название', 160], ['version', 'Версия', 70],
@@ -333,19 +333,18 @@ export function createStudioResources({identity, context, openProject, openActor
           info.primary?.handle, info.backup?.name, info.backup?.handle] :
           [entry.draft.name, entry.draft.category, entry.draft.platform, entry.draft.version];
         if (!labels.join(' ').toLocaleLowerCase('ru-RU').includes(needle)) continue;
-        const card = element(grid, 'article', 'fvr-card');
         if (reserve) {
+          const card = element(grid, 'article', 'fvr-card');
           reserveSummary(card, info);
           const actions = element(card, 'div', 'fvr-actions fvr-reserve-actions');
           const status = element(actions, 'span', 'fvr-reserve-status', entry.confirmed ? 'Согласие получено' : 'Ожидает согласия');
           status.dataset.confirmed = String(entry.confirmed);
           action(actions, 'Открыть резерв', () => changeSelection(kind, view, entry.id));
         } else {
-          element(card, 'h2', '', labels[0]);
-          const summary = labels.slice(1).filter(Boolean).join(' · ');
-          if (summary) element(card, 'p', 'fvr-muted', summary);
-          element(card, 'span', 'fvr-muted', entry.published ? 'Опубликовано · ' + entry.published.version : 'Черновик');
-          action(card, 'Открыть', () => changeSelection(kind, view, entry.id));
+          softwareCard(grid, entry.draft, {
+            label: entry.published ? 'Опубликовано · ' + entry.published.version : 'Черновик',
+            open: () => changeSelection(kind, view, entry.id)
+          });
         }
       }
       if (view.items.length && !grid.children.length)
