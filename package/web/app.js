@@ -1302,8 +1302,12 @@ async function refreshAllStudio(button){
 }
 let studioNotificationLimit=50,recordingContext=null,hiddenTransferId='';
 function renderTransferNotice(){document.querySelector('#file-transfer-slot').innerHTML=transferPanel(cloud.transfer,'studio-',hiddenTransferId);}
-function recordingRole(file){
-  for(const p of state.projects)for(const ep of p.episodes){const r=ep.roles.find(item=>item.id===file.roleId);if(r)return {p,ep,r};}
+function recordingForRole(file,roleId,actorId){
+  return file.actorId===actorId&&(file.roles?.length?file.roles.some(role=>role.roleId===roleId):file.roleId===roleId);
+}
+function recordingRole(file,preferredRoleId){
+  const id=recordingForRole(file,preferredRoleId,file.actorId)?preferredRoleId:file.roleId;
+  for(const p of state.projects)for(const ep of p.episodes){const r=ep.roles.find(item=>item.id===id);if(r)return {p,ep,r};}
   return null;
 }
 function studioRolePortrait(role,fallbackRole=null){
@@ -1311,7 +1315,7 @@ function studioRolePortrait(role,fallbackRole=null){
   return `<span class="studio-character-thumb" aria-hidden="true">${picture?`<img src="${e(picture)}" alt="" loading="lazy">`:icon('mic')}</span>`;
 }
 function roleRecordingButton(p,ep,r){
-  const count=(cloud.files||[]).filter(f=>f.roleId===r.id&&f.actorId===r.actorId&&f.status==='ready').length;
+  const count=(cloud.files||[]).filter(f=>recordingForRole(f,r.id,r.actorId)&&f.status==='ready').length;
   if(!native||(!actorForRole(state,r)?.actorAccess&&!count))return '';
   return `<button class="icon-btn" data-action="role-recordings" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Записи актёра${count?' · '+count:''}" aria-label="Записи ${e(r.character)}">${icon('download')}${count?`<span class="role-recording-count">${count}</span>`:''}</button>`;
 }
@@ -1321,16 +1325,29 @@ async function showStudioFiles(context=null){
 }
 function renderStudioFiles(){
   const scroll=modal.querySelector('.recording-list')?.scrollTop||0;
-  const context=recordingContext,items=(cloud.files||[]).filter(f=>!context||f.roleId===context.roleId&&f.actorId===context.actorId);
+  const context=recordingContext,items=(cloud.files||[]).filter(f=>!context||(context.fileIds
+    ? f.actorId===context.actorId&&context.fileIds.includes(f.fileId)
+    : recordingForRole(f,context.roleId,context.actorId)));
   showModal(context?'Записи роли':'Записи актёров',context?context.title:'Файлы, загруженные через Fundi Voice Actor',`${storageMeter(cloud.usedBytes,cloud.quotaBytes)}${cloud.fileError?`<p class="file-error">${e(cloud.fileError)}</p>`:''}<div class="file-toolbar"><button type="button" class="btn ghost small" data-action="studio-files-refresh">Обновить список</button><button type="button" class="text-button" data-action="studio-files-cleanup">Очистить просроченные</button></div><div class="recording-list">${items.map(f=>{
-    const found=recordingRole(f),actor=state.actors.find(a=>a.id===f.actorId)?.name||(cloud.actors||[]).find(a=>a.actorId===f.actorId)?.username||'Актёр';
+    const found=recordingRole(f,context?.roleId),actor=state.actors.find(a=>a.id===f.actorId)?.name||(cloud.actors||[]).find(a=>a.actorId===f.actorId)?.username||'Актёр';
     const detail=found?`${actor} · ${found.r.character} · ${found.p.title} · ${episodeLabel(found.p,found.ep)}`:actor+' · Роль больше не отображается в Studio';
-    return `<article class="recording-entry"><div class="recording-entry-layout">${studioRolePortrait(found?.r)}<div class="recording-entry-body"><strong>${e(f.fileName)}</strong>${found?`<button type="button" class="btn ghost small" data-qv-open="role" data-qv-project="${e(found.p.id)}" data-qv-episode="${e(found.ep.id)}" data-qv-role="${e(found.r.id)}">Карточка роли</button>`:''}<div class="recording-context">${e(detail)} ${vacationTag(f.actorId)}</div><div class="recording-meta"><span>${e(formatBytes(f.size))}</span><span>${e(notificationDate(f.createdAt))}</span><span>${e(fileStatus(f.status))}</span></div><div class="recording-actions">${f.status==='ready'?`<button type="button" class="btn primary small" data-action="studio-file-download" data-file="${e(f.fileId)}" ${cloud.transfer?.state==='running'?'disabled':''}>${icon('download')}Скачать</button>${found?.r.folder?`<button type="button" class="btn ghost small" data-action="studio-file-download-as" data-file="${e(f.fileId)}">Выбрать папку</button>`:''}`:''}<button type="button" class="text-button" data-action="studio-file-delete" data-file="${e(f.fileId)}">Удалить из облака</button></div></div></div></article>`;
-  }).join('')||'<div class="recording-empty">Записей пока нет. Актёр загружает запись в Actor 0.3.0 кнопкой «Сдать на проверку».</div>'}</div><p class="file-hint">После скачивания проверь запись на компьютере. Для освобождения места удали её из облака отдельной кнопкой.</p>`);
+    const linked=f.roles||[];
+    const shared=linked.length>1?`<div class="recording-context"><strong>Один файл на несколько ролей</strong> · ${e(linked.map(role=>role.character).join(' · '))}</div>`:'';
+    const status=f.status==='ready'&&f.submitted?'Сдан':fileStatus(f.status);
+    return `<article class="recording-entry"><div class="recording-entry-layout">${studioRolePortrait(found?.r)}<div class="recording-entry-body"><strong>${e(f.fileName)}</strong>${found?`<button type="button" class="btn ghost small" data-qv-open="role" data-qv-project="${e(found.p.id)}" data-qv-episode="${e(found.ep.id)}" data-qv-role="${e(found.r.id)}">Карточка роли</button>`:''}<div class="recording-context">${e(detail)} ${vacationTag(f.actorId)}</div>${shared}<div class="recording-meta"><span>${e(formatBytes(f.size))}</span><span>${e(notificationDate(f.createdAt))}</span><span>${e(status)}</span></div><div class="recording-actions">${f.status==='ready'?`<button type="button" class="btn primary small" data-action="studio-file-download" data-file="${e(f.fileId)}" ${cloud.transfer?.state==='running'?'disabled':''}>${icon('download')}Скачать</button>${found?.r.folder&&(linked.length<2||context?.roleId)?`<button type="button" class="btn ghost small" data-action="studio-file-download-as" data-file="${e(f.fileId)}">Выбрать папку</button>`:''}`:''}<button type="button" class="text-button" data-action="studio-file-delete" data-file="${e(f.fileId)}">Удалить из облака</button></div></div></div></article>`;
+  }).join('')||'<div class="recording-empty">Записей пока нет.</div>'}</div><p class="file-hint">После скачивания проверь запись на компьютере. Для освобождения места удали её из облака отдельной кнопкой.</p>`);
   modal.dataset.view='recordings';modal.querySelector('.recording-list').scrollTop=scroll;
 }
 
 function reviewForRole(role){return (cloud.reviews||[]).find(item=>item.actorId===role.actorId&&item.roleId===role.id);}
+function submissionRecordingSummary(item){
+  const bundle=item.recordings;
+  if(!bundle?.fileNames?.length)return '';
+  const scope=bundle.roles.length>1
+    ? 'Один файл на несколько ролей · '+bundle.roles.map(role=>role.character).join(' · ')
+    : 'Файлов на роль: '+bundle.fileNames.length;
+  return `<p><strong>${e(scope)}</strong></p><p>${e(bundle.fileNames.join(' · '))}</p>`;
+}
 function reviewMarker(role){const review=reviewForRole(role),manuallyChanged=review?.state==='accepted'&&role.status!=='done'||review?.state==='retake'&&role.status!=='retake'||review?.state==='pickup'&&role.status!=='pickup'||review?.state==='pending'&&['waiting','recording'].includes(role.status);const label=manuallyChanged?'':review?.state==='pending'?'На проверке':review?.state==='retake'?'Запрошена перезапись':review?.state==='pickup'?'Нужно дописать реплики':review?.state==='accepted'?'Запись принята':'';return label?`<span class="review-marker" data-state="${e(review.state)}">${e(label)}</span>`:'';}
 function notificationDate(value){return value?new Date(value).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';}
 function notificationActor(item){return state.actors.find(actor=>actor.id===item.actorId)?.name||item.username||'Актёр';}
@@ -1347,7 +1364,7 @@ function findNotificationRole(item){
 }
 function showStudioMessages(){
   const scroll=modal.querySelector('.studio-notification-list')?.scrollTop||0,messages=[...(cloud.mailbox?.messages||[])].sort((a,b)=>b.id-a.id),failed=cloud.mailbox?.failed||[];
-  showModal('Уведомления',cloud.mailbox?.unread?cloud.mailbox.unread+' непрочитанных':'Сдача ролей',`${messages.length?'<div class="notification-toolbar"><span class="muted small">Удаление скрывает уведомления в этой Studio, но не отменяет сдачу роли.</span><button type="button" class="text-button" data-action="studio-clear-messages">Удалить все</button></div>':''}${!cloud.reviewApiAvailable?'<p class="setting-note">Для сдачи ролей обнови сервер до Cloud 0.3.0 и подключи Studio.</p>':''}${failed.length?`<p class="cloud-error">Не отправлено: ${e(failed.at(-1).error)} Текст сохранён ниже.</p><details class="failed-reviews"><summary>Сохранённые ответы</summary>${failed.map(item=>`<div class="failed-review"><strong>${e(item.error)}</strong><p>${e(item.body?.text||'Отметка прочтения')}</p></div>`).join('')}<button type="button" class="text-button" data-action="studio-dismiss-failed">Убрать ошибки</button></details>`:''}<div class="studio-notification-list">${messages.slice(0,studioNotificationLimit).map(item=>{const found=findNotificationRole(item),cancelled=item.kind==='submission_cancelled';return `<article class="studio-notification ${item.read?'':'unread'}"><div class="studio-notification-layout">${studioRolePortrait(found?.r,item.role)}<div class="studio-notification-body"><div class="studio-notification-head"><strong>${e(notificationActor(item))} ${cancelled?'отменил сдачу':item.text?'сдал роль без загрузки':'сдал роль'}</strong>${vacationTag(item.actorId)}<time>${e(notificationDate(item.createdAt))}</time></div><div class="studio-notification-role"><strong>${e(item.role.character)}</strong><span>${e(item.role.projectTitle)} · ${item.role.season?'Сезон '+e(item.role.season)+' · ':''}${item.role.episodeNumber?'Серия '+e(item.role.episodeNumber):'Серия'}</span></div>${item.text?`<p>${e(item.text)}</p>`:''}<div class="btn-row"><button type="button" class="btn ghost small" data-action="notification-recordings" data-message="${item.id}">Записи</button>${found?`<button type="button" class="btn ghost small" data-action="notification-open-role" data-message="${item.id}">Открыть роль</button>${found.assigned&&!cancelled?`<button type="button" class="btn primary small" data-action="notification-reply" data-message="${item.id}">Ответить</button>`:!found.assigned?'<span class="muted small">Роль переназначена</span>':''}`:'<span class="muted small">Роль удалена из Studio</span>'}${!item.read?`<button type="button" class="text-button" data-action="studio-read-message" data-message="${item.id}">Прочитано</button>`:''}<button type="button" class="text-button notification-delete" data-action="studio-delete-message" data-message="${item.id}" title="Удалить уведомление только из этой Studio">${icon('trash')}Удалить</button></div></div></div></article>`;}).join('')||'<p class="muted small">Когда актёр сдаст роль, она появится здесь.</p>'}</div>${messages.length>studioNotificationLimit?'<button type="button" class="btn ghost small" data-action="studio-more-messages">Показать ещё</button>':''}`);
+  showModal('Уведомления',cloud.mailbox?.unread?cloud.mailbox.unread+' непрочитанных':'Сдача ролей',`${messages.length?'<div class="notification-toolbar"><span class="muted small">Удаление скрывает уведомления в этой Studio, но не отменяет сдачу роли.</span><button type="button" class="text-button" data-action="studio-clear-messages">Удалить все</button></div>':''}${!cloud.reviewApiAvailable?'<p class="setting-note">Для сдачи ролей обнови сервер до Cloud 0.3.0 и подключи Studio.</p>':''}${failed.length?`<p class="cloud-error">Не отправлено: ${e(failed.at(-1).error)} Текст сохранён ниже.</p><details class="failed-reviews"><summary>Сохранённые ответы</summary>${failed.map(item=>`<div class="failed-review"><strong>${e(item.error)}</strong><p>${e(item.body?.text||'Отметка прочтения')}</p></div>`).join('')}<button type="button" class="text-button" data-action="studio-dismiss-failed">Убрать ошибки</button></details>`:''}<div class="studio-notification-list">${messages.slice(0,studioNotificationLimit).map(item=>{const found=findNotificationRole(item),cancelled=item.kind==='submission_cancelled';return `<article class="studio-notification ${item.read?'':'unread'}"><div class="studio-notification-layout">${studioRolePortrait(found?.r,item.role)}<div class="studio-notification-body"><div class="studio-notification-head"><strong>${e(notificationActor(item))} ${cancelled?'отменил сдачу':item.text?'сдал роль без загрузки':'сдал роль'}</strong>${vacationTag(item.actorId)}<time>${e(notificationDate(item.createdAt))}</time></div><div class="studio-notification-role"><strong>${e(item.role.character)}</strong><span>${e(item.role.projectTitle)} · ${item.role.season?'Сезон '+e(item.role.season)+' · ':''}${item.role.episodeNumber?'Серия '+e(item.role.episodeNumber):'Серия'}</span></div>${submissionRecordingSummary(item)}${item.text?`<p>${e(item.text)}</p>`:''}<div class="btn-row"><button type="button" class="btn ghost small" data-action="notification-recordings" data-message="${item.id}">Записи</button>${found?`<button type="button" class="btn ghost small" data-action="notification-open-role" data-message="${item.id}">Открыть роль</button>${found.assigned&&!cancelled?`<button type="button" class="btn primary small" data-action="notification-reply" data-message="${item.id}">Ответить</button>`:!found.assigned?'<span class="muted small">Роль переназначена</span>':''}`:'<span class="muted small">Роль удалена из Studio</span>'}${!item.read?`<button type="button" class="text-button" data-action="studio-read-message" data-message="${item.id}">Прочитано</button>`:''}<button type="button" class="text-button notification-delete" data-action="studio-delete-message" data-message="${item.id}" title="Удалить уведомление только из этой Studio">${icon('trash')}Удалить</button></div></div></div></article>`;}).join('')||'<p class="muted small">Когда актёр сдаст роль, она появится здесь.</p>'}</div>${messages.length>studioNotificationLimit?'<button type="button" class="btn ghost small" data-action="studio-more-messages">Показать ещё</button>':''}`);
   modal.querySelector('.studio-notification-list').scrollTop=scroll;
 }
 function reviewRoleForm(pid,eid,rid){
@@ -2200,14 +2217,15 @@ async function action(a,d,el){
     }
     case 'notification-recordings':{
       const message=(cloud.mailbox?.messages||[]).find(item=>String(item.id)===d.message);
-      if(message)await showStudioFiles({roleId:message.role.roleId,actorId:message.actorId,title:notificationActor(message)+' · '+message.role.character+' · '+message.role.projectTitle});break;
+      if(message)await showStudioFiles({roleId:message.role.roleId,actorId:message.actorId,
+        fileIds:message.recordings?.fileIds,title:notificationActor(message)+' · '+message.role.character+' · '+message.role.projectTitle});break;
     }
     case 'studio-files-refresh':cloud=await api('cloud/files',{});updateFileBadge();renderStudioFiles();break;
     case 'studio-file-download':
     case 'studio-file-download-as':{
       el.disabled=true;try{
-        const file=(cloud.files||[]).find(f=>f.fileId===d.file),found=file&&recordingRole(file);
-        let folder=a==='studio-file-download'?found?.r.folder||'':'';
+        const file=(cloud.files||[]).find(f=>f.fileId===d.file),found=file&&recordingRole(file,recordingContext?.roleId);
+        let folder=a==='studio-file-download'&&((file?.roles?.length||0)<2||recordingContext?.roleId)?found?.r.folder||'':'';
         if(!folder){
           const picked=await openFileBrowser(api,{mode:'folder',title:'Куда сохранить запись?',startPath:found?.r.folder||''});
           if(!picked)break;
@@ -2221,7 +2239,8 @@ async function action(a,d,el){
     }
     case 'studio-file-delete':{
       const file=(cloud.files||[]).find(f=>f.fileId===d.file);if(!file)break;
-      confirmAction('Удалить запись из облака?',e(file.fileName)+(file.status==='ready'?' будет удалён из облака. Восстановить файл будет нельзя.':' — незавершённая загрузка будет удалена, зарезервированное место освободится.'),'Удалить из облака',async()=>{cloud=await api('cloud/files/delete',{fileId:d.file});renderStudioFiles();toast('Запись удалена из облака');});break;
+      const detail=file.roles?.length>1?' будет удалён у всех связанных ролей.':file.status==='ready'?' будет удалён из облака. Восстановить файл будет нельзя.':' — незавершённая загрузка будет удалена, зарезервированное место освободится.';
+      confirmAction('Удалить запись из облака?',e(file.fileName)+detail,'Удалить из облака',async()=>{cloud=await api('cloud/files/delete',{fileId:d.file});renderStudioFiles();toast('Запись удалена из облака');});break;
     }
     case 'studio-files-cleanup':confirmAction('Очистить незавершённые загрузки?','Будут удалены просроченные загрузки и записи, удаление которых прервалось. Готовые записи останутся.','Очистить',async()=>{cloud=await api('cloud/files/cleanup',{});renderStudioFiles();toast('Очистка завершена');});break;
     case 'studio-transfer-cancel':cloud=await api('cloud/transfer/cancel',{});renderTransferNotice();break;
