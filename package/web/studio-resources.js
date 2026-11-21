@@ -1,7 +1,7 @@
 import {action, createSoftwareIconLoader, element, openResourceFile, requirements, selectOptions, showScreenshots, softwareCard, softwareIcon} from './software-library.js';
 
 const fields = [
-  ['name', 'Название', 160], ['version', 'Версия', 70],
+  ['name', 'Название', 160], ['version', 'Версия (для публикации)', 70],
   ['category', 'Категория', 90], ['platform', 'Платформа', 100],
   ['website', 'Официальная ссылка', 2048, 'url'], ['telegram', 'Ссылка Telegram', 2048, 'url'],
   ['description', 'Описание и возможности', 4000, 'textarea'],
@@ -507,8 +507,14 @@ export function createStudioResources({identity, context, openProject, openActor
     }
     form.addEventListener('input', remember);
     form.addEventListener('change', remember);
+    const version = form.elements.namedItem('version');
     function save(publish) {
       if (!form.reportValidity()) return;
+      if (publish && !version.value.trim()) {
+        announce(view, 'Укажи версию программы для публикации.');
+        version.focus();
+        return;
+      }
       remember();
       const id = item?.id || view.newId;
       const details = view.edits;
@@ -517,12 +523,16 @@ export function createStudioResources({identity, context, openProject, openActor
         if (!current()) return '';
         view.selection = id;
         view.edits = null;
-        await load('software', view);
-        if (publish && current()) {
-          await request('software/publish', {id, revision: receipt.revision});
-          await load('software', view);
+        if (publish) {
+          try {
+            await request('software/publish', {id, revision: receipt.revision});
+          } catch (error) {
+            if (current()) await load('software', view).catch(() => {});
+            throw error;
+          }
         }
-        return publish ? 'Программа опубликована.' : 'Черновик сохранён.';
+        if (current()) await load('software', view);
+        return publish ? 'Программа опубликована и доступна актёрам.' : 'Черновик сохранён.';
       });
     }
     form.addEventListener('submit', event => { event.preventDefault(); save(false); });
