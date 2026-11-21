@@ -80,9 +80,12 @@ namespace FundiVoice {
                         }}catch{}
                         object rawRole;message.TryGetValue("role",out rawRole);var role=FundiVoice.Desktop.JsonData.D(rawRole);
                         string detail=S(role,"projectTitle")+" · "+(S(role,"episodeNumber")!=""?"Серия "+S(role,"episodeNumber")+" · ":"")+S(role,"character");
+                        string kind=S(message,"kind"),text=S(message,"text");
+                        if(text!="")detail=text+"\n"+detail;
                         if(detail.Length>220)detail=detail.Substring(0,217)+"…";
-                        if(FundiVoice.Desktop.JsonData.N(message,"newCount")>1)detail+="\nЕщё сдач: "+(FundiVoice.Desktop.JsonData.N(message,"newCount")-1);
-                        Notifications.Show((actor==""?"Актёр":actor)+" сдал роль",detail);
+                        if(FundiVoice.Desktop.JsonData.N(message,"newCount")>1)detail+="\nЕщё уведомлений: "+(FundiVoice.Desktop.JsonData.N(message,"newCount")-1);
+                        Notifications.Show((actor==""?"Актёр":actor)+(kind=="submission_cancelled"?" отменил сдачу":
+                            text!=""?" сдал роль без загрузки":" сдал роль"),detail);
                     };
                     Cloud.VacationNotify=delegate(string title,string detail){Notifications.Show(title,detail);};
                     Cloud.FileNotify=delegate(int count,string fileName){

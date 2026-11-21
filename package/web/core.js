@@ -35,9 +35,10 @@ export const DEBT_STAGES = ['waiting','retake','pickup'];
 // selection is authoritative until a NEW review/submission arrives from the server.
 // messageId changes for a new submission/feedback, but updatedAt can change merely
 // because the same roster was republished, so do not use updatedAt as a version.
-export const reviewVersion=review=>review?`${review.actorId||''}|${review.roleId||''}|${review.state||''}|${review.submissionId||0}|${review.messageId||0}`:'';
+export const reviewVersion=review=>review?`${review.actorId||''}|${review.roleId||''}|${review.state||''}|${review.submissionId||0}|${review.messageId||0}${review.restoredStatus?'|'+review.restoredStatus:''}`:'';
 export const roleReviewStage=(role,review)=>{
   if(!review||role.reviewSeen===reviewVersion(review))return role.status;
+  if(review.state!=='pending'&&review.restoredStatus)return review.restoredStatus;
   return review.state==='accepted'?'done':review.state==='retake'?'retake':review.state==='pickup'?(role.status==='recording'?'recording':'pickup'):review.state==='pending'&&!['processing','processed'].includes(role.status)?'received':role.status;
 };
 export function applyRoleReviews(state,reviews=[]){
