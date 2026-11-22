@@ -1,7 +1,8 @@
 // Regression: notification "Open role" must show the submitter's roles in that episode.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {episodeRoleActorKey,episodeRoleActorOptions,filterEpisodeRoles} from '../package/web/core.js';
+import {runInNewContext} from 'node:vm';
+import {episodeRoleActorKey,episodeRoleActorOptions,filterEpisodeRoles,safeRoleImage} from '../package/web/core.js';
 
 const state={actors:[{id:'azure',name:'AZURE'},{id:'other',name:'Другой актёр'}]};
 const roles=[
@@ -36,10 +37,50 @@ assert.ok(app.includes("ui.roleCharacter=tab==='roles'&&characterKey&&ep&&episod
   'Character filter should be selected when opening a submitted role');
 assert.ok(app.includes("!filterEpisodeRoles(state,ep.roles,{actorKey:ui.roleActor,characterKey:ui.roleCharacter}).length"),
   'A reassigned character must remain reachable without a stale actor filter');
-assert.ok(app.includes('studioRolePortrait(found?.r)}'),
-  'File list should display the saved character portrait');
 assert.ok(app.includes('studioRolePortrait(found?.r,item.role)'),
   'Notification list should use a local portrait or the notification role snapshot');
 const css=readFileSync(new URL('../package/web/file-tools.css',import.meta.url),'utf8');
 assert.match(css,/\.studio-character-thumb img\{[^}]*object-fit:cover/);
-console.log('PASS: submitted role opens the matching character and both lists show portraits');
+
+const portraits=[
+  {id:'lead',character:'Уличный громила',image:'data:image/png;base64,AA=='},
+  {id:'sal',character:'Сэл',image:'data:image/png;base64,AQ=='},
+  {id:'guard',character:'Охранник «Арасаки»',image:'data:image/png;base64,Ag=='}
+];
+const linked=portraits.map(({id,character})=>({roleId:id,character}));
+const recording={fileId:'take-1',fileName:'артас.flac',actorId:'azure',roleId:'lead',status:'ready'};
+const rendering=app.slice(app.indexOf('function recordingForRole('),app.indexOf('function roleRecordingButton('))+
+  app.slice(app.indexOf('function renderStudioFiles('),app.indexOf('function reviewForRole('));
+function renderRecording(file,recordingContext=null){
+  let markup='';
+  const view={scrollTop:0};
+  runInNewContext(rendering+'\nrenderStudioFiles();',{
+    state:{actors:state.actors,projects:[{id:'project',title:'Киберпанк',episodes:[{id:'ep1',roles:portraits}]}]},
+    cloud:{files:[file]},recordingContext,modal:{querySelector:()=>view,dataset:{}},
+    showModal:(_title,_subtitle,body)=>{markup=body;},
+    e:value=>String(value),safeRoleImage,icon:name=>`<i data-icon="${name}"></i>`,
+    storageMeter:()=>'',episodeLabel:()=>'Серия 01',fileStatus:()=>'Готово',
+    vacationTag:()=>'',formatBytes:()=>'',notificationDate:()=>''
+  });
+  return markup;
+}
+const imageSources=markup=>[...markup.matchAll(/<img src="([^"]+)"/g)].map(match=>match[1]);
+const roleLinks=markup=>[...markup.matchAll(/data-qv-role="([^"]+)"/g)].map(match=>match[1]);
+const shared=renderRecording({...recording,roles:linked});
+assert.deepEqual(imageSources(shared),portraits.map(role=>role.image),
+  'A shared recording must render the actual portrait of every linked character once');
+assert.deepEqual(roleLinks(shared),['lead','sal','guard'],'Every portrait must link to its corresponding role');
+assert.equal((shared.match(/data-action="studio-file-download"/g)||[]).length,1,'The shared file is downloaded once');
+assert.deepEqual(imageSources(renderRecording({...recording,roles:linked},{actorId:'azure',roleId:'sal'})),
+  portraits.map(role=>role.image),'Opening a shared recording from a role still shows all of its characters');
+
+const missing=renderRecording({...recording,roles:[linked[0],{roleId:'removed',character:'Удалённая роль'}]});
+assert.deepEqual(imageSources(missing),[portraits[0].image],'An unavailable role must never repeat someone else’s portrait');
+assert.deepEqual(roleLinks(missing),['lead']);
+assert.ok(missing.includes('Удалённая роль'));
+assert.ok(missing.includes('data-icon="mic"'));
+const single=renderRecording(recording);
+assert.deepEqual(imageSources(single),[portraits[0].image],'Legacy single-role recordings still show one portrait');
+assert.deepEqual(roleLinks(single),['lead']);
+assert.ok(!single.includes('recording-role-list'));
+console.log('PASS: notification navigation and portraits for single and shared recordings');

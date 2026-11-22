@@ -1360,6 +1360,16 @@ function studioRolePortrait(role,fallbackRole=null){
   const picture=safeRoleImage(role?.image)||safeRoleImage(fallbackRole?.image);
   return `<span class="studio-character-thumb" aria-hidden="true">${picture?`<img src="${e(picture)}" alt="" loading="lazy">`:icon('mic')}</span>`;
 }
+function recordingRoleGallery(file,linked){
+  return `<ul class="recording-role-list">${linked.map(role=>{
+    const found=role.roleId?recordingRole(file,role.roleId):null;
+    const name=e(role.character||found?.r.character||'Персонаж');
+    const content=`${studioRolePortrait(found?.r,role)}<span>${name}</span>`;
+    return `<li>${found?`<button type="button" class="recording-role-card" aria-label="Карточка роли ${name}"
+      data-qv-open="role" data-qv-project="${e(found.p.id)}" data-qv-episode="${e(found.ep.id)}" data-qv-role="${e(found.r.id)}">${content}</button>`
+      :`<div class="recording-role-card">${content}</div>`}</li>`;
+  }).join('')}</ul>`;
+}
 function roleRecordingButton(p,ep,r){
   const count=(cloud.files||[]).filter(f=>recordingForRole(f,r.id,r.actorId)&&f.status==='ready').length;
   if(!native||(!actorForRole(state,r)?.actorAccess&&!count))return '';
@@ -1376,11 +1386,28 @@ function renderStudioFiles(){
     : recordingForRole(f,context.roleId,context.actorId)));
   showModal(context?'Записи роли':'Записи актёров',context?context.title:'Файлы, загруженные через Fundi Voice Actor',`${storageMeter(cloud.usedBytes,cloud.quotaBytes)}${cloud.fileError?`<p class="file-error">${e(cloud.fileError)}</p>`:''}<div class="file-toolbar"><button type="button" class="btn ghost small" data-action="studio-files-refresh">Обновить список</button><button type="button" class="text-button" data-action="studio-files-cleanup">Очистить просроченные</button></div><div class="recording-list">${items.map(f=>{
     const found=recordingRole(f,context?.roleId),actor=state.actors.find(a=>a.id===f.actorId)?.name||(cloud.actors||[]).find(a=>a.actorId===f.actorId)?.username||'Актёр';
-    const detail=found?`${actor} · ${found.r.character} · ${found.p.title} · ${episodeLabel(found.p,found.ep)}`:actor+' · Роль больше не отображается в Studio';
     const linked=f.roles||[];
-    const shared=linked.length>1?`<div class="recording-context"><strong>Один файл на несколько ролей</strong> · ${e(linked.map(role=>role.character).join(' · '))}</div>`:'';
+    const shared=linked.length>1;
+    const detail=found
+      ?[actor,...(shared?[]:[found.r.character]),found.p.title,episodeLabel(found.p,found.ep)].join(' · ')
+      :actor+' · Роль больше не отображается в Studio';
+    const gallery=shared
+      ?`<div class="recording-context"><strong>Один файл на несколько ролей</strong></div>${recordingRoleGallery(f,linked)}`
+      :'';
     const status=f.status==='ready'&&f.submitted?'Сдан':fileStatus(f.status);
-    return `<article class="recording-entry"><div class="recording-entry-layout">${studioRolePortrait(found?.r)}<div class="recording-entry-body"><strong>${e(f.fileName)}</strong>${found?`<button type="button" class="btn ghost small" data-qv-open="role" data-qv-project="${e(found.p.id)}" data-qv-episode="${e(found.ep.id)}" data-qv-role="${e(found.r.id)}">Карточка роли</button>`:''}<div class="recording-context">${e(detail)} ${vacationTag(f.actorId)}</div>${shared}<div class="recording-meta"><span>${e(formatBytes(f.size))}</span><span>${e(notificationDate(f.createdAt))}</span><span>${e(status)}</span></div><div class="recording-actions">${f.status==='ready'?`<button type="button" class="btn primary small" data-action="studio-file-download" data-file="${e(f.fileId)}" ${cloud.transfer?.state==='running'?'disabled':''}>${icon('download')}Скачать</button>${found?.r.folder&&(linked.length<2||context?.roleId)?`<button type="button" class="btn ghost small" data-action="studio-file-download-as" data-file="${e(f.fileId)}">Выбрать папку</button>`:''}`:''}<button type="button" class="text-button" data-action="studio-file-delete" data-file="${e(f.fileId)}">Удалить из облака</button></div></div></div></article>`;
+    const roleCard=found&&!shared?`<button type="button" class="btn ghost small" data-qv-open="role"
+      data-qv-project="${e(found.p.id)}" data-qv-episode="${e(found.ep.id)}" data-qv-role="${e(found.r.id)}">Карточка роли</button>`:'';
+    return `<article class="recording-entry">
+      <div class="recording-entry-layout">${shared?'':studioRolePortrait(found?.r)}
+        <div class="recording-entry-body">
+          <strong>${e(f.fileName)}</strong>${roleCard}
+          <div class="recording-context">${e(detail)} ${vacationTag(f.actorId)}</div>${gallery}
+          <div class="recording-meta"><span>${e(formatBytes(f.size))}</span><span>${e(notificationDate(f.createdAt))}</span><span>${e(status)}</span></div>
+          <div class="recording-actions">${f.status==='ready'?`<button type="button" class="btn primary small" data-action="studio-file-download" data-file="${e(f.fileId)}" ${cloud.transfer?.state==='running'?'disabled':''}>${icon('download')}Скачать</button>${found?.r.folder&&(!shared||context?.roleId)?`<button type="button" class="btn ghost small" data-action="studio-file-download-as" data-file="${e(f.fileId)}">Выбрать папку</button>`:''}`:''}
+            <button type="button" class="text-button" data-action="studio-file-delete" data-file="${e(f.fileId)}">Удалить из облака</button></div>
+        </div>
+      </div>
+    </article>`;
   }).join('')||'<div class="recording-empty">Записей пока нет.</div>'}</div><p class="file-hint">После скачивания проверь запись на компьютере. Для освобождения места удали её из облака отдельной кнопкой.</p>`);
   modal.dataset.view='recordings';modal.querySelector('.recording-list').scrollTop=scroll;
 }
