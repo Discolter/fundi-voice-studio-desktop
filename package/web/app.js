@@ -61,6 +61,7 @@ let cloud={connected:false,server:'',pending:false,busy:false,error:'',lastSync:
 let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
+const expandedTaskProjects=new Set();
 const expandedRecommendationGroups=new Set();
 const expandedProjectRoles=new Set(); // Independent, ephemeral project-card disclosure.
 let taskHistoryQuery='';
@@ -443,16 +444,23 @@ function renderProjects(c){
 function projectArt(p,large=false){return p.cover?`<img class="project-poster ${large?'large':''}" src="${e(p.cover)}" alt="Обложка ${e(p.title)}">`:`<span class="mini-emblem color-${e(p.color)}">${art(p)}</span>`;}
 function renderCard(p){
   const newest=latestProjectEpisode(p);
-  const {episode:ep,accepted,total,remaining,tone}=latestEpisodeRoleProgress(p);
+  const progress=latestEpisodeRoleProgress(p);
+  const ep=progress.episode;
   const expanded=expandedProjectRoles.has(p.id);
   const panelId='project-missing-'+p.id;
   const toggleAttrs='type="button" class="project-missing-toggle project-remaining-count" data-action="toggle-project-missing" data-id="'+e(p.id)+'" aria-controls="'+e(panelId)+'" aria-expanded="'+expanded+'" title="Незавершённые роли"';
-  const sourceLabel=ep?.id!==newest?.id
-    ?'<span class="project-progress-source" title="'+e('Принятые роли в '+episodeLabel(p,ep))+'">Серия '+e(String(ep?.number||'?'))+':</span>'
-    :'';
-  const progressLabel=total?'<span class="progress-text project-role-progress" data-progress="'+tone+'" title="'+e('Серия с распределёнными ролями: '+episodeLabel(p,ep)+' · принято '+accepted+' из '+total+' · осталось '+remaining)+'" aria-label="'+e('Принято '+accepted+' из '+total+'. Осталось '+remaining)+'">'+sourceLabel+'<strong class="project-accepted-count">'+accepted+'/'+total+'</strong><span>принято</span><button '+toggleAttrs+'>· осталось <b>'+remaining+'</b>'+icon('chevron')+'</button></span>':
-    '<span class="progress-text project-role-progress" data-progress="none" title="Роли в последней серии пока не добавлены"><button '+toggleAttrs+'>0 ролей'+icon('chevron')+'</button></span>';
+  const progressLabel=projectRoleProgressLabel(p,progress,{showSource:ep?.id!==newest?.id,toggleAttrs});
   return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,newest))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(newest)}${episodeAgeBadge(newest)}${progressLabel}${newest.due?`<span class="small ${dueClass(newest.due,newest.stage==='done')}">${dueLabel(newest.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+}
+
+function projectRoleProgressLabel(p,{episode,accepted,total,remaining,tone},{showSource=false,toggleAttrs=''}={}){
+  const countLabel=total?`· осталось <b>${remaining}</b>`:'0 ролей';
+  const count=toggleAttrs?`<button ${toggleAttrs}>${countLabel}${icon('chevron')}</button>`:
+    `<span class="project-remaining-count">${countLabel}</span>`;
+  if(!total)return `<span class="progress-text project-role-progress" data-progress="none" title="Роли в последней серии пока не добавлены">${count}</span>`;
+  const source=showSource?`<span class="project-progress-source" title="${e('Принятые роли в '+episodeLabel(p,episode))}">Серия ${e(String(episode?.number||'?'))}:</span>`:'';
+  const summary=`Принято ${accepted} из ${total}. Осталось ${remaining}`;
+  return `<span class="progress-text project-role-progress" data-progress="${tone}" title="${e(episodeLabel(p,episode)+' · '+summary)}" aria-label="${e(summary)}">${source}<strong class="project-accepted-count">${accepted}/${total}</strong><span>принято</span>${count}</span>`;
 }
 
 function projectMissingRolesHTML(p,ep,panelId,expanded){
@@ -504,9 +512,46 @@ function groupedMyRoles(roles){
     </details>`;
   }).join('')}</div>`;
 }
+
+function groupTaskProjects(taskGroups,reviewedProjects){
+  const reviewed=new Map(reviewedProjects.map(p=>[p.id,p]));
+  const projects=new Map();
+  for(const group of taskGroups){
+    const {p}=group.rows[0];
+    if(!projects.has(p.id)){
+      const progress=latestEpisodeRoleProgress(reviewed.get(p.id)||p);
+      const priority=!p.archived&&progress.accepted>0&&progress.remaining>0&&progress.tone==='green';
+      projects.set(p.id,{p,progress,priority,groups:[]});
+    }
+    projects.get(p.id).groups.push(group);
+  }
+  return [...projects.values()].sort((a,b)=>Number(b.priority)-Number(a.priority));
+}
+
+function renderTaskProjects(projects){
+  if(!projects.length)return '';
+  return `<div class="task-project-list">${projects.map(({p,progress,priority,groups})=>{
+    const rows=groups.flatMap(group=>group.rows);
+    const expanded=expandedTaskProjects.has(p.id);
+    const panelId='task-project-'+p.id;
+    return `<section class="task-project${priority?' task-project-priority':''}">
+      <button type="button" class="task-project-summary" data-action="toggle-task-project" data-group="${e(p.id)}" aria-controls="${e(panelId)}" aria-expanded="${expanded}">
+        <span class="task-project-cover" aria-hidden="true">${projectArt(p)}</span>
+        <span class="task-project-heading"><strong>${e(p.title)}</strong><small>${e(episodeLabel(p,progress.episode))}${p.archived?' · Архив':''}</small></span>
+        <span class="task-project-metrics">${priority?'<span class="task-project-priority-label">Приоритетный</span>':''}${projectRoleProgressLabel(p,progress)}<span class="task-project-count">Задач <strong>${rows.length}</strong></span></span>
+        ${icon('chevron','task-project-chevron')}
+      </button>
+      <div id="${e(panelId)}" class="task-project-panel${expanded?' is-expanded':''}" aria-hidden="${!expanded}"${expanded?'':' inert'}>
+        <div class="task-project-clip">${tasksTable(rows,true,groups)}</div>
+      </div>
+    </section>`;
+  }).join('')}</div>`;
+}
+
 function renderMyTasks(){
-  const roles=myRoleRows(state,{query:ui.query});
-  const allRoles=myRoleRows(state),allTasks=taskRows(state,{includeArchived:true});
+  const reviewedState=withRoleReviews(state,cloud.reviews||[]);
+  const roles=myRoleRows(reviewedState,{query:ui.query});
+  const allRoles=myRoleRows(reviewedState),allTasks=taskRows(state,{includeArchived:true});
   const taskProjects=[...new Map(allTasks.map(({p})=>[p.id,p])).values()].sort((a,b)=>a.title.localeCompare(b.title,'ru'));
   const taskActors=[...new Map(allTasks.map(({ep,t})=>{
     const linked=taskAssignment(state,ep,t);
@@ -517,6 +562,7 @@ function renderMyTasks(){
   const hasUnassigned=allTasks.some(({ep,t})=>!taskAssignment(state,ep,t).actorId);
   const taskGroups=groupTaskRows(state,taskRows(state,{query:ui.query,includeArchived:true,priority:ui.taskPriority||'all',
     order:ui.taskOrder,status:ui.taskStatus,actorId:ui.taskActor,projectId:ui.taskProject}),{order:ui.taskOrder,lines:ui.taskLines});
+  const projectGroups=groupTaskProjects(taskGroups,reviewedState.projects);
   const tasks=taskGroups.flatMap(g=>g.rows);
   retainVisibleTasks(selectedTasks,tasks);
   const activeTasks=allTasks.filter(({t})=>!t.done).length;
@@ -542,9 +588,9 @@ function renderMyTasks(){
       ${filterControl('task-status-filter','Состояние',TASK_STATUS_FILTERS,ui.taskStatus)}
       ${filterControl('task-project-filter','Проект',projects,ui.taskProject)}
       ${filterControl('task-actor-filter','Актёр',actors,ui.taskActor)}
-    </div><div class="my-task-filter-footer"><span class="small muted">Групп: ${taskGroups.length} · Показано ${tasks.length} из ${allTasks.length} поручений${ui.taskOrder==='linesAsc'||ui.taskOrder==='linesDesc'?' · По сумме реплик · Неполные данные в конце':''}</span>${filtered||ui.taskOrder!=='priority'?`<button class="btn ghost small" data-action="reset-task-filters">${icon('refresh')}Сбросить фильтры</button>`:''}</div>
+    </div><div class="my-task-filter-footer"><span class="small muted">Проектов ${projectGroups.length} · Показано ${tasks.length} из ${allTasks.length} поручений${ui.taskOrder==='linesAsc'||ui.taskOrder==='linesDesc'?' · По сумме реплик · Неполные данные в конце':''}</span>${filtered||ui.taskOrder!=='priority'?`<button class="btn ghost small" data-action="reset-task-filters">${icon('refresh')}Сбросить фильтры</button>`:''}</div>
     ${tasks.length?`<div class="my-task-bulk-bar" aria-live="polite"><label class="my-task-select-all"><input type="checkbox" id="bulk-task-select-all" ${selectedTasks.size===tasks.length?'checked':''} aria-label="Выбрать все показанные задачи"> Выбрать все показанные</label><span class="my-task-bulk-count">Выбрано: <strong>${selectedTasks.size}</strong></span><button type="button" class="btn ghost small" data-action="clear-task-selection" ${selectedTasks.size?'':'disabled'}>Снять выбор</button><button type="button" class="btn danger small" data-action="delete-selected-tasks" ${selectedTasks.size?'':'disabled'}>${icon('trash')}Удалить выбранные (${selectedTasks.size})</button></div>`:''}</div>`;
-  html+='<div class="my-priority-table">'+(tasksTable(tasks,true,taskGroups)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||filtered?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.query||filtered?'Попробуй изменить параметры фильтров или сбросить их.':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
+  html+='<div class="my-priority-table">'+(renderTaskProjects(projectGroups)||`<div class="my-empty my-empty-small">${icon('check')}<strong>${ui.query||filtered?'Задачи не найдены':'Личных поручений пока нет'}</strong><p>${ui.query||filtered?'Попробуй изменить параметры фильтров или сбросить их.':'Здесь автоматически показываются все задачи из проектов, включая прежние и архивные.'}</p></div>`)+ '</div>';
   return html;
 }
 function taskHistoryListHTML(){
@@ -905,7 +951,7 @@ function tasksTable(rows,global=false,groups=null){
     if(g.rows.length===1)return `<tbody>${renderRow(g.rows[0])}</tbody>`;
     const {p,ep,t}=g.rows[0], linked=taskAssignment(state,ep,t);
     const expanded=expandedTaskGroups.has(g.key);
-    const panelId=`task-group-${index}`;
+    const panelId=`task-group-${p.id}-${index}`;
     const titles=[...new Set(g.rows.map(x=>x.t.title))];
     const known=g.roles.length-g.unknown;
     const workload=known?g.total+' репл.'+(g.unknown?' + ?':''):'Не указано';
@@ -918,13 +964,13 @@ function tasksTable(rows,global=false,groups=null){
     const completed=g.rows.filter(x=>x.t.done).length;
     return `<tbody><tr class="task-group-summary ${g.done?'task-done':''}">
       <td colspan="2"><button type="button" class="btn ghost small task-group-toggle" data-action="toggle-task-group" data-group="${e(g.key)}"
-        aria-controls="${panelId}" aria-expanded="${expanded}" aria-label="Поручения актёра ${e(linked.actorName)} в проекте ${e(p.title)}">${icon('chevron')} ${g.rows.length}</button></td>
+        aria-controls="${e(panelId)}" aria-expanded="${expanded}" aria-label="Поручения актёра ${e(linked.actorName)} в проекте ${e(p.title)}">${icon('chevron')} ${g.rows.length}</button></td>
       <td class="task-title-cell"><strong class="task-row-title">${e(titles.length===1?titles[0]:'Несколько поручений')}</strong><div class="small muted">Задач ${g.rows.length} · Ролей ${g.roles.length}</div></td>
       <td class="task-project-cell">${project}</td><td class="task-actor-cell">${taskActorVisual(linked)}${vacationTag(linked.actorId)}</td>
       <td class="task-character-cell"><div class="task-group-characters">${characters}${g.roles.length>6?`<small>+ ещё ${g.roles.length-6}</small>`:''}</div></td>
       <td><span class="task-line-count ${color}" title="${g.unknown?'Известная сумма; у '+g.unknown+' ролей количество не указано':'Сумма уникальных ролей в поручениях'}">${e(workload)}</span></td>
       <td colspan="4"><span class="small task-group-context">Поручения одного актёра в проекте</span><div class="small muted">Выполнено ${completed} из ${g.rows.length}</div></td>
-    </tr></tbody><tbody id="${panelId}" class="task-group-members${expanded?' is-expanded':''}" aria-hidden="${!expanded}"${expanded?'':' inert'}>
+    </tr></tbody><tbody id="${e(panelId)}" class="task-group-members${expanded?' is-expanded':''}" aria-hidden="${!expanded}"${expanded?'':' inert'}>
       ${g.rows.map(row=>renderRow(row,true)).join('')}
     </tbody>`;
   };
@@ -2332,11 +2378,13 @@ async function action(a,d,el){
     case 'role-subs':{const r=ep.roles.find(r=>r.id===d.item);if(r.subtitle)await openPath(r.subtitle);else roleForm(p.id,ep.id,r.id);break;}
     case 'choose-debt-actor':ui.debtActor=d.key||'';render();break;
     case 'reset-debt-filters':ui.debtProject='all';ui.debtActor='';ui.debtStatus='all';ui.query='';saveUI();render();break;
+    case 'toggle-task-project':
     case 'toggle-task-group':{
       const panel=document.getElementById(el.getAttribute('aria-controls'));
       if(!panel)break;
-      const expanded=!expandedTaskGroups.has(d.group);
-      if(expanded)expandedTaskGroups.add(d.group);else expandedTaskGroups.delete(d.group);
+      const expandedKeys=a==='toggle-task-project'?expandedTaskProjects:expandedTaskGroups;
+      const expanded=!expandedKeys.has(d.group);
+      if(expanded)expandedKeys.add(d.group);else expandedKeys.delete(d.group);
       updateDisclosure(el,panel,expanded);
       break;
     }
