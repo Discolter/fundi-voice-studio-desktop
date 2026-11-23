@@ -759,24 +759,37 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 
 /* Casting importance: independent from the recording/processing status.
    Group headers remain readable in all Studio themes. */
+body{
+  --role-tier-main:#ffbd70;
+  --role-tier-supporting:#79e2aa;
+  --role-tier-extras:#f2e962;
+  --role-tier-surface:var(--surface);
+}
+body:is([data-theme=light],[data-theme=silver]){
+  --role-tier-main:#773900;
+  --role-tier-supporting:#164e34;
+  --role-tier-extras:#584b00;
+}
+body[data-theme=slate]{--role-tier-surface:color-mix(in srgb,var(--surface) 32%,#1c2533)}
+:is(.role-tier-main,.role-tier-divider-main,[data-role-tier=main]){--tier-accent:var(--role-tier-main)}
+:is(.role-tier-supporting,.role-tier-divider-supporting,[data-role-tier=supporting]){--tier-accent:var(--role-tier-supporting)}
+:is(.role-tier-extras,.role-tier-divider-extras,[data-role-tier=extras]){--tier-accent:var(--role-tier-extras)}
 .cast-table tbody tr.role-tier-divider td{
   padding:11px 15px;
-  background:color-mix(in srgb,var(--tier-accent) 9%,var(--surface, #151a22));
+  background:color-mix(in srgb,var(--tier-accent) 9%,var(--role-tier-surface));
   border-top:1px solid color-mix(in srgb,var(--tier-accent) 30%,transparent);
   border-bottom:1px solid color-mix(in srgb,var(--tier-accent) 18%,transparent);
   border-left:3px solid var(--tier-accent);
   text-align:left;
 }
-.cast-table tbody tr.role-tier-divider-main{--tier-accent:#7bafff}
-.cast-table tbody tr.role-tier-divider-supporting{--tier-accent:#caa56a}
-.cast-table tbody tr.role-tier-divider-extras{--tier-accent:#8b96a6}
 .role-tier-divider-content{display:flex;align-items:center;justify-content:space-between;gap:14px}
-.role-tier-divider-content strong{font-size:12px;font-weight:750;letter-spacing:.015em;color:var(--text)}
+.role-tier-divider-content strong{font-size:12px;font-weight:750;letter-spacing:.015em;color:var(--tier-accent)}
 .role-tier-divider-content span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.cast-table .row-select.role-tier{min-width:135px;max-width:168px;font-weight:650}
-.cast-table .row-select.role-tier-main{color:#7bafff}
-.cast-table .row-select.role-tier-supporting{color:#caa56a}
-.cast-table .row-select.role-tier-extras{color:#9eabb9}
+.cast-table .row-select.role-tier{
+  min-width:135px;max-width:168px;font-weight:650;color:var(--tier-accent);
+  background:color-mix(in srgb,var(--tier-accent) 10%,var(--role-tier-surface));
+  border-color:color-mix(in srgb,var(--tier-accent) 38%,var(--line));
+}
 @media(max-width:960px){
   .cast-table .row-select.role-tier{min-width:119px;max-width:138px;font-size:10px}
   .cast-table tbody tr.role-tier-divider td{padding:10px 12px}

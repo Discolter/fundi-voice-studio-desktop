@@ -43,6 +43,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
   };
   function kind(select) {
     if(select.id === 'role-assignment-filter') return 'assignment';
+    if(select.classList.contains('role-tier')) return 'role-tier';
     if(select.id === 'task-priority-filter' || select.classList.contains('task-priority-select') || select.name === 'priority' && select.options.length === 4) return 'priority';
     if(select.id === 'role-actor-filter' || select.id === 'task-actor-filter' || /actor/i.test(select.name || '')) return 'actor';
     if(select.id === 'role-character-filter') return 'character';
@@ -207,6 +208,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
       button.disabled = select.disabled;
       if(type === 'status') button.dataset.status = option?.value || '';
       if(type === 'priority') button.dataset.priority = option?.value || '';
+      if(type === 'role-tier') button.dataset.roleTier = option?.value || '';
     };
     redraw();
     select.addEventListener('change',redraw);
@@ -254,6 +256,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
           lastGroup = group;
           const item = element('button','fv-dropdown-option');
           item.type = 'button';
+          if(type === 'role-tier') item.dataset.roleTier = option.value;
           item.setAttribute('role','option');
           item.setAttribute('aria-selected',String(option.value === select.value));
           if(d.vacation?.status==='active'||d.vacation?.status==='planned'){

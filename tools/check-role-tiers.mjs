@@ -52,11 +52,18 @@ assert.equal(normalizeState(legacy).projects[0].episodes[0].roles[0].roleTier,'s
 
 const app=readFileSync('package/web/app.js','utf8');
 const css=readFileSync('package/web/compact.css','utf8');
+const visual=readFileSync('package/web/visual-selects.js','utf8');
+const visualCss=readFileSync('package/web/visual-selects.css','utf8');
 assert.match(app,/roleTierSortedRows\(rows\)\.map/);
 assert.match(app,/roleTierDivider\(arr,i\)/);
 assert.match(app,/name="roleTier"/);
 assert.match(app,/class="row-select role-tier/);
 assert.match(app,/matchingCharacterRoles\(ep,r\)\)sibling\.roleTier/);
-assert.match(css,/role-tier-divider-main/);
-assert.match(css,/role-tier-divider-extras/);
-console.log('PASS: role tiers, ASS inheritance, multicasting, legacy persistence and grouping UI');
+for(const [tier] of ROLE_TIERS){
+  assert.match(css,new RegExp(`\\.role-tier-divider-${tier}[^\\n]+\\[data-role-tier=${tier}\\][^\\n]+var\\(--role-tier-${tier}\\)`));
+}
+assert.match(visual,/classList\.contains\('role-tier'\)\) return 'role-tier'/);
+assert.match(visual,/button\.dataset\.roleTier = option\?\.value/);
+assert.match(visual,/item\.dataset\.roleTier = option\.value/);
+assert.match(visualCss,/\.fv-type-role-tier[\s\S]+\.fv-option-name\{\s*color:var\(--tier-accent\)/);
+console.log('PASS: role tiers, ASS inheritance, multicasting, legacy persistence and colors on visible category controls');
