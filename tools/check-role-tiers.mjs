@@ -71,7 +71,7 @@ function castView(){
     document:{getElementById:key=>key===buttonAttrs.get('aria-controls')?panel:null},
     closeActorPickers(){},icon:()=>'<svg></svg>',e:x=>x,
     castRoleRow:row=>`<tr><td>${row.r.id}</td></tr>`});
-  vm.runInContext('const collapsedRoleTiers=new Map();'+
+  vm.runInContext('const collapsedRoleTiers=new Map();const projectProgressEpisodes=new Map();'+
     segment('let ui=','const app=')+segment('function saveUI(){','function navigate(page)')+
     segment('function rolesTable(rows,global=false){','function castRoleRow(')+
     segment('function updateDisclosure(button,panel,expanded){',"  if(a==='toggle-project-missing'){")+'}\n'+

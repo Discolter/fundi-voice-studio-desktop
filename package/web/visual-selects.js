@@ -179,6 +179,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
     if(select.classList.contains('row-select')) wrapper.classList.add('fv-row');
     if(select.classList.contains('role-status')) wrapper.classList.add('fv-role-status');
     if(select.id === 'episode-select') wrapper.classList.add('fv-episode-select');
+    if(select.classList.contains('project-episode-select')) wrapper.classList.add('fv-project-episode');
     if(select.id === 'role-actor-filter') wrapper.classList.add('fv-role-actor-filter');
     if(select.id === 'role-character-filter') wrapper.classList.add('fv-role-character-filter');
     if(select.id === 'role-assignment-filter') wrapper.classList.add('fv-role-assignment-filter');

@@ -433,8 +433,8 @@ export function latestProjectEpisode(project){
   return (project?.episodes||[]).reduce((latest,episode)=>
     !latest||weight(episode)>=weight(latest)?episode:latest,null);
 }
-export function latestEpisodeRoleProgress(project){
-  const episode=latestProjectEpisode(project);
+export function projectRoleProgress(project,episodeId){
+  const episode=(episodeId&&project?.episodes?.find(item=>item.id===episodeId))||latestProjectEpisode(project);
   const roles=episode?.roles||[];
   const total=roles.length,accepted=roles.filter(role=>role.status==='done').length;
   const remaining=total-accepted;
@@ -449,10 +449,10 @@ export function projectMatches(p,q) {
   const text = [p.title,p.alias,p.season,p.root,p.notes,...p.episodes.flatMap(e=>[e.title,e.number,e.notes,...Object.values(e.paths||{}),...e.resources.flatMap(r=>[r.path,r.label]),...e.tasks.map(t=>t.title),...e.roles.flatMap(r=>[r.character,r.actor,r.notes,r.folder,r.subtitle])])].join(' ').toLocaleLowerCase('ru');
   return q.toLocaleLowerCase('ru').trim().split(/\s+/).every(w=>text.includes(w));
 }
-export function selectProjects(state,{query='',filter='all',sort='recent',archived=false,hidden=false}={}) {
+export function selectProjects(state,{query='',filter='all',sort='recent',archived=false,hidden=false,progressEpisodes}={}) {
   return state.projects.filter(p=>(hidden?!!p.hidden:!p.hidden&&p.archived===archived) && projectMatches(p,query) && (filter==='all' || (filter==='favorite'&&p.favorite) || (filter==='attention'&&((!p.root&&!p.episodes.some(ep=>ep.paths?.root)) || p.episodes.some(e=>e.stage==='unset'||(e.due&&e.due<today()&&e.stage!=='done')))) || p.episodes.some(e=>e.stage===filter))).sort((a,b)=>{
     if(sort==='progress') {
-      const ap=latestEpisodeRoleProgress(a),bp=latestEpisodeRoleProgress(b);
+      const ap=projectRoleProgress(a,progressEpisodes?.get(a.id)),bp=projectRoleProgress(b,progressEpisodes?.get(b.id));
       if(!ap.total!==!bp.total) return ap.total?-1:1;
       // Compare exact accepted fractions; use the remaining workload to break ties.
       return bp.accepted*ap.total-ap.accepted*bp.total || ap.remaining-bp.remaining || a.title.localeCompare(b.title,'ru');

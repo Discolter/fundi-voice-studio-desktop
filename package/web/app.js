@@ -30,7 +30,7 @@ import {installVisualSelects} from './visual-selects.js';
 import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,verifySharedTaskLinks,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
 import {archiveTask,restoreTask,taskHistoryRows,taskRoleFields,taskRoleIds} from './task-history.js';
-import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterKey,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
+import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterKey,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,projectRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
@@ -64,6 +64,7 @@ const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
 const expandedTaskProjects=new Set();
 const expandedRecommendationGroups=new Set();
 const expandedProjectRoles=new Set(); // Independent, ephemeral project-card disclosure.
+const projectProgressEpisodes=new Map();
 const collapsedRoleTiers=new Map();
 let taskHistoryQuery='';
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
@@ -88,6 +89,10 @@ try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.la
   ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
   ui.debtProject=typeof saved.debtProject==='string'&&saved.debtProject.length<=80?saved.debtProject:'all';
   ui.recommendationFilter=validRecommendationFilter(saved.recommendationFilter);
+  for(const [projectId,episodeId] of Object.entries(saved.projectProgressEpisodes||{})){
+    if(projectId&&projectId.length<=80&&typeof episodeId==='string'&&episodeId&&episodeId.length<=80)
+      projectProgressEpisodes.set(projectId,episodeId);
+  }
   for(const [id,tiers] of Object.entries(saved.collapsedRoleTiers||{})){
     if(!Array.isArray(tiers))continue;
     const collapsed=new Set(tiers.filter(tier=>ROLE_TIERS.some(([key])=>key===tier)));
@@ -424,7 +429,7 @@ function flushSave(){
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
 function saveUI(){
   const tiers=Object.fromEntries([...collapsedRoleTiers].map(([id,collapsed])=>[id,[...collapsed]]));
-  try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationFilter:ui.recommendationFilter,collapsedRoleTiers:tiers}));}catch{}
+  try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationFilter:ui.recommendationFilter,collapsedRoleTiers:tiers,projectProgressEpisodes:Object.fromEntries(projectProgressEpisodes)}));}catch{}
 }
 function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if((['vacations','review'].includes(page)||['recommendations','calendar'].includes(page))&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles',actorKey='',characterKey=''){
@@ -488,31 +493,50 @@ function renderRecommendations(){
   return renderRecommendationPage(dashboard,{filter:ui.recommendationFilter,query:ui.query,icon,expanded:expandedRecommendationGroups});
 }
 function renderProjects(c){
-  const hidden=ui.page==='hidden',archived=ui.page==='archive',projects=selectProjects(withRoleReviews(state,cloud.reviews||[]),{query:ui.query,filter:ui.filter,sort:ui.sort,archived,hidden});
+  const hidden=ui.page==='hidden',archived=ui.page==='archive',projects=selectProjects(withRoleReviews(state,cloud.reviews||[]),{query:ui.query,filter:ui.filter,sort:ui.sort,archived,hidden,progressEpisodes:projectProgressEpisodes});
   let html=heading(hidden?'Скрытые проекты':archived?'Архив':'Проекты','',`<button class="btn primary" data-action="new-project">${icon('plus')}Новый проект</button>`);
   html+=`<div class="section-bar"><div class="filter-tabs"><button class="filter-tab ${!archived&&ui.filter==='all'?'active':''}" data-nav="projects">Активные <span>${c.projects}</span></button><button class="filter-tab ${!archived&&ui.filter==='favorite'?'active':''}" data-filter="favorite">Избранное</button><button class="filter-tab ${archived?'active':''}" data-nav="archive">Архив</button><button class="filter-tab ${hidden?'active':''}" data-nav="hidden">Скрытые <span>${state.projects.filter(p=>p.hidden).length}</span></button></div><div class="view-tools"><select id="sort-select" aria-label="Сортировка">${options([['recent','Недавние'],['due','По сроку'],['name','По названию'],['progress','По степени выполнения']],ui.sort)}</select><div class="view-switch"><button data-action="layout-grid" class="${ui.layout==='grid'?'active':''}" title="Карточки">${icon('grid')}</button><button data-action="layout-table" class="${ui.layout==='table'?'active':''}" title="Список">${icon('list')}</button></div></div></div>`;
   if(!projects.length)return html+empty(ui.query?'Ничего не найдено':hidden?'Скрытых проектов нет':archived?'Архив пуст':'Нет проектов',ui.query?'clear-search':archived||hidden?'':'new-project',ui.query?'Сбросить поиск':'Новый проект');
   if(ui.layout==='grid')return html+`<div class="projects-grid">${projects.map(renderCard).join('')}</div>`;
-  return html+`<div class="table-wrap"><table><thead><tr><th>Проект</th><th>Серия</th><th>Этап</th><th>Срок</th><th>Возраст</th><th></th></tr></thead><tbody>${projects.map(p=>{const ep=latestProjectEpisode(p);return `<tr><td class="table-title"><button data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button></td><td class="muted">${e(episodeLabel(p,ep))}</td><td>${badge(ep)}</td><td class="small ${dueClass(ep.due,ep.stage==='done')}">${ep.due?dueLabel(ep.due):'—'}</td><td>${episodeAgeBadge(ep,true)}</td><td><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть</button></td></tr>`;}).join('')}</tbody></table></div>`;
+  return html+`<div class="table-wrap"><table class="projects-table"><thead><tr><th>Проект</th><th>Серия</th><th>Этап</th><th>Срок</th><th>Возраст</th><th>Роли</th><th></th></tr></thead><tbody>${projects.map(renderProjectListRow).join('')}</tbody></table></div>`;
 }
 function projectArt(p,large=false){return p.cover?`<img class="project-poster ${large?'large':''}" src="${e(p.cover)}" alt="Обложка ${e(p.title)}">`:`<span class="mini-emblem color-${e(p.color)}">${art(p)}</span>`;}
+function projectEpisodePicker(p,episode){
+  if(p.episodes.length<2)return e(episodeLabel(p,episode));
+  const choices=p.episodes.map(ep=>[ep.id,episodeLabel(p,ep)+(ep.number&&ep.title?' · '+ep.title:'')]);
+  return `<select class="project-episode-select" data-id="${e(p.id)}" aria-label="Серия для счётчика ролей · ${e(p.title)}">${options(choices,episode.id)}</select>`;
+}
+function projectOpenAttrs(p,episode){
+  const target=projectProgressEpisodes.get(p.id)===episode.id?` data-ep="${e(episode.id)}"`:'';
+  return `data-action="open-project" data-id="${e(p.id)}"${target}`;
+}
 function renderCard(p){
-  const progress=latestEpisodeRoleProgress(p);
-  const ep=progress.episode;
+  const progress=projectRoleProgress(p,projectProgressEpisodes.get(p.id));
+  const ep=progress.episode,open=projectOpenAttrs(p,ep);
   const expanded=expandedProjectRoles.has(p.id);
   const panelId='project-missing-'+p.id;
   const toggleAttrs='type="button" class="project-missing-toggle project-remaining-count" data-action="toggle-project-missing" data-id="'+e(p.id)+'" aria-controls="'+e(panelId)+'" aria-expanded="'+expanded+'" title="Незавершённые роли"';
   const progressLabel=projectRoleProgressLabel(p,progress,{toggleAttrs});
-  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,ep))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(ep)}${episodeAgeBadge(ep)}${progressLabel}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" ${open} aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" ${open}>${e(p.title)}</button><div class="card-meta">${projectEpisodePicker(p,ep)}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(ep)}${episodeAgeBadge(ep)}${progressLabel}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" ${open}>Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+}
+function renderProjectListRow(p){
+  const progress=projectRoleProgress(p,projectProgressEpisodes.get(p.id));
+  const ep=progress.episode,open=projectOpenAttrs(p,ep);
+  return `<tr><td class="table-title"><button ${open}>${e(p.title)}</button></td>
+    <td class="muted">${projectEpisodePicker(p,ep)}</td><td>${badge(ep)}</td>
+    <td class="small ${dueClass(ep.due,ep.stage==='done')}">${ep.due?dueLabel(ep.due):'—'}</td>
+    <td>${episodeAgeBadge(ep,true)}</td><td>${projectRoleProgressLabel(p,progress)}</td>
+    <td><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button><button class="btn ghost small" ${open}>Открыть</button></td></tr>`;
 }
 
 function projectRoleProgressLabel(p,{episode,accepted,total,remaining,tone},{toggleAttrs=''}={}){
   const countLabel=total?`· осталось <b>${remaining}</b>`:'0 ролей';
   const count=toggleAttrs?`<button ${toggleAttrs}>${countLabel}${icon('chevron')}</button>`:
     `<span class="project-remaining-count">${countLabel}</span>`;
-  if(!total)return `<span class="progress-text project-role-progress" data-progress="none" title="Роли в последней серии пока не добавлены">${count}</span>`;
+  if(!total)return `<span class="progress-text project-role-progress" data-progress="none" title="Роли серии пока не добавлены">${count}</span>`;
   const summary=`Принято ${accepted} из ${total}. Осталось ${remaining}`;
-  return `<span class="progress-text project-role-progress" data-progress="${tone}" title="${e(episodeLabel(p,episode)+' · '+summary)}" aria-label="${e(summary)}"><strong class="project-accepted-count">${accepted}/${total}</strong><span>принято</span>${count}</span>`;
+  const description=e(episodeLabel(p,episode)+' · '+summary);
+  return `<span class="progress-text project-role-progress" data-progress="${tone}" title="${description}" aria-label="${description}"><strong class="project-accepted-count">${accepted}/${total}</strong><span>принято</span>${count}</span>`;
 }
 
 function projectMissingRolesHTML(p,ep,panelId,expanded){
@@ -590,7 +614,7 @@ function groupTaskProjects(taskGroups,reviewedProjects){
   for(const group of taskGroups){
     const {p}=group.rows[0];
     if(!projects.has(p.id)){
-      const progress=latestEpisodeRoleProgress(reviewed.get(p.id)||p);
+      const progress=projectRoleProgress(reviewed.get(p.id)||p);
       const priority=!p.archived&&progress.accepted>0&&progress.remaining>0&&progress.tone==='green';
       projects.set(p.id,{p,progress,priority,groups:[]});
     }
@@ -2879,6 +2903,17 @@ document.addEventListener('toggle',event=>{
   saveUI();
 },true);
 document.addEventListener('change',event=>{const el=event.target;
+  if(el.classList.contains('project-episode-select')){
+    const project=getProject(el.dataset.id);
+    if(!project?.episodes.some(ep=>ep.id===el.value))return;
+    projectProgressEpisodes.set(project.id,el.value);
+    saveUI();render();
+    requestAnimationFrame(()=>{
+      const select=document.querySelector(`.project-episode-select[data-id="${CSS.escape(project.id)}"]`);
+      (select?.closest('.fv-select')?.querySelector('.fv-select-trigger')||select)?.focus({preventScroll:true});
+    });
+    return;
+  }
   if(el.id==='bulk-task-select-all'){
     const boxes=document.querySelectorAll('.task-bulk-checkbox');
     for(const box of boxes){const key=bulkTaskKey(box.dataset.id,box.dataset.ep,box.dataset.item);

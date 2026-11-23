@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {episodeLabel,escapeHTML,groupTaskRows,latestEpisodeRoleProgress,taskRows,withRoleReviews} from '../package/web/core.js';
+import {episodeLabel,escapeHTML,groupTaskRows,projectRoleProgress,taskRows,withRoleReviews} from '../package/web/core.js';
 const state={actors:[{id:'k',name:'Кира'},{id:'a',name:'Актёр'}]};
 const p={id:'cyber'},p2={id:'other'};
 const ep={id:'e1',roles:[{id:'a',actorId:'k',character:'Персонаж фильма 3',lineCount:1},{id:'b',actorId:'k',character:'Эмили',lineCount:14},{id:'c',actorId:'a',character:'Другой',lineCount:10}]};
@@ -36,11 +36,11 @@ const section=(start,end)=>{
 };
 const expanded=new Set();
 const {groupTaskProjects,renderTaskProjects}=new Function(
-  'latestEpisodeRoleProgress','episodeLabel','e','expandedTaskProjects','projectArt','icon','tasksTable',
+  'projectRoleProgress','episodeLabel','e','expandedTaskProjects','projectArt','icon','tasksTable',
   section('function projectRoleProgressLabel(', 'function projectMissingRolesHTML(')+
   section('function groupTaskProjects(', 'function renderMyTasks(')+
   ';return {groupTaskProjects,renderTaskProjects};'
-)(latestEpisodeRoleProgress,episodeLabel,escapeHTML,expanded,()=>'',()=>'',(rows,global,groups)=>{
+)(projectRoleProgress,episodeLabel,escapeHTML,expanded,()=>'',()=>'',(rows,global,groups)=>{
   assert.equal(global,true,'Project panels keep the personal task table actions');
   assert.deepEqual(rows,groups.flatMap(group=>group.rows));
   return rows.map(({t})=>'<p>'+escapeHTML(t.title)+'</p>').join('');
@@ -67,6 +67,10 @@ assert.equal(emptyProject.progress.episode.id,'ep2');
 assert.equal(emptyProject.progress.total,0);
 assert.equal(emptyProject.priority,false);
 assert.match(renderTaskProjects([emptyProject]),/0 ролей/);
+near.episodes[0].roles[4].status='received';
+assert.equal(projectGroups().find(({p})=>p.id==='near').progress.episode.id,'ep2',
+  'The tasks page continues to use the latest episode');
+near.episodes[0].roles[4].status='done';
 newest.roles=recentCast;
 const projects=projectGroups();
 assert.equal(projects[0].p.id,'near','Put near-ready active projects ahead of other projects');
