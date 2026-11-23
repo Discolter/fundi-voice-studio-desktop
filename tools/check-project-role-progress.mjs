@@ -26,10 +26,8 @@ assert.equal(latestEpisodeRoleProgress(project).tone,'red','4 unaccepted roles a
 project.episodes[1].roles=roles(3,0);
 assert.equal(latestEpisodeRoleProgress(project).tone,'green','3 unaccepted roles follow requested green threshold');
 project.episodes[1].roles=[];
-assert.deepEqual(latestEpisodeRoleProgress(project),{episode:project.episodes[0],total:10,accepted:4,remaining:6,tone:'red'},'Empty latest series falls back to last staffed series');
+assert.deepEqual(latestEpisodeRoleProgress(project),{episode:project.episodes[1],total:0,accepted:0,remaining:0,tone:'none'},'Use the newest episode even when only earlier episodes have roles');
 assert.equal(latestEpisodeRoleProgress({episodes:[episode(1,0,0),episode(2,0,0)]}).tone,'none','All-empty project remains neutral');
-const recover={episodes:[episode(1,0,0),episode(2,24,4),episode(3,0,0)]};
-assert.equal(latestEpisodeRoleProgress(recover).episode.number,'2','New blank episode must preserve earlier recording progress');
 project.episodes[1].roles=[{status:'received'},{status:'retake'},{status:'processing'},{status:'done'}];
 assert.equal(latestEpisodeRoleProgress(project).accepted,1,'Only accepted (done) roles count');
 project.episodes[1].stage='done'; // Stage has no influence on latest-series selection.
@@ -52,9 +50,13 @@ const complete=sortable('Готовый',5,5),near=sortable('Почти',9,8),
 near.episodes.push({...episode(2,0,0),resources:[],tasks:[]});
 const projectState={projects:[half,zero,blankProject,near,smallHalf,complete]};
 const sorted=()=>selectProjects(projectState,{sort:'progress'});
-assert.deepEqual(sorted(),[complete,near,smallHalf,half,zero,blankProject],
+assert.deepEqual(sorted(),[complete,smallHalf,half,zero,near,blankProject],
   'Sort by accepted fraction, remaining roles, and put empty projects last regardless of favorites');
 near.episodes[0].roles=roles(9,9);
+assert.deepEqual(sorted().slice(-2),[near,blankProject],'Completing an older episode has no effect on the sort');
+near.episodes[1].roles=roles(9,8);
+assert.deepEqual(sorted(),[complete,near,smallHalf,half,zero,blankProject],'Adding roles to the current episode restores progress sorting');
+near.episodes[1].roles=roles(9,9);
 assert.deepEqual(sorted().slice(0,2),[complete,near],'Recompute progress when role statuses change');
 zero.episodes[0].roles=roles(10,10);
 assert.ok(sorted().indexOf(zero)<sorted().indexOf(half),'Updated roles move a project ahead');
@@ -68,9 +70,9 @@ const begin=app.indexOf('function renderCard(p){');
 const end=app.indexOf('// Collapsible project strips',begin);
 assert.ok(begin>=0&&end>begin,'Project card function exists');
 const renderSource=app.slice(begin,end);
-const display=new Function('latestEpisodeRoleProgress','latestProjectEpisode','e','episodeLabel','projectArt','badge','episodeAgeBadge','icon','dueClass','dueLabel','expandedProjectRoles','state','actorForRole','actorPickAvatar','safeRoleImage','roleStageName',
+const display=new Function('latestEpisodeRoleProgress','e','episodeLabel','projectArt','badge','episodeAgeBadge','icon','dueClass','dueLabel','expandedProjectRoles','state','actorForRole','actorPickAvatar','safeRoleImage','roleStageName',
   renderSource+'; return renderCard;')(
-  latestEpisodeRoleProgress,latestProjectEpisode,
+  latestEpisodeRoleProgress,
   value=>String(value).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])),
   (_p,ep)=>'Серия '+ep.number,
   ()=>'🖼',()=>'<span>Запись</span>',ep=>'<span data-age-episode="'+ep.number+'">11 дней</span>',
@@ -95,16 +97,18 @@ project.episodes[1].roles=roles(8,5);
 html=display(project);
 assert.match(html,/data-progress="green"/);
 assert.match(html,/class="project-accepted-count">5\/8/);
+project.episodes[0].roles=roles(10,10);
 project.episodes[1].roles=[];
 html=display(project);
-assert.match(html,/data-progress="red"/);
-assert.match(html,/class="project-accepted-count">4\/10/);
-assert.match(html,/project-progress-source/);
-assert.match(html,/Серия 8:/,'Label the episode used for role progress');
-assert.match(html,/card-meta">Серия 12/,'Keep latest episode in card subtitle');
-assert.match(html,/data-age-episode="12"/,'Age follows newest episode even if its roles are still empty');
+assert.match(html,/data-progress="none"/);
+assert.match(html,/0 ролей/);
+assert.doesNotMatch(html,/class="project-accepted-count"/,'A finished previous episode does not supply card totals');
+assert.match(html,/card-meta">Серия 12/);
+assert.match(html,/data-age-episode="12"/);
 assert.match(app,/episodeAgeBadge\(ep,true\)/,'List view also displays episode age');
-assert.match(html,/Незавершённые роли · 6/);
+assert.match(html,/Незавершённые роли · 0/);
+assert.match(html,/Роли пока не добавлены/);
+assert.doesNotMatch(html,/data-role-id=/);
 const blank={title:'Пустой',color:'violet',favorite:false,cover:'',episodes:[episode(2,0,0),episode(3,0,0)]};
 html=display(blank);
 assert.match(html,/data-progress="none"/);
@@ -123,4 +127,4 @@ for(const tone of ['red','yellow','green','none']){
   assert.ok(css.includes('.project-role-progress[data-progress="'+tone+'"]'),'Missing progress style for '+tone);
 }
 assert.match(app,/import \{[\s\S]*latestEpisodeRoleProgress[\s\S]*\} from '\.\/core\.js'/);
-console.log('PASS: last staffed episode fallback, cloud review counts, card episode label, thresholds and empty state');
+console.log('PASS: latest episode counts, progress sorting, cloud review counts, thresholds and empty state');

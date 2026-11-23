@@ -51,28 +51,36 @@ const taskProject=(id,statuses,{archived=false,taskPriority='normal'}={})=>({
     tasks:[{id:'same-task-id',title:'Задача '+id,actorId:'k',roleId:id+'-r0',priority:taskPriority,done:false}]}]
 });
 const later=taskProject('later',['done','waiting','waiting','waiting','waiting'],{taskPriority:'urgent'});
-const near=taskProject('near',['done','received','waiting','retake','processing']);
-near.episodes.push({id:'ep2',number:'2',roles:[],tasks:[{id:'same-task-id',title:'Готовое поручение',priority:'normal',done:true}]});
+const near=taskProject('near',['done','done','done','done','done']);
+const newest={id:'ep2',number:'2',roles:[],tasks:[{id:'same-task-id',title:'Готовое поручение',priority:'normal',done:true}]};
+near.episodes.push(newest);
 const unstarted=taskProject('start',['waiting','waiting']);
 const archive=taskProject('archive',['done','waiting'],{archived:true});
 const board={actors:state.actors,projects:[later,near,unstarted,archive]};
-const reviews=[{actorId:'k',roleId:'near-r1',state:'accepted',submissionId:12}];
+const recentCast=taskProject('current',['done','received','waiting','retake','processing']).episodes[0].roles;
+const reviews=[{actorId:'k',roleId:'current-r1',state:'accepted',submissionId:12}];
 const projectGroups=(status='all')=>groupTaskProjects(
   groupTaskRows(board,taskRows(board,{includeArchived:true,order:'priority',status})),withRoleReviews(board,reviews).projects
 );
+const emptyProject=projectGroups().find(({p})=>p.id==='near');
+assert.equal(emptyProject.progress.episode.id,'ep2');
+assert.equal(emptyProject.progress.total,0);
+assert.equal(emptyProject.priority,false);
+assert.match(renderTaskProjects([emptyProject]),/0 ролей/);
+newest.roles=recentCast;
 const projects=projectGroups();
 assert.equal(projects[0].p.id,'near','Put near-ready active projects ahead of other projects');
 assert.deepEqual(projects.filter(p=>p.priority).map(({p})=>p.id),['near']);
 assert.deepEqual(projects[0].groups.flatMap(g=>g.rows.map(({t})=>t.title)),['Задача near','Готовое поручение']);
-assert.equal(projects[0].progress.episode.id,'ep1','Skip the empty newest cast, even when it has tasks');
+assert.equal(projects[0].progress.episode.id,'ep2');
 assert.equal(projects[0].progress.accepted,2,'Count accepted roles from Cloud reviews too');
 assert.equal(projects[0].progress.remaining,3);
-assert.equal(board.projects[1].episodes[0].roles[1].status,'received','Rendering preserves the stored role');
+assert.equal(newest.roles[1].status,'received','Rendering preserves the stored role');
 assert.equal(projectGroups('open')[0].groups.flatMap(g=>g.rows).length,1,'Keep the task-status filter');
 let markup=renderTaskProjects(projects);
 assert.match(markup,/aria-controls="task-project-near" aria-expanded="false"/);
 assert.match(markup,/id="task-project-near" class="task-project-panel" aria-hidden="true" inert/);
-assert.match(markup,/Сезон 1 · Серия 01/);
+assert.match(markup,/Сезон 1 · Серия 02/);
 assert.match(markup,/class="project-accepted-count">2\/5<\/strong>/);
 assert.match(markup,/осталось <b>3<\/b>/);
 assert.match(markup,/Задач <strong>2<\/strong>/);

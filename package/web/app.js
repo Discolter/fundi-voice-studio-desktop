@@ -443,24 +443,22 @@ function renderProjects(c){
 }
 function projectArt(p,large=false){return p.cover?`<img class="project-poster ${large?'large':''}" src="${e(p.cover)}" alt="Обложка ${e(p.title)}">`:`<span class="mini-emblem color-${e(p.color)}">${art(p)}</span>`;}
 function renderCard(p){
-  const newest=latestProjectEpisode(p);
   const progress=latestEpisodeRoleProgress(p);
   const ep=progress.episode;
   const expanded=expandedProjectRoles.has(p.id);
   const panelId='project-missing-'+p.id;
   const toggleAttrs='type="button" class="project-missing-toggle project-remaining-count" data-action="toggle-project-missing" data-id="'+e(p.id)+'" aria-controls="'+e(panelId)+'" aria-expanded="'+expanded+'" title="Незавершённые роли"';
-  const progressLabel=projectRoleProgressLabel(p,progress,{showSource:ep?.id!==newest?.id,toggleAttrs});
-  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,newest))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(newest)}${episodeAgeBadge(newest)}${progressLabel}${newest.due?`<span class="small ${dueClass(newest.due,newest.stage==='done')}">${dueLabel(newest.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+  const progressLabel=projectRoleProgressLabel(p,progress,{toggleAttrs});
+  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" data-action="open-project" data-id="${e(p.id)}" aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" data-action="open-project" data-id="${e(p.id)}">${e(p.title)}</button><div class="card-meta">${e(episodeLabel(p,ep))}${p.episodes.length>1?` · ${p.episodes.length} сер.`:''}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(ep)}${episodeAgeBadge(ep)}${progressLabel}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}">Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
 }
 
-function projectRoleProgressLabel(p,{episode,accepted,total,remaining,tone},{showSource=false,toggleAttrs=''}={}){
+function projectRoleProgressLabel(p,{episode,accepted,total,remaining,tone},{toggleAttrs=''}={}){
   const countLabel=total?`· осталось <b>${remaining}</b>`:'0 ролей';
   const count=toggleAttrs?`<button ${toggleAttrs}>${countLabel}${icon('chevron')}</button>`:
     `<span class="project-remaining-count">${countLabel}</span>`;
   if(!total)return `<span class="progress-text project-role-progress" data-progress="none" title="Роли в последней серии пока не добавлены">${count}</span>`;
-  const source=showSource?`<span class="project-progress-source" title="${e('Принятые роли в '+episodeLabel(p,episode))}">Серия ${e(String(episode?.number||'?'))}:</span>`:'';
   const summary=`Принято ${accepted} из ${total}. Осталось ${remaining}`;
-  return `<span class="progress-text project-role-progress" data-progress="${tone}" title="${e(episodeLabel(p,episode)+' · '+summary)}" aria-label="${e(summary)}">${source}<strong class="project-accepted-count">${accepted}/${total}</strong><span>принято</span>${count}</span>`;
+  return `<span class="progress-text project-role-progress" data-progress="${tone}" title="${e(episodeLabel(p,episode)+' · '+summary)}" aria-label="${e(summary)}"><strong class="project-accepted-count">${accepted}/${total}</strong><span>принято</span>${count}</span>`;
 }
 
 function projectMissingRolesHTML(p,ep,panelId,expanded){
