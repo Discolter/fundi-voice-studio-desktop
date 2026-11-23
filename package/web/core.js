@@ -1,6 +1,6 @@
 import {roleVoiceFromActor} from './casting-assistant.js';
 import {normalizeDelivery} from './actor-statistics.js';
-import {mergeTaskHistory} from './task-history.js';
+import {mergeTaskHistory,taskRoleFields,taskRoleIds} from './task-history.js';
 export const SCHEMA = 1;
 export const STAGES = [
   ['unset', 'Этап не указан'], ['prep', 'Подготовка'], ['record', 'Запись'],
@@ -410,7 +410,7 @@ export function normalizeState(raw) {
       for(const key of ['resources','tasks','roles']) if(ep[key] && (!Array.isArray(ep[key]) || ep[key].length>2000)) throw new Error('Слишком много записей в серии.');
       return {id:id(ep.id),createdAt:str(ep.createdAt,50),number:num(ep.number),title:str(ep.title,120),stage:STAGES.some(s=>s[0]===ep.stage)?ep.stage:'unset',due:dateValue(ep.due),notes:str(ep.notes,12000),paths:Object.fromEntries(PATHS.map(([key])=>[key,str(ep.paths?.[key],2000)])),
         resources:(ep.resources||[]).map(r=>({id:id(r.id),kind:KINDS.some(k=>k[0]===r.kind)?r.kind:'source',label:str(r.label,200)||'Материал',path:str(r.path,2000),folder:!!r.folder})),
-        tasks:(ep.tasks||[]).map(t=>({id:id(t.id),title:str(t.title,500),done:!!t.done,mine:!!t.mine,due:dateValue(t.due),priority:taskPriority(t.priority),actorId:actorIdMap.get(t.actorId)||str(t.actorId,80),roleId:str(t.roleId,80)})).filter(t=>t.title.trim()),
+        tasks:(ep.tasks||[]).map(t=>({id:id(t.id),title:str(t.title,500),done:!!t.done,mine:!!t.mine,due:dateValue(t.due),priority:taskPriority(t.priority),actorId:actorIdMap.get(t.actorId)||str(t.actorId,80),...taskRoleFields(t)})).filter(t=>t.title.trim()),
         roles:(ep.roles||[]).map(normalizeRole).filter(r=>r.character.trim())};
     })};
   }
@@ -463,18 +463,38 @@ export function selectProjects(state,{query='',filter='all',sort='recent',archiv
     return (b.lastOpened||b.createdAt||'').localeCompare(a.lastOpened||a.createdAt||'');
   });
 }
-// Назначения в личном кабинете: привязка по Telegram из карточки актёра
-// плюс роли, которые вручную отмечены как «Моя роль».
-export function myRoleRows(state,{query=''}={}) {
+// The personal list includes both acting assignments and the owner's reserve work.
+export function myRoleRows(state,{query='',reserves=[]}={}) {
   const handle=cleanTelegram(state.settings?.myTelegram||'').toLocaleLowerCase('ru');
   const profile=(state.settings?.name||'').trim().toLocaleLowerCase('ru');
   const q=query.trim().toLocaleLowerCase('ru');
-  return state.projects.filter(p=>!p.hidden).flatMap(p=>p.episodes.flatMap(ep=>ep.roles.map(r=>({p,ep,r})))).filter(({p,ep,r})=>{
-    const a=actorForRole(state,r),telegram=cleanTelegram(a?.telegram||'').toLocaleLowerCase('ru');
-    const name=(a?.name||r.actor||'').trim().replace(/^@/,'').toLocaleLowerCase('ru');
-    const isMine=!!r.mine||(!!handle&&(telegram===handle||(!telegram&&name===handle)))||(!a&&!!profile&&name===profile);
-    if(!isMine)return false;
-    return !q||`${p.title} ${p.alias} ${episodeLabel(p,ep)} ${r.character} ${actorName(state,r)} ${r.notes} ${roleStageName(r.status)}`.toLocaleLowerCase('ru').includes(q);
+  const matchesActor=(actor,fallback='')=>{
+    const telegram=cleanTelegram(actor?.telegram||'').toLocaleLowerCase('ru');
+    const name=(actor?.name||fallback).trim().replace(/^@/,'').toLocaleLowerCase('ru');
+    return (!!handle&&(telegram===handle||(!telegram&&name===handle)))||(!actor&&!!profile&&name===profile);
+  };
+  const projects=state.projects.filter(p=>!p.hidden);
+  const rows=projects.flatMap(p=>p.episodes.flatMap(ep=>ep.roles
+    .filter(r=>r.mine||matchesActor(actorForRole(state,r),r.actor||'')).map(r=>({p,ep,r}))));
+  const key=(p,ep,r)=>JSON.stringify([p.id,ep.id,r.id]);
+  const seen=new Set(rows.map(({p,ep,r})=>key(p,ep,r)));
+  const myActors=new Map((state.actors||[]).filter(a=>!a.retiredAt&&matchesActor(a)).map(a=>[a.id,a]));
+  for(const reserve of reserves){
+    const actor=myActors.get(reserve.actorId);
+    if(!actor)continue;
+    const p=projects.find(p=>p.id===reserve.projectId);
+    const ep=p?.episodes.find(ep=>ep.id===reserve.episodeId);
+    const r=ep?.roles.find(r=>r.id===reserve.roleId);
+    if(!r)continue;
+    const roleKey=key(p,ep,r);
+    if(seen.has(roleKey))continue;
+    seen.add(roleKey);
+    rows.push({p,ep,reserve,r:{id:r.id,character:r.character,lineCount:r.lineCount,
+      actorId:actor.id,actor:actor.name,notes:reserve.notes||'',status:'waiting'}});
+  }
+  return rows.filter(({p,ep,r,reserve})=>{
+    const status=reserve?'Запас':roleStageName(r.status);
+    return !q||`${p.title} ${p.alias} ${episodeLabel(p,ep)} ${r.character} ${actorName(state,r)} ${r.notes} ${status}`.toLocaleLowerCase('ru').includes(q);
   }).sort((a,b)=>Number(a.p.archived)-Number(b.p.archived)||a.p.title.localeCompare(b.p.title,'ru')||Number(a.ep.number||0)-Number(b.ep.number||0)||a.r.character.localeCompare(b.r.character,'ru'));
 }
 // Невыполненные назначения: только роли с указанным актёром в активных проектах.
@@ -518,22 +538,26 @@ export function actorPublicFeed(state, actorId, {preview=false}={}) {
   roles.sort((a,b)=>(a.due||'9999-99-99').localeCompare(b.due||'9999-99-99')||a.projectTitle.localeCompare(b.projectTitle,'ru')||a.character.localeCompare(b.character,'ru'));
   return {version:1,actorId:actor.id,roles};
 }
-// Optional task links point to the existing actor and role from this episode.
-// Workload is read from the role itself, so changes to line counts update all tasks.
+const taskLineCount=role=>Number.isInteger(role?.lineCount)&&role.lineCount>=0?role.lineCount:null;
+
 export function taskAssignment(state,ep,t) {
-  const role=(ep?.roles||[]).find(r=>r.id===t.roleId)||null;
-  const actorId=role?.actorId||t.actorId||'';
+  const roleIds=taskRoleIds(t);
+  const roles=roleIds.map(id=>(ep?.roles||[]).find(r=>r.id===id)).filter(Boolean);
+  const role=roles[0]||null;
+  const actorId=(roleIds.length>1?t.actorId:role?.actorId||t.actorId)||'';
   const actor=(state.actors||[]).find(a=>a.id===actorId)||null;
   const actorName=actor?.retiredAt?actor.name+' (Удалённый актёр)':actor?.name||role?.actor||'';
-  return {role,actor,actorId,actorName,character:role?.character||'',lineCount:Number.isInteger(role?.lineCount)&&role.lineCount>=0?role.lineCount:null};
+  const lineCount=roles.length&&roles.length===roleIds.length&&roles.every(r=>taskLineCount(r)!==null)?
+    roles.reduce((sum,r)=>sum+taskLineCount(r),0):null;
+  return {role,roles,roleIds,actor,actorId,actorName,character:roles.map(r=>r.character).join(', '),lineCount};
 }
 // A task can change a role's production stage only when it still refers to the
 // exact episode role and that role has a real, assigned actor in this workspace.
 // Actor-only notes, role-only notes, deleted profiles and stale assignments are read-only.
-export function taskRoleStatusTarget(state,ep,task){
-  if(!task?.roleId)return null;
+export function taskRoleStatusTarget(state,ep,task,roleId=taskRoleIds(task)[0]){
+  if(!roleId)return null;
   const linked=taskAssignment(state,ep,task);
-  const role=linked.role;
+  const role=linked.roles.find(r=>r.id===roleId);
   if(!role?.id||!role.actorId||!linked.actor||linked.actor.retiredAt||linked.actor.id!==role.actorId)return null;
   if(task.actorId&&task.actorId!==role.actorId)return null;
   return role;
@@ -596,10 +620,13 @@ export function groupTaskRows(state,rows,{order='priority',lines='all'}={}){
     if(!groups.has(key))groups.set(key,{key,rows:[],roles:new Map(),episodes:new Set(),total:0,unknown:0,done:true});
     const g=groups.get(key);
     g.rows.push(row);g.episodes.add(ep.id);g.done=g.done&&!!t.done;
-    const roleKey=JSON.stringify([ep.id,linked.role?.id||'',linked.role?'':t.id]);
-    if(!g.roles.has(roleKey)){
-      g.roles.set(roleKey,{row,linked});
-      if(linked.lineCount===null)g.unknown++;else g.total+=linked.lineCount;
+    for(const id of linked.roleIds.length?linked.roleIds:['']){
+      const roleKey=JSON.stringify([ep.id,id,id?'':t.id]);
+      if(g.roles.has(roleKey))continue;
+      const role=linked.roles.find(r=>r.id===id)||null;
+      const lineCount=taskLineCount(role);
+      g.roles.set(roleKey,{row,linked:{...linked,role,character:role?.character||'',lineCount}});
+      if(lineCount===null)g.unknown++;else g.total+=lineCount;
     }
   }
   const result=[...groups.values()].map(g=>({...g,roles:[...g.roles.values()],episodes:[...g.episodes]})).filter(g=>

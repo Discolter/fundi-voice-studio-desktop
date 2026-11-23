@@ -46,17 +46,23 @@ namespace FundiVoice {
             return new HashSet<string>(Projects(state).SelectMany(p=>A(p,"episodes").SelectMany(ep=>A(ep,"tasks").Select(t=>Key(S(p,"id"),S(ep,"id"),S(t,"id"))))),StringComparer.Ordinal);
         }
         static Dictionary<string,object> Entry(Dictionary<string,object> state,Dictionary<string,object> p,Dictionary<string,object> ep,Dictionary<string,object> task,string source,string file) {
-            var role=A(ep,"roles").FirstOrDefault(r=>S(r,"id")==S(task,"roleId"))??new Dictionary<string,object>();
-            string actorId=S(role,"actorId");if(actorId.Length==0)actorId=S(task,"actorId");
+            var selection=V(task,"roleIds") as IList;
+            var roleIds=(selection==null?new[]{S(task,"roleId")}:selection.Cast<object>().OfType<string>()).Where(id=>id.Length>0).Distinct(StringComparer.Ordinal).ToList();
+            var episodeRoles=A(ep,"roles").ToLookup(r=>S(r,"id"),StringComparer.Ordinal);
+            var roles=roleIds.Select(id=>episodeRoles[id].FirstOrDefault()).Where(r=>r!=null).ToList();
+            var role=roles.FirstOrDefault()??new Dictionary<string,object>();
+            string actorId=roleIds.Count>1?"":S(role,"actorId");if(actorId.Length==0)actorId=S(task,"actorId");
             var actor=A(state,"actors").FirstOrDefault(a=>S(a,"id")==actorId)??new Dictionary<string,object>();
+            long? lines=roles.Count>0&&roles.Count==roleIds.Count&&roles.All(r=>V(r,"lineCount") is int&&(int)V(r,"lineCount")>=0)?
+                (long?)roles.Sum(r=>(long)(int)V(r,"lineCount")):null;
             string now=DateTime.UtcNow.ToString("o");
             var copy=new Dictionary<string,object>();
-            foreach(string key in new[]{"id","title","due","priority","done","mine","actorId","roleId"})if(task.ContainsKey(key))copy[key]=task[key];
+            foreach(string key in new[]{"id","title","due","priority","done","mine","actorId","roleId","roleIds"})if(task.ContainsKey(key))copy[key]=task[key];
             return new Dictionary<string,object> {
                 {"id",Key(S(p,"id"),S(ep,"id"),S(task,"id"))},{"projectId",S(p,"id")},{"projectTitle",S(p,"title")},{"season",S(p,"season")},
                 {"episodeId",S(ep,"id")},{"episodeNumber",S(ep,"number")},{"episodeTitle",S(ep,"title")},
-                {"actorName",S(actor,"name").Length>0?S(actor,"name"):S(role,"actor")},{"character",S(role,"character")},
-                {"lineCount",V(role,"lineCount")},{"task",copy},{"source",source},{"recoveredFrom",file},
+                {"actorName",S(actor,"name").Length>0?S(actor,"name"):S(role,"actor")},{"character",string.Join(", ",roles.Select(r=>S(r,"character")))},
+                {"lineCount",lines},{"task",copy},{"source",source},{"recoveredFrom",file},
                 {"deletedAt",source=="backup"?"":now},{"recoveredAt",source=="backup"?now:""}
             };
         }

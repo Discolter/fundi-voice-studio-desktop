@@ -1,5 +1,6 @@
 import {uid,safeRoleImage,validRoleTier} from './core.js';
 import {normalizeAssCharacter} from './ass-role-import.js';
+import {taskRoleIds} from './task-history.js';
 
 // Desktop Studio is the casting editor. A pasted list never edits actor feeds
 // directly: normal durable workspace save and versioned Cloud sync publish it.
@@ -55,7 +56,7 @@ export function textCastFingerprint(state,episode){
   return JSON.stringify({
     actors:(state.actors||[]).map(a=>[a.id,a.name,a.telegram,a.retiredAt||'']),
     roles:(episode.roles||[]).map(r=>[r.id,r.character,r.actorId,r.actor,r.status,r.reviewSeen||'']),
-    tasks:(episode.tasks||[]).map(t=>[t.id,t.roleId])
+    tasks:(episode.tasks||[]).map(t=>[t.id,taskRoleIds(t)])
   });
 }
 
@@ -93,7 +94,7 @@ export function planTextCast(state,episode,parsed,{createMissing=false,replaceWa
       }
       const lone=existing.length===1?existing[0]:null;
       if(desired.length===1&&lone&&lone.actorId&&lone.actorId!==actor.id){
-        const hasTask=(episode.tasks||[]).some(t=>t.roleId===lone.id);
+        const hasTask=(episode.tasks||[]).some(t=>taskRoleIds(t).includes(lone.id));
         if(!replaceWaiting||lone.status!=='waiting'||hasTask||lone.reviewSeen){
           issues.push({line:group.line,message:'«'+group.character+'» уже назначен другому актёру. Можно переназначить только ожидающую роль без записей/поручений; при необходимости сделай это вручную.'});
           continue;

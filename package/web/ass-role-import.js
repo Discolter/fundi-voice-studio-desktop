@@ -1,4 +1,5 @@
 import {uid,safeRoleImage,validRoleTier} from './core.js';
+import {taskRoleIds} from './task-history.js';
 
 // ASS/SSA dialogue "Name" (also called "Actor" by some subtitle editors).
 // Preserve names and their original spelling; use conservative matching for casting.
@@ -116,7 +117,7 @@ export function applyAssCastImport(state,project,episode,entries,{selected=null,
   if(keys.size!==choices.length)throw Error('В списке персонажей есть повторяющиеся имена.');
   const missing=episode.roles.filter(role=>!keys.has(normalizeAssCharacter(role.character)));
   if(removeMissing){
-    const protectedRoles=missing.filter(role=>role.status!=='waiting'||episode.tasks?.some(task=>task.roleId===role.id));
+  const protectedRoles=missing.filter(role=>role.status!=='waiting'||episode.tasks?.some(task=>taskRoleIds(task).includes(role.id)));
     if(protectedRoles.length)throw Error('Нельзя автоматически удалить роли с работой или связанными задачами: '+protectedRoles.map(r=>r.character).slice(0,5).join(', ')+'. Удали их вручную после проверки.');
   }
   if((removeMissing?episode.roles.length-missing.length:episode.roles.length)+choices.length>4000)

@@ -52,6 +52,6 @@ export function sortMyRoleGroups(groups,order){
 export function unfinishedMyRoleEpisodes(allRows,matchingRows=allRows){
   const open=new Set();
   const key=({p,ep})=>JSON.stringify([p.id,ep.id]);
-  for(const row of allRows)if(row.r.status!=='done')open.add(key(row));
-  return matchingRows.filter(row=>open.has(key(row)));
+  for(const row of allRows)if(!row.reserve&&!isMyRoleAccepted(row.r))open.add(key(row));
+  return matchingRows.filter(row=>row.reserve||open.has(key(row)));
 }

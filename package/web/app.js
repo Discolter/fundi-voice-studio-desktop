@@ -27,9 +27,9 @@ import {roleDeliverySnapshot,trackRoleDeliveries} from './actor-statistics.js';
 import {actorSubtabs,renderActorStatistics} from './actor-statistics-view.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
-import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
+import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,verifySharedTaskLinks,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
-import {archiveTask,restoreTask,taskHistoryRows} from './task-history.js';
+import {archiveTask,restoreTask,taskHistoryRows,taskRoleFields,taskRoleIds} from './task-history.js';
 import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterKey,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,latestProjectEpisode,latestEpisodeRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
@@ -99,7 +99,9 @@ const myRoleRows=(s,options)=>{
   const source=s===state?withRoleReviews(s,cloud.reviews||[]):s;
   // Compute completed episodes from ALL personal roles, not the filtered search
   // subset, otherwise searching for an accepted character could hide a partial episode.
-  return unfinishedMyRoleEpisodes(storedMyRoleRows(source),storedMyRoleRows(source,options));
+  const reserves=studioResources.reserves();
+  const all=storedMyRoleRows(source,{reserves});
+  return unfinishedMyRoleEpisodes(all,options?.query?storedMyRoleRows(source,{...options,reserves}):all);
 };
 const debtRows=(s,options)=>storedDebtRows(s===state?withRoleReviews(s,cloud.reviews||[]):s,options);
 const counts=()=>({projects:activeProjects().length,actors:(state.actors||[]).filter(a=>!a.retiredAt).length,mytasks:myRoleRows(state).length,debts:debtRows(state).length,review:vacationReviewRows(state,cloud.vacations||[]).length});
@@ -254,7 +256,7 @@ function taskSyncSummary(t){
     'Приоритет: '+(t.priority||'normal'),
     'Срок: '+(t.due||'не задан'),
     'Актёр: '+(t.actorId||'не назначен'),
-    'Роль: '+(t.roleId||'не указана')].join(' · ');
+    'Роли: '+(taskRoleIds(t).join(', ')||'не указаны')].join(' · ');
 }
 function showTaskSyncConflicts(){
   if(!taskSyncConflicts.length||modal.open)return;
@@ -318,6 +320,7 @@ async function syncStudioTasks(visible=false){
     if(published&&confirmed.version!==published.version){
       const issue=Error('В облаке появились новые изменения.');issue.cloudStateChanged=true;throw issue;
     }
+    verifySharedTaskLinks(snapshot,confirmed.snapshot);
     lastImageSync=verifyStudioMirrorImages(snapshot,confirmed.snapshot);
     const snapshotVersion=published?.version??remote.version;
     const tasksModified=applyTaskSnapshot(state,merged.tasks);
@@ -479,9 +482,9 @@ function myRoleSummaryHTML(p,items){
   const summary=summarizeMyRoleEpisodes(items);
   return `<span class="my-role-summary-episodes">${summary.episodes.map(({ep,items,total,unknown})=>
     `<span class="my-role-summary-episode"><span class="my-role-episode-heading">${e(episodeLabel(p,ep))} · ${unknown?'известно '+total+' репл.':total+' репл.'}${unknown?' · '+unknown+' без числа':''}</span>
-    <span class="my-role-inline-list">${items.map(({r})=>{
+    <span class="my-role-inline-list">${items.map(({r,reserve})=>{
       const n=myRoleLineCount(r.lineCount);
-      return `<span class="my-role-inline-role ${isMyRoleAccepted(r)?'my-role-accepted':''}" title="${e(r.character+' · '+(n===null?'Количество реплик не указано':n+' реплик')+(isMyRoleAccepted(r)?' · Принято':''))}"><span class="my-role-inline-name">${e(r.character)}</span>${isMyRoleAccepted(r)?`<span class="my-role-accepted-mark" title="Принято" aria-label="Роль принята">${icon('check')}</span>`:''}<span class="my-role-lines-pill workload-${myRoleWorkloadColor(n)}">${n===null?'—':n}</span></span>`;
+      return `<span class="my-role-inline-role ${isMyRoleAccepted(r)?'my-role-accepted':''}" title="${e(r.character+' · '+(n===null?'Количество реплик не указано':n+' реплик')+(isMyRoleAccepted(r)?' · Принято':''))}"><span class="my-role-inline-name">${e(r.character)}</span>${reserve?'<small class="my-role-reserve-label">Запас</small>':''}${isMyRoleAccepted(r)?`<span class="my-role-accepted-mark" title="Принято" aria-label="Роль принята">${icon('check')}</span>`:''}<span class="my-role-lines-pill workload-${myRoleWorkloadColor(n)}">${n===null?'—':n}</span></span>`;
     }).join('')}</span></span>`).join('')}</span>`;
 }
 
@@ -506,9 +509,28 @@ function groupedMyRoles(roles){
     const isOpen=myRolesExpanded!==null&&myRolesExpanded.has(p.id);
     return `<details class="my-role-project-group" data-my-role-group="${e(p.id)}" ${isOpen?'open':''}>
       <summary class="my-role-group-summary">${projectArt(p)}<span class="my-role-group-caption"><strong>${e(p.title)}</strong><small>${items.length} ${items.length===1?'роль':'ролей'}${p.archived?' · Архив':''} · Нажми, чтобы ${isOpen?'свернуть':'развернуть'}</small>${myRoleSummaryHTML(p,items)}</span><span class="my-role-summary-total workload-${summary.unknown?'unknown':myRoleWorkloadColor(summary.total)}" title="${summary.unknown?'Сумма неполная: некоторые роли без количества реплик':'Всего реплик во всех моих ролях этого аниме'}">${summary.unknown?'Известно: ':'Всего: '}${summary.total} <small>репл.</small>${summary.unknown?'<small> + ?</small>':''}</span><span class="my-role-group-count">${items.length}</span>${icon('chevron')}</summary>
-      <div class="my-role-group-body"><div class="my-roles-grid">${items.map(({p,ep,r})=>`<article data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}" class="my-role-card ${p.archived?'my-role-archived':''} ${isMyRoleAccepted(r)?'my-role-accepted-card':''}"><div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${e(roleStageName(r.status))}</span></div><h3><button type="button" class="qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button></h3>${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count">${r.lineCount} репл.</span>`:''}<button class="my-role-project" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)} ${icon('external')}</button><div class="my-role-episode">${ageBadge(r.createdAt)} ${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${effectiveRoleDue(r,ep)?' · Срок '+e(dueLabel(effectiveRoleDue(r,ep))):''}</div>${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}<div class="my-role-footer"><button class="btn ghost small" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">Открыть проект ${icon('arrow')}</button>${reaperShortcutButton(p,ep)}</div></article>`).join('')}</div></div>
+      <div class="my-role-group-body"><div class="my-roles-grid">${items.map(myRoleCardHTML).join('')}</div></div>
     </details>`;
   }).join('')}</div>`;
+}
+
+function myRoleCardHTML({p,ep,r,reserve}){
+  const projectAttrs=`data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles"`;
+  const quickView=`data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"`;
+  const reserveAction=reserve?`data-action="reserve-open" data-id="${e(reserve.id)}"`:'';
+  const context=reserve?'':`data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" ${quickView}`;
+  const characterAction=reserve?reserveAction:`data-qv-open="role" ${quickView}`;
+  const footerAction=reserve?reserveAction:`data-action="open-project" ${projectAttrs}`;
+  const due=effectiveRoleDue(r,ep);
+  return `<article ${context} class="my-role-card ${p.archived?'my-role-archived':''} ${isMyRoleAccepted(r)?'my-role-accepted-card':''}">
+    <div class="my-role-top"><span class="my-role-icon">${icon('mic')}</span><span class="my-role-status status-${e(r.status)}">${reserve?'Запас':e(roleStageName(r.status))}</span></div>
+    <h3><button type="button" class="qv-inline-trigger" ${characterAction}>${e(r.character)}</button></h3>
+    ${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count">${r.lineCount} репл.</span>`:''}
+    <button class="my-role-project" data-action="open-project" ${projectAttrs}>${e(p.title)} ${icon('external')}</button>
+    <div class="my-role-episode">${ageBadge(r.createdAt)} ${e(episodeLabel(p,ep))}${p.archived?' · Архив':''}${due?' · Срок '+e(dueLabel(due)):''}</div>
+    ${r.notes?`<p class="my-role-notes" title="${e(r.notes)}">${e(r.notes)}</p>`:''}
+    <div class="my-role-footer"><button class="btn ghost small" ${footerAction}>${reserve?'Открыть запас':'Открыть проект'} ${icon('arrow')}</button>${reaperShortcutButton(p,ep)}</div>
+  </article>`;
 }
 
 function groupTaskProjects(taskGroups,reviewedProjects){
@@ -884,7 +906,8 @@ function taskProjectVisual(p,ep,linked={}){
     (linked.actorName?.trim()?'name:'+linked.actorName.trim().toLocaleLowerCase('ru'):'');
   // Prefer the actor actually performing the character, including legacy name-only roles.
   // Fall back to the task's actor only when that actor has roles in this episode.
-  const actorKey=[roleKey,taskActorKey].find(key=>key&&key!=='unassigned'&&actorChoices.some(option=>option.key===key))||'';
+  const keys=linked.roleIds?.length>1?[taskActorKey]:[roleKey,taskActorKey];
+  const actorKey=keys.find(key=>key&&key!=='unassigned'&&actorChoices.some(option=>option.key===key))||'';
   const tab=hasRole?'roles':'tasks';
   const title=hasRole?(actorKey?'Открыть роли актёра в серии':'Открыть роли серии'):'Открыть задачи серии';
   return `<button type="button" class="task-identity task-project-identity" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="${tab}" data-role-actor="${e(actorKey)}" title="${title}: ${e(p.title)} · ${e(episodeLabel(p,ep))}">
@@ -922,27 +945,35 @@ function tasksTable(rows,global=false,groups=null){
     const cell=(content,className='')=>`<td${className?` class="${className}"`:''}>${group?
       `<div class="task-group-panel"><div class="task-group-clip"><div class="task-group-content">${content}</div></div></div>`:content}</td>`;
     const linked=taskAssignment(state,ep,t);
-    const character=linked.role?.character||(t.roleId?'Роль удалена':'—');
+    const shared=linked.roleIds.length>1;
+    const character=linked.role?.character||(linked.roleIds.length?'Роль удалена':'—');
     const workload=linked.role?(linked.lineCount===null?'Не указано':linked.lineCount+' репл.'):'—';
     const workloadClass=linked.lineCount===null?'task-workload-unknown':linked.lineCount<=50?'task-workload-low':linked.lineCount<=100?'task-workload-medium':'task-workload-high';
     const checked=bulk&&selectedTasks.has(bulkTaskKey(p.id,ep.id,t.id));
-    const statusRole=global?taskRoleStatusTarget(state,ep,t):null;
     const keys=`data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(t.id)}"`;
     const priority=taskPriority(t.priority);
+    const characterList=shared?`<div class="task-shared-roles">${linked.roles.map(role=>
+      `<div class="task-shared-role">${taskCharacterVisual(p,ep,{role},role.character)}${global?taskVoiceFolder(p,ep,role):''}</div>`
+    ).join('')}${linked.roles.length<linked.roleIds.length?'<small class="muted">Роль удалена</small>':''}</div>`:
+      taskCharacterVisual(p,ep,linked,character);
+    const unlinkedStatus='<span class="task-role-stage-unlinked" title="Для изменения статуса задачи нужны назначенный актёр и привязанный персонаж">—</span>';
+    const statusControls=global?linked.roles.map(role=>{
+      const statusRole=taskRoleStatusTarget(state,ep,t,role.id);
+      const control=statusRole?`<select class="row-select role-status task-linked-role-status status-${e(statusRole.status)}" ${keys} data-role-id="${e(role.id)}" aria-label="Статус обработки роли ${e(statusRole.character)} · ${e(linked.actorName)}" title="Меняет статус роли в серии">${options(ROLE_STAGES,statusRole.status)}</select>`:unlinkedStatus;
+      return shared?`<div class="task-shared-stage"><small>${e(role.character)}</small>${control}</div>`:control;
+    }).join(''):'';
     return `<tr class="task-priority-row ${group?'task-group-member':''} priority-${e(priority)} ${t.done?'task-done':''} ${checked?'task-bulk-selected':''}" data-priority="${e(priority)}">
       ${bulk?cell(`<input type="checkbox" class="task-bulk-checkbox" ${keys} aria-label="Выбрать задачу ${e(t.title)}" ${checked?'checked':''}>`,'task-bulk-cell'):''}
       ${cell(`<button class="task-check ${t.done?'done':''}" data-action="toggle-task" ${keys} title="${t.done?'Вернуть в работу':'Выполнено'}" aria-pressed="${t.done}">${t.done?icon('check'):''}</button>`,'task-completion-cell')}
-      ${cell(`<strong class="task-row-title">${e(t.title)}</strong>${t.mine?' <span class="pill">Моя</span>':''}`,`task-title-cell ${t.done?'done-text':''}`)}
+      ${cell(`<strong class="task-row-title">${e(t.title)}</strong>${t.mine?' <span class="pill">Моя</span>':''}${shared?'<span class="task-shared-label">Один файл</span>':''}`,`task-title-cell ${t.done?'done-text':''}`)}
       ${global?cell(taskProjectVisual(p,ep,linked),'task-project-cell'):''}
       ${cell(`${taskActorVisual(linked)}${vacationTag(linked.actorId)}`,'task-actor-cell')}
-      ${cell(taskCharacterVisual(p,ep,linked,character),'task-character-cell')}
+      ${cell(characterList,'task-character-cell')}
       ${cell(`<span class="task-line-count ${workloadClass}" title="${linked.lineCount===null?'Количество реплик не указано':linked.lineCount<=50?'Мало реплик (0–50)':linked.lineCount<=100?'Средний объём (51–100)':'Много реплик (101+)'}">${e(workload)}</span>`)}
-      ${global?cell(statusRole?
-        `<select class="row-select role-status task-linked-role-status status-${e(statusRole.status)}" ${keys} aria-label="Статус обработки роли ${e(statusRole.character)} · ${e(linked.actorName)}" title="Меняет статус роли в серии">${options(ROLE_STAGES,statusRole.status)}</select>`:
-        '<span class="task-role-stage-unlinked" title="Для изменения статуса задачи нужны назначенный актёр и привязанный персонаж">—</span>','task-role-stage-cell'):''}
+      ${global?cell(statusControls||unlinkedStatus,'task-role-stage-cell'):''}
       ${cell(`<select class="task-priority-select" ${keys} aria-label="Приоритет задачи ${e(t.title)}">${options(TASK_PRIORITIES,priority)}</select>`)}
       ${cell(t.due?dueLabel(t.due):'—',`small ${dueClass(t.due,t.done)}`)}
-      ${cell(`${global?taskVoiceFolder(p,ep,linked.role):''}${reaperShortcutButton(p,ep,true)}<button class="icon-btn" data-action="edit-task" ${keys} title="Изменить задачу" aria-label="Изменить задачу">${icon('edit')}</button>`,'task-actions-cell')}
+      ${cell(`${global&&!shared?taskVoiceFolder(p,ep,linked.role):''}${reaperShortcutButton(p,ep,true)}<button class="icon-btn" data-action="edit-task" ${keys} title="Изменить задачу" aria-label="Изменить задачу">${icon('edit')}</button>`,'task-actions-cell')}
     </tr>`;
   };
   const renderGroup=(g,index)=>{
@@ -1801,28 +1832,51 @@ function taskActorChoices(selected='') {
   const actors=[...(state.actors||[])].filter(a=>!a.retiredAt||a.id===selected).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
   return '<option value="">Не указан</option>'+actors.map(a=>`<option value="${e(a.id)}" ${selected===a.id?'selected':''}>${e(a.name)}${a.telegram?' (@'+e(a.telegram)+')':''}${a.retiredAt?' · Удалённый актёр':''}${e(vacationOptionSuffix(a.id))}</option>`).join('');
 }
-function taskRoleChoices(ep,actorId='',selected='') {
-  const roles=(ep?.roles||[]).filter(r=>!actorId||r.actorId===actorId||!r.actorId);
-  return '<option value="">Не указан</option>'+roles.map(r=>`<option value="${e(r.id)}" ${selected===r.id?'selected':''}>${e(r.character)}${Number.isInteger(r.lineCount)?' · '+r.lineCount+' репл.':''}</option>`).join('');
+function taskRoleCaption(roles){
+  if(roles.length>1)return 'В одном файле: '+roles.length;
+  const role=roles[0];
+  return role?role.character+(Number.isInteger(role.lineCount)?' · '+role.lineCount+' репл.':''):'Без персонажа';
+}
+function taskRolePicker(ep,actorId,ids,open=false){
+  const roles=(ep?.roles||[]).filter(r=>!actorId||r.actorId===actorId||!r.actorId||ids.includes(r.id));
+  const selected=roles.filter(r=>ids.includes(r.id));
+  return `<details class="task-role-picker" ${open?'open':''}>
+    <summary><span class="task-role-picker-value">${e(taskRoleCaption(selected))}</span>${icon('chevron')}</summary>
+    <div class="task-role-options">${roles.length?roles.map(r=>`<label class="task-role-option">
+      <input type="checkbox" name="roleIds" value="${e(r.id)}" ${ids.includes(r.id)?'checked':''}>
+      <span>${e(taskRoleCaption([r]))}</span>
+    </label>`).join(''):`<p class="small muted">${ep?'Нет доступных ролей':'Сначала выбери серию'}</p>`}</div>
+  </details>`;
+}
+function taskActorPicker(actorId){
+  return `<select name="actorId" aria-label="Актёр для задачи">${taskActorChoices(actorId)}</select>`;
 }
 function taskAssignmentFields(ep,t) {
-  const actorId=ep?.roles.find(r=>r.id===t.roleId)?.actorId||t.actorId||'';
-  return `<div class="field task-assignment-form"><label>Актёр</label><div id="task-actor-slot"><select name="actorId" aria-label="Актёр для задачи">${taskActorChoices(actorId)}</select></div><small class="task-assignment-help">Необязательно, из базы актёров студии.</small></div><div class="field"><label>Персонаж / роль</label><div id="task-role-slot"><select name="roleId" aria-label="Персонаж для задачи">${taskRoleChoices(ep,actorId,t.roleId||'')}</select></div><small class="task-assignment-help">Роли выбранной серии. Реплики берутся из карточки персонажа.</small></div>`;
+  const {actorId,roleIds}=taskAssignment(state,ep,t);
+  return `<div class="field task-assignment-form"><label>Актёр</label><div id="task-actor-slot">${taskActorPicker(actorId)}</div><small class="task-assignment-help">Необязательно, из базы актёров студии.</small></div><div class="field"><label>Персонажи / роли</label><div id="task-role-slot">${taskRolePicker(ep,actorId,roleIds)}</div><small class="task-assignment-help">Отметь роли из одного файла.</small></div>`;
 }
-function updateTaskAssignmentPickers(source) {
+function updateTaskAssignmentPickers(input) {
   const form=modal.querySelector('#modal-form');
   if(!form?.querySelector('.task-assignment-form'))return;
   let ep=null;
   try{ep=resolveTarget(form.querySelector('[name=target]')?.value).ep;}catch{}
-  let actorId=form.querySelector('[name=actorId]')?.value||'';
-  let roleId=form.querySelector('[name=roleId]')?.value||'';
-  if(source==='target'){actorId='';roleId='';}
-  if(source==='actorId')roleId='';
-  const role=ep?.roles.find(r=>r.id===roleId);
-  if(source==='roleId'&&role?.actorId)actorId=role.actorId;
-  if(roleId&&(!role||(actorId&&role.actorId!==actorId)))roleId='';
-  form.querySelector('#task-actor-slot').innerHTML=`<select name="actorId" aria-label="Актёр для задачи">${taskActorChoices(actorId)}</select>`;
-  form.querySelector('#task-role-slot').innerHTML=`<select name="roleId" aria-label="Персонаж для задачи">${taskRoleChoices(ep,actorId,roleId)}</select>`;
+  const actorSlot=form.querySelector('#task-actor-slot');
+  const roleSlot=form.querySelector('#task-role-slot');
+  const actorId=actorSlot.querySelector('select').value;
+  if(input.name==='roleIds'){
+    const ids=new FormData(form).getAll('roleIds');
+    const actor=(!actorId&&input.checked)?ep?.roles.find(r=>r.id===input.value)?.actorId:'';
+    if(!actor){
+      roleSlot.querySelector('.task-role-picker-value').textContent=taskRoleCaption((ep?.roles||[]).filter(r=>ids.includes(r.id)));
+      return;
+    }
+    actorSlot.innerHTML=taskActorPicker(actor);
+    roleSlot.innerHTML=taskRolePicker(ep,actor,ids,true);
+    [...roleSlot.querySelectorAll('input')].find(node=>node.value===input.value)?.focus();
+  }else{
+    if(input.name==='target')actorSlot.innerHTML=taskActorPicker('');
+    roleSlot.innerHTML=taskRolePicker(ep,input.name==='target'?'':actorId,[],!!roleSlot.querySelector('details[open]'));
+  }
 }
 // Task title quick phrases: shared by the episode task form and the My Tasks form.
 function taskTemplateMenuHTML(){
@@ -1859,16 +1913,23 @@ function taskForm(pid,epid,itemId){
   if(!state.projects.length){projectForm();return;}
   showModal(old?'Изменить задачу':'Новая задача',pid?`${p.title} / ${episodeLabel(p,ep)}`:'Выбери серию и запиши следующий шаг.',
     `<div class="form-grid">${targetField(pid,epid)}${taskTemplateField(t.title)}${taskAssignmentFields(ep,t)}${field('Дедлайн',input('due',t.due,'date'))}${field('Приоритет',`<select name="priority" aria-label="Приоритет задачи">${options(TASK_PRIORITIES,taskPriority(t.priority))}</select>`)}${state.settings.mode==='actor'?field('Ответственный',`<label class="check-label">${input('mine','1','checkbox',t.mine?'checked':'')}Моя задача</label>`):'<p class="task-sync-hint">Задача автоматически появится в разделе «Мои задачи» → «Мои поручения».</p>'}${old?field('Состояние',`<label class="check-label">${input('done','1','checkbox',t.done?'checked':'')}Выполнена</label>`):''}</div>`,
-    'Сохранить',data=>{
+    'Сохранить',(data,formData)=>{
       const {p,ep}=resolveTarget(data.target);
       if(!data.title.trim())throw new Error('Опиши задачу.');
       if(!old&&ep.tasks.length>=2000)throw new Error('В серии уже 2000 задач.');
-      const role=data.roleId?ep.roles.find(r=>r.id===data.roleId):null;
-      if(data.roleId&&!role)throw new Error('Выбери персонажа из этой серии.');
       if(data.actorId&&!state.actors.some(a=>a.id===data.actorId))throw new Error('Выбери актёра из базы.');
-      if(role?.actorId&&data.actorId&&role.actorId!==data.actorId)throw new Error('Персонаж назначен другому актёру. Выбери соответствующего актёра.');
+      const roleIds=taskRoleIds({roleIds:formData.getAll('roleIds')});
+      const roles=roleIds.map(id=>ep.roles.find(r=>r.id===id));
+      if(roles.some(r=>!r))throw new Error('Выбери персонажей из этой серии.');
+      const existing=taskRoleIds(old);
+      const unchangedActor=existing.length>1&&old.actorId===data.actorId;
+      if(roles.length>1&&(!data.actorId||roles.some(r=>r.actorId!==data.actorId&&!(unchangedActor&&existing.includes(r.id)))))
+        throw new Error('Отметь роли одного назначенного актёра.');
+      const actorId=roles.length===1?roles[0].actorId||data.actorId:data.actorId;
+      if(roles.length===1&&data.actorId&&actorId!==data.actorId)
+        throw new Error('Персонаж назначен другому актёру. Выбери соответствующего актёра.');
       Object.assign(t,{title:data.title.trim(),due:dateValue(data.due),priority:taskPriority(data.priority),
-        actorId:role?.actorId||data.actorId||'',roleId:role?.id||'',
+        actorId:actorId||'',...taskRoleFields({roleIds}),
         mine:state.settings.mode==='actor'?!!data.mine:(old?!!old.mine:false),done:old?!!data.done:false});
       if(!old)ep.tasks.push(t);
       touch(p);modal.close();render();toast(old?'Задача обновлена':'Задача добавлена');
@@ -2747,7 +2808,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
   if(el.id==='role-assignment-filter'){ui.roleAssignment=ROLE_ASSIGNMENT_FILTERS.some(([key])=>key===el.value)?el.value:'all';render();}
   if(el.id==='role-order'){ui.roleOrder=el.value;render();}
-  if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleId'].includes(el.name)){updateTaskAssignmentPickers(el.name);return;}
+  if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleIds'].includes(el.name)){updateTaskAssignmentPickers(el);return;}
   if(el.id==='task-priority-filter'){ui.taskPriority=el.value;saveUI();render();}
   if(el.id==='my-role-order'){ui.myRoleOrder=validMyRoleOrder(el.value);saveUI();render();}
   if(el.id==='task-order-filter'){ui.taskOrder=validTaskOrder(el.value);saveUI();render();}
@@ -2758,7 +2819,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.classList.contains('task-linked-role-status')){
     const p=getProject(el.dataset.id),ep=getEpisode(p,el.dataset.ep);
     const t=ep?.tasks.find(item=>item.id===el.dataset.item);
-    const role=t?taskRoleStatusTarget(state,ep,t):null;
+     const role=t?taskRoleStatusTarget(state,ep,t,el.dataset.roleId):null;
     // Stale/reassigned task links cannot update a different actor's role.
     if(!role){toast('Нельзя изменить статус: проверь персонажа и назначенного актёра.',true);render();return;}
     if(!ROLE_STAGES.some(([stage])=>stage===el.value)){render();return;}
@@ -2807,7 +2868,7 @@ modal.addEventListener('paste',event=>{
       submit.disabled=false;
   });
 });
-modal.addEventListener('submit',async event=>{event.preventDefault();if(!modalSubmit)return;const form=event.target,data=Object.fromEntries(new FormData(form)),submit=form.querySelector('[type=submit]'),handler=modalSubmit;submit.disabled=true;try{await handler(data);}catch(err){formError(err);}finally{if(submit.isConnected)submit.disabled=false;}});
+modal.addEventListener('submit',async event=>{event.preventDefault();if(!modalSubmit)return;const form=event.target,fields=new FormData(form),data=Object.fromEntries(fields),submit=form.querySelector('[type=submit]'),handler=modalSubmit;submit.disabled=true;try{await handler(data,fields);}catch(err){formError(err);}finally{if(submit.isConnected)submit.disabled=false;}});
 modal.addEventListener('click',event=>{if(event.target===modal){const rect=modal.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)modal.close();}});
 document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&(event.key.toLowerCase()==='k'||event.code==='KeyK')){event.preventDefault();document.querySelector('#search-input')?.focus();document.querySelector('#search-input')?.select();}if((event.key.toLowerCase()==='n'||event.code==='KeyN')&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&!modal.open&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){event.preventDefault();projectForm();}});
 document.querySelector('#ass-roles-file').addEventListener('change',async event=>{
@@ -2914,7 +2975,14 @@ const studioResources=createStudioResources({
   resolveUrl:async id=>new URL(contentPath(await api('cloud/resources',{
     action:'resources/files/download',data:{id}})),cloud.server).href,
   reservesChanged:()=>{
-    if(ui.siteMode==='studio'&&['detail','recommendations'].includes(ui.page)&&!modal.open&&!isActorPickerOpen())render();
+    if(ui.siteMode!=='studio')return;
+    if(['detail','recommendations','mytasks'].includes(ui.page)&&!modal.open&&!isActorPickerOpen()){render();return;}
+    const badge=document.querySelector('[data-nav="mytasks"] .nav-count');
+    if(badge){
+      const count=myRoleRows(state).length;
+      badge.textContent=count;
+      badge.setAttribute('aria-label','Мои роли: '+count);
+    }
   }
 });
 

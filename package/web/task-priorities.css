@@ -43,6 +43,28 @@ dialog.task-history-modal{width:min(1000px,calc(100vw - 32px));max-width:1000px}
 .tasks-priority-table .task-line-count{display:inline-block;white-space:nowrap;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 #modal .task-assignment-help{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.35}
 #modal .task-assignment-form{min-width:0}
+#modal .task-role-picker{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+#modal .task-role-picker>summary{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  min-height:44px;padding:8px 12px;cursor:pointer;list-style:none;color:var(--text);
+}
+#modal .task-role-picker>summary::-webkit-details-marker{display:none}
+#modal .task-role-picker>summary .icon{width:15px;height:15px;flex:none;transform:rotate(90deg)}
+#modal .task-role-picker[open]>summary .icon{transform:rotate(-90deg)}
+#modal .task-role-picker-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#modal .task-role-options{max-height:190px;overflow:auto;padding:5px;border-top:1px solid var(--line)}
+#modal .task-role-options>p{margin:7px}
+#modal .task-role-option{
+  display:flex;align-items:center;gap:9px;padding:8px;margin:0;border-radius:6px;
+  cursor:pointer;color:var(--text);font-size:12px;overflow-wrap:anywhere;
+}
+#modal .task-role-option:hover,#modal .task-role-option:focus-within{background:var(--surface)}
+#modal .task-role-option>input[type=checkbox]{width:16px;height:16px;min-height:0;flex:none;margin:0;accent-color:var(--lime)}
+.task-shared-label{display:block;width:fit-content;margin-top:4px;color:var(--muted);font-size:11px}
+.task-shared-roles,.task-shared-stage{display:grid;gap:4px}
+.task-shared-role{display:flex;align-items:center;gap:4px;min-width:0}
+.task-shared-stage:not(:last-child){margin-bottom:6px}
+.task-shared-stage small{color:var(--muted);overflow-wrap:anywhere}
 
 .tasks-priority-table th:nth-last-child(3){min-width:147px}
 .tasks-priority-table td{position:relative}

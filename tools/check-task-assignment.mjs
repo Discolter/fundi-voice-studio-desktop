@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
-import {normalizeState,seedState,newProject,taskRows,taskAssignment} from '../package/web/core.js';
+import {normalizeState,seedState,newProject,taskRows,taskAssignment,groupTaskRows} from '../package/web/core.js';
+import {taskRoleIds,archiveTask,restoreTask} from '../package/web/task-history.js';
+import {buildTaskSnapshot,applyTaskSnapshot,mergeTaskSnapshots,verifySharedTaskLinks} from '../package/web/task-cloud-sync.js';
 
 const workspace=seedState();
 workspace.actors=[{id:'actor1',name:'Тестовый актёр',telegram:'actor_test'}];
@@ -38,11 +40,40 @@ assert.equal(taskRows(n,{query:'главный герой'})[0].t.id,'task1','Se
 assert.equal(taskRows(n,{query:'actor_test'}).length,2,'Search includes actor username');
 const archived=normalizeState(n);
 assert.equal(archived.projects[0].episodes[0].tasks[0].roleId,ep.roles[0].id,'Link survives a second normalization');
+ep.roles[0].actorId=actor.id;
+ep.roles[1].actorId=actor.id;
+ep.roles[0].lineCount=47;
+ep.roles[1].lineCount=1;
+const shared={...ep.tasks[0],id:'shared',title:'Один файл',roleIds:['role1','role2','role2']};
+ep.tasks.push(shared);
+assert.equal(taskAssignment(n,ep,shared).lineCount,48);
+assert.deepEqual(taskRoleIds(shared),['role1','role2']);
+assert.ok(taskRows(n,{query:'статист'}).some(({t})=>t===shared));
+const sharedGroup=groupTaskRows(n,taskRows(n)).find(group=>group.rows.some(({t})=>t===shared));
+assert.equal(sharedGroup.total,48,'Count each character once across the shared and individual tasks');
+const snapshot=buildTaskSnapshot(n);
+const cloudTask=snapshot.tasks.find(t=>t.id===shared.id);
+assert.deepEqual(cloudTask.roleIds,['role1','role2']);
+const applyTo=normalizeState(n);
+applyTaskSnapshot(applyTo,snapshot.tasks);
+assert.deepEqual(applyTo.projects[0].episodes[0].tasks.find(t=>t.id===shared.id).roleIds,['role1','role2']);
+const shortened={...cloudTask,roleIds:['role1']};
+const base={tasks:[cloudTask]};
+const merged=mergeTaskSnapshots({tasks:[shortened]},base,{tasks:[{...cloudTask,title:'Обработать общий файл'}]});
+assert.deepEqual(merged.tasks[0],{...shortened,title:'Обработать общий файл'});
+assert.deepEqual(mergeTaskSnapshots({tasks:[shortened]},base,{tasks:[{...cloudTask,actorId:'other'}]}).conflicts,['shared']);
+const {roleIds:discarded,...legacy}=cloudTask;
+assert.deepEqual(mergeTaskSnapshots(base,{tasks:[]},{tasks:[legacy]}).tasks,[cloudTask]);
+assert.throws(()=>verifySharedTaskLinks(base,{tasks:[legacy]}),/не подтвердило все роли/);
+assert.doesNotThrow(()=>verifySharedTaskLinks(base,base));
+archiveTask(n,n.projects[0],ep,shared);
+ep.tasks=ep.tasks.filter(t=>t!==shared);
+assert.deepEqual(restoreTask(n,n.taskHistory[0].id).task.roleIds,['role1','role2']);
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const app=readFileSync(resolve(root,'package/web/app.js'),'utf8');
 const css=readFileSync(resolve(root,'package/web/task-priorities.css'),'utf8');
-for(const term of ['taskAssignmentFields(ep,t)','taskActorChoices','taskRoleChoices','updateTaskAssignmentPickers',
-  'name="actorId"','name="roleId"','role?.actorId||data.actorId','<th>Актёр</th><th>Персонаж</th><th>Реплики</th>'])
+for(const term of ['taskAssignmentFields(ep,t)','taskActorChoices','taskRolePicker','updateTaskAssignmentPickers',
+  'name="actorId"','type="checkbox" name="roleIds"',"formData.getAll('roleIds')",'Один файл','<th>Актёр</th><th>Персонаж</th><th>Реплики</th>'])
   assert.ok(app.includes(term),'Task assignment UI missing: '+term);
 assert.ok(css.includes('.task-line-count'),'Workload column needs styling');
 assert.ok(css.includes('.task-character-cell'),'Character column needs styling');

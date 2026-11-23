@@ -44,18 +44,25 @@ assert.equal(taskRoleStatusTarget(workspace,ep,ep.tasks[0]),null,'Deleted actor 
 workspace.actors=[{id:'a',name:'AZURE'},{id:'b',name:'Лиса'}];
 const restored=normalizeState(workspace);
 assert.equal(taskRoleStatusTarget(restored,restored.projects[0].episodes[0],restored.projects[0].episodes[0].tasks[0]).status,'processing');
+const shared={actorId:'a',roleId:'r',roleIds:['r','second']};
+const second={...role,id:'second',character:'Вторая роль'};
+ep.roles.push(second);
+assert.equal(taskRoleStatusTarget(workspace,ep,shared,'second'),second);
+assert.equal(taskRoleStatusTarget(workspace,ep,shared,'unassigned'),null);
+second.actorId='b';
+assert.equal(taskRoleStatusTarget(workspace,ep,shared,'second'),null,'A separate status action cannot update a reassigned character');
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const app=readFileSync(resolve(root,'package/web/app.js'),'utf8');
 const css=readFileSync(resolve(root,'package/web/task-priorities.css'),'utf8');
 const table=app.slice(app.indexOf('function tasksTable('),app.indexOf('function actorAvatar(',app.indexOf('function tasksTable(')));
 const onChange=app.slice(app.indexOf("if(el.classList.contains('task-linked-role-status'))"),app.indexOf("if(el.classList.contains('task-priority-select'))"));
-assert.ok(table.includes('statusRole=global?taskRoleStatusTarget(state,ep,t):null'),'Only personal task table adds the stage editor');
+assert.ok(table.includes('const statusControls=global?linked.roles.map(role=>'),'Only personal task table adds the stage editor');
 assert.ok(table.includes("global?'<th>Статус роли</th>':''"),'Status column header follows global table');
 assert.ok(table.includes('class="row-select role-status task-linked-role-status status-'),'Existing stage rendering and visual picker reused');
 assert.ok(table.includes('options(ROLE_STAGES,statusRole.status)'),'All production stages are available');
 assert.ok(table.includes('task-role-stage-unlinked'),'Unlinked tasks cannot edit a role');
-assert.ok(onChange.includes('taskRoleStatusTarget(state,ep,t)'),'Every change revalidates role and actor');
+assert.ok(onChange.includes('taskRoleStatusTarget(state,ep,t,el.dataset.roleId)'),'Every change revalidates that character and actor');
 assert.ok(onChange.includes("ROLE_STAGES.some(([stage])=>stage===el.value)"),'Unknown stages must be rejected');
 assert.ok(onChange.includes('role.status=el.value'),'Change actual role, not task note');
 assert.ok(onChange.includes('role.reviewSeen=reviewVersion(review)'),'Manual director changes override old reviews');

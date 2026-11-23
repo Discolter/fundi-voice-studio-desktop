@@ -666,6 +666,7 @@ export function createStudioResources({identity, context, openProject, openActor
       return view.items;
     },
     reserveSelection() { return page('reserves').selection; },
+    reserves() { return page('reserves').items; },
     forRole(projectId, episodeId, roleId) {
       return page('reserves').items.filter(r => r.projectId === projectId && r.episodeId === episodeId && r.roleId === roleId);
     },

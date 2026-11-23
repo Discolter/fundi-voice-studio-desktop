@@ -11,6 +11,16 @@ const activeKeys=state=>new Set([...(state.projects||[]),...(state.trash||[])]
   .flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.tasks||[]).map(t=>historyKey(p.id,ep.id,t.id)))));
 const eventTime=entry=>[entry.deletedAt,entry.recoveredAt,entry.restoredAt].filter(Boolean).sort().at(-1)||'';
 
+export function taskRoleIds(task){
+  const ids=Array.isArray(task?.roleIds)?task.roleIds:[task?.roleId];
+  return [...new Set(ids.map(id=>text(id,80)).filter(Boolean))].slice(0,2000);
+}
+
+export function taskRoleFields(task){
+  const roleIds=taskRoleIds(task);
+  return Array.isArray(task?.roleIds)?{roleId:roleIds[0]||'',roleIds}:{roleId:roleIds[0]||''};
+}
+
 export function normalizeTaskHistory(value){
   const entries=new Map();
   for(const entry of Array.isArray(value)?value:[]){
@@ -21,12 +31,12 @@ export function normalizeTaskHistory(value){
     const record={id,projectId:text(entry.projectId,80),projectTitle:text(entry.projectTitle,160),
       season:text(entry.season,4),episodeId:text(entry.episodeId,80),
       episodeNumber:text(entry.episodeNumber,4),episodeTitle:text(entry.episodeTitle,120),
-      actorName:text(entry.actorName,200),character:text(entry.character,200),
+      actorName:text(entry.actorName,200),character:text(entry.character,2000),
       lineCount:Number.isInteger(entry.lineCount)&&entry.lineCount>=0?entry.lineCount:null,
       deletedAt:text(entry.deletedAt,50),recoveredAt:text(entry.recoveredAt,50),restoredAt:text(entry.restoredAt,50),
       source:sources.has(entry.source)?entry.source:'backup',recoveredFrom:text(entry.recoveredFrom,260),
       task:{id:taskId,title,done:!!t.done,mine:!!t.mine,due:date(t.due),
-        priority:priorities.has(t.priority)?t.priority:'normal',actorId:text(t.actorId,80),roleId:text(t.roleId,80)}};
+        priority:priorities.has(t.priority)?t.priority:'normal',actorId:text(t.actorId,80),...taskRoleFields(t)}};
     const prior=entries.get(id);
     if(!prior||eventTime(record)>=eventTime(prior))entries.set(id,record);
   }
@@ -44,11 +54,15 @@ export function mergeTaskHistory(state,entries=[]){
 
 export function archiveTask(state,project,episode,task,source='deleted'){
   if(!task)return false;
-  const role=(episode.roles||[]).find(r=>r.id===task.roleId);
-  const actor=(state.actors||[]).find(a=>a.id===(role?.actorId||task.actorId));
+  const roleIds=taskRoleIds(task);
+  const roles=roleIds.map(id=>(episode.roles||[]).find(r=>r.id===id)).filter(Boolean);
+  const actorId=roleIds.length>1?task.actorId:roles[0]?.actorId||task.actorId;
+  const actor=(state.actors||[]).find(a=>a.id===actorId);
+  const lineCount=roles.length&&roles.length===roleIds.length&&roles.every(r=>Number.isInteger(r.lineCount)&&r.lineCount>=0)?
+    roles.reduce((sum,r)=>sum+r.lineCount,0):null;
   const record={projectId:project.id,projectTitle:project.title,season:String(project.season||''),
     episodeId:episode.id,episodeNumber:String(episode.number||''),episodeTitle:episode.title||'',
-    actorName:actor?.name||role?.actor||'',character:role?.character||'',lineCount:role?.lineCount??null,
+    actorName:actor?.name||roles[0]?.actor||'',character:roles.map(r=>r.character).join(', '),lineCount,
     deletedAt:new Date().toISOString(),recoveredAt:'',source,task:{...task}};
   state.taskHistory=normalizeTaskHistory([...(state.taskHistory||[]),record]);
   return true;
@@ -65,7 +79,7 @@ export function restoreTask(state,historyId,projectId,episodeId){
   const task={...entry.task};
   if(activeTasks(state).some(t=>t.id===task.id))task.id=globalThis.crypto?.randomUUID?.()||`task-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   // A different series may have entirely different characters. Never invent a link.
-  if(p.id!==entry.projectId||ep.id!==entry.episodeId)task.roleId='';
+  if(p.id!==entry.projectId||ep.id!==entry.episodeId)Object.assign(task,taskRoleFields({roleIds:[]}));
   ep.tasks=ep.tasks||[];ep.tasks.push(task);
   p.updatedAt=new Date().toISOString();
   entry.restoredAt=new Date().toISOString();

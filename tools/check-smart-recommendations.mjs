@@ -129,5 +129,5 @@ assert.equal(validRecommendationFilter('urgent'), 'all');
 const app = readFileSync(new URL('../package/web/app.js', import.meta.url), 'utf8');
 assert.match(app, /if\(ui\.page==='recommendations'\)return renderRecommendations\(\)/);
 assert.match(app, /reservesForRole:studioResources\.forRole/);
-assert.match(app, /'detail','recommendations'\]\.includes\(ui\.page\)/);
+assert.match(app, /'detail','recommendations','mytasks'\]\.includes\(ui\.page\)/);
 console.log('PASS: episode-first recommendations, finish order, casting, workload, leave, reserves and navigation');

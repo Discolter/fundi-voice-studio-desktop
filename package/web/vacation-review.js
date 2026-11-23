@@ -2,6 +2,7 @@
 // Vacation: pending recordings only. Removed actors: ALL existing role assignments.
 import {effectiveRoleDue} from './core.js';
 import {rankActorsForRole,applyRoleVoiceFromActor} from './casting-assistant.js';
+import {taskRoleIds} from './task-history.js';
 
 export const VACATION_REVIEW_STAGES=Object.freeze(['waiting','recording','retake','pickup']);
 
@@ -120,7 +121,9 @@ export function reassignVacationRole(state,vacations,{projectId,episodeId,roleId
   row.r.reviewSeen=0;
   row.r.reviewCandidates=[]; // Resolved queue: do not carry prospects to a new assignee.
   // Linked assignments in Studio tasks should follow the same character.
-  for(const task of row.ep.tasks||[])
-    if(task.roleId===row.r.id&&task.actorId===previousActorId)task.actorId=target.id;
+  for(const task of row.ep.tasks||[]){
+    const ids=taskRoleIds(task);
+    if(ids.length===1&&ids[0]===row.r.id&&task.actorId===previousActorId)task.actorId=target.id;
+  }
   return {project:row.p,episode:row.ep,role:row.r,previousActor:row.actor,newActor:target};
 }

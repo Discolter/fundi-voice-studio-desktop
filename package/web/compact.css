@@ -433,6 +433,7 @@ body[data-theme="light"] .fv-age-red{color:#a92e43;background:#ffe5e9}
 .my-role-episode-heading{font-size:11px;font-weight:650;color:var(--muted)}
 .my-role-inline-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
 .my-role-inline-role{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 5px 3px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:11px;line-height:1.5;color:var(--text)}
+.my-role-reserve-label{color:var(--muted);font-size:10px;white-space:nowrap}
 .my-role-inline-name{overflow-wrap:anywhere;min-width:0}
 .my-role-lines-pill{display:inline-flex;min-width:25px;padding:2px 6px;align-items:center;justify-content:center;border-radius:6px;border:1px solid transparent;font-size:11px;font-weight:750;font-variant-numeric:tabular-nums;flex:0 0 auto}
 .my-role-summary-total{align-self:center;display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap;padding:7px 9px;border:1px solid var(--line);border-radius:9px;min-width:106px;max-width:145px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;text-align:center}

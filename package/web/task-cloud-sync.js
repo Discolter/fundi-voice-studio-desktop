@@ -2,13 +2,15 @@
 // Never merge unrelated local paths or replace the user's project/actor data.
 // Optimistic revision and three-way merge prevent silent loss from concurrent edits.
 export const TASK_SYNC_BASELINE_KEY='fundi-voice-tasks-cloud-baseline-v1';
-import {archiveTask,mergeTaskHistory} from './task-history.js';
+import {archiveTask,mergeTaskHistory,taskRoleFields,taskRoleIds} from './task-history.js';
 
-const taskRecord=(project,ep,t)=>({
-  id:t.id,projectId:project.id,episodeId:ep.id,title:t.title,due:t.due||'',
-  priority:['urgent','high','normal','low'].includes(t.priority)?t.priority:'normal',
-  done:!!t.done,actorId:t.actorId||'',roleId:t.roleId||'',mine:!!t.mine
-});
+function taskRecord(project,ep,t){
+  const ids=taskRoleIds(t).filter(id=>(ep.roles||[]).some(r=>r.id===id));
+  const links=taskRoleFields(Array.isArray(t.roleIds)?{roleIds:ids}:{roleId:ids[0]});
+  return {id:t.id,projectId:project.id,episodeId:ep.id,title:t.title,due:t.due||'',
+    priority:['urgent','high','normal','low'].includes(t.priority)?t.priority:'normal',
+    done:!!t.done,actorId:t.actorId||'',...links,mine:!!t.mine};
+}
 export function buildTaskSnapshot(state){
   return {
     tasks:(state.projects||[]).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.tasks||[]).map(t=>taskRecord(p,ep,t)))),
@@ -137,6 +139,28 @@ export function verifyStudioMirrorImages(expected,received){
 
 const key=t=>t.id;
 const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
+const linkKeys=new Set(['actorId','roleId','roleIds']);
+const taskLink=t=>[t.actorId||'',taskRoleIds(t)];
+const dataKeys=(...tasks)=>[...new Set(tasks.flatMap(t=>Object.keys(t)))].filter(field=>!linkKeys.has(field));
+const sameTask=(a,b)=>a&&b?same(taskLink(a),taskLink(b))&&dataKeys(a,b).every(field=>same(a[field],b[field])):a===b;
+function retainLegacyTaskRoles(incoming,base,local){
+  if(!incoming||Array.isArray(incoming.roleIds))return incoming;
+  const source=[base,local].find(t=>taskRoleIds(t).length>1&&
+    t.projectId===incoming.projectId&&t.episodeId===incoming.episodeId&&
+    t.actorId===incoming.actorId&&t.roleId===incoming.roleId);
+  return source?{...incoming,roleIds:taskRoleIds(source)}:incoming;
+}
+
+export function verifySharedTaskLinks(expected,received){
+  const shared=(expected.tasks||[]).filter(t=>taskRoleIds(t).length>1);
+  if(!shared.length)return;
+  const saved=new Map((received?.tasks||[]).map(t=>[t.id,t]));
+  for(const task of shared){
+    if(!same(taskLink(task),taskLink(saved.get(task.id)||{})))
+      throw Error('Облако пока не подтвердило все роли в задаче. Повтори синхронизацию.');
+  }
+}
+
 export function mergeTaskSnapshots(local,baseline,remote,decisions=[]){
   const original=new Map((baseline?.tasks||[]).map(t=>[key(t),t]));
   const current=new Map((local.tasks||[]).map(t=>[key(t),t]));
@@ -145,21 +169,24 @@ export function mergeTaskSnapshots(local,baseline,remote,decisions=[]){
   const decisionsById=new Map(decisions.map(item=>[item.id,item]));
   const tasks=[],conflicts=[],details=[],resolved=[];
   for(const taskId of keys){
-    const base=original.get(taskId),ours=current.get(taskId),theirs=incoming.get(taskId);
+    const base=original.get(taskId),ours=current.get(taskId);
+    const theirs=retainLegacyTaskRoles(incoming.get(taskId),base,ours);
     let chosen,collision=false;
     if(!baseline)chosen=theirs||ours; // First connection retains existing Web work.
-    else if(same(ours,theirs))chosen=ours;
-    else if(same(ours,base))chosen=theirs;
-    else if(same(theirs,base))chosen=ours;
+    else if(sameTask(ours,theirs))chosen=ours;
+    else if(sameTask(ours,base))chosen=theirs;
+    else if(sameTask(theirs,base))chosen=ours;
     else if(base&&ours&&theirs){
-      // Different fields of one task can be merged. Two modifications to the
-      // same field, or a cross-source change of actor+role, require review.
-      if((ours.actorId!==base.actorId&&theirs.roleId!==base.roleId)||
-         (theirs.actorId!==base.actorId&&ours.roleId!==base.roleId)){
+      const localLink=taskLink(ours),remoteLink=taskLink(theirs),originalLink=taskLink(base);
+      const localChanged=!same(localLink,originalLink),remoteChanged=!same(remoteLink,originalLink);
+      // A task's actor and their characters belong to the same recording.
+      if(localChanged&&remoteChanged&&!same(localLink,remoteLink)){
         collision=true;
       }else{
-        const next={...base};
-        for(const field of new Set([...Object.keys(base),...Object.keys(ours),...Object.keys(theirs)])){
+        const assignment=localChanged?ours:theirs;
+        const next={...base,actorId:assignment.actorId||'',...taskRoleFields(assignment)};
+        if(!Array.isArray(assignment.roleIds))delete next.roleIds;
+        for(const field of dataKeys(base,ours,theirs)){
           if(field==='id')continue;
           const earlier=base[field],onWindows=ours[field],inCloud=theirs[field];
           let value;
@@ -225,7 +252,7 @@ export function applyTaskSnapshot(state,tasks){
     for(const task of ep.tasks||[])if(!incoming.has(task.id))archiveTask(state,p,ep,task,'cloud');
     const next=tasks.filter(t=>t.projectId===p.id&&t.episodeId===ep.id).map(t=>({
       id:t.id,title:t.title,due:t.due||'',priority:t.priority||'normal',done:!!t.done,
-      actorId:t.actorId||'',roleId:t.roleId||'',mine:!!t.mine
+      actorId:t.actorId||'',...taskRoleFields(t),mine:!!t.mine
     }));
     if(!same(ep.tasks,next)){ep.tasks=next;changed=true;}
   }

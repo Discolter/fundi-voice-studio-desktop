@@ -95,7 +95,9 @@ assert.doesNotMatch(visuals.taskCharacterVisual(project,episode,updated,'Мэй�
 const table=source.slice(source.indexOf('function tasksTable('),source.indexOf('function actorAvatar('));
 assert.match(table,/cell\(taskProjectVisual\(p,ep,linked\),'task-project-cell'\)/);
 assert.match(table,/\$\{taskActorVisual\(linked\)\}/);
-assert.match(table,/cell\(taskCharacterVisual\(p,ep,linked,character\),'task-character-cell'\)/);
+assert.match(table,/cell\(characterList,'task-character-cell'\)/);
+assert.match(table,/taskCharacterVisual\(p,ep,linked,character\)/);
+assert.match(table,/linked.roles.map\(role=>[\s\S]*?taskCharacterVisual\(p,ep,\{role\},role.character\)/);
 assert.match(table,/vacationTag\(linked\.actorId\)/);
 assert.match(table,/reaperShortcutButton\(p,ep,true\)/);
 assert.match(table,/task-bulk-checkbox/);
