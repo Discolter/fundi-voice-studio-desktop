@@ -14,3 +14,26 @@ export function cloudHealth(cloud={},taskSyncError='',native=true,now=Date.now()
   if(cloud.pending||cloud.roleSyncReady===false)return {code:'pending',label:'Ожидает отправки',description:lastText+'Изменения ещё не подтверждены сервером.'};
   return {code:'online',label:'Синхронизировано',description:lastText+'Сервер отвечает, очередь ролей пуста, ошибок согласования нет.'};
 }
+
+export const rolePublicationKey=(projectId,episodeId)=>JSON.stringify([projectId,episodeId]);
+const castSignature=pairs=>JSON.stringify(pairs.sort());
+
+export function draftRoleCast(project,episode,actors){
+  if(project.archived)return '[]';
+  const enabled=new Set(actors.filter(actor=>actor.actorAccess).map(actor=>actor.id));
+  return castSignature(episode.roles.filter(role=>enabled.has(role.actorId))
+    .map(role=>[role.id,role.actorId]));
+}
+
+export function publishedRoleCasts(actors){
+  const episodes=new Map();
+  for(const actor of actors){
+    if(!actor.enabled)continue;
+    for(const role of actor.feed?.roles||[]){
+      const key=rolePublicationKey(role.projectId,role.episodeId);
+      if(!episodes.has(key))episodes.set(key,[]);
+      episodes.get(key).push([role.roleId,actor.actorId]);
+    }
+  }
+  return new Map([...episodes].map(([key,pairs])=>[key,castSignature(pairs)]));
+}

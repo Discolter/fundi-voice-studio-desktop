@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import vm from 'node:vm';
 import * as taskSync from '../package/web/task-cloud-sync.js';
+import * as cloudHealth from '../package/web/cloud-health.js';
 
 const root=resolve(import.meta.dirname,'..');
 const source=readFileSync(join(root,'package/web/app.js'),'utf8');
@@ -14,19 +15,28 @@ const state={actors:[],projects:[{id:'p',title:'Project',episodes:[{
 }]}]};
 const baseline=taskSync.buildTaskSnapshot(state),remote=structuredClone(baseline);
 remote.tasks[0].title='Changed on the website';
-const button={disabled:false,title:'',label:{textContent:''},querySelector(){return this.label;}};
-const context=vm.createContext({...taskSync,state,native:true,cloud:{connected:true},
-  taskSyncBusy:false,rolePublishBusy:false,refreshing:false,modal:{open:false},saving:false,
+const status={textContent:'',dataset:{},title:''};
+const button={disabled:false,title:'',label:{textContent:''},dataset:{id:'p',ep:'ep'},
+  querySelector(){return this.label;},parentElement:{querySelector:()=>status}};
+let roster=[],rosterError='';
+const context=vm.createContext({...taskSync,...cloudHealth,state,native:true,
+  cloud:{connected:true,server:'https://fixture.example',revision:1},roleCastCheck:null,rolePublicationResults:new Map(),
+  taskSyncBusy:false,rolePublishPhase:'',refreshing:false,modal:{open:false},saving:false,
   localEditRevision:0,saveError:'',taskSyncError:'',roleSyncConflicts:[],roleSyncDecisions:[],
   taskSyncConflicts:[],taskSyncChoices:[],JSON,console,
   document:{querySelector:()=>null,querySelectorAll:()=>[button]},
   icon:()=>'<svg></svg>',e:x=>x,updateRoleSyncBanner(){},toast(){},
+  getProject:id=>state.projects.find(p=>p.id===id),
   isActorPickerOpen:()=>false,scheduleTaskCloudSync(){},flushSave:async()=>{},
   persist(){context.localEditRevision++;},
   render(){button.disabled=/\sdisabled(?:[\s>])/.test(context.buttonHTML());},
   addStudioMirrorToSnapshot:async(s,snapshot)=>snapshot,
   verifyStudioMirrorImages:()=>({}),
   async api(path,body){
+    if(path==='cloud/actor-roster'){
+      if(rosterError)throw Error(rosterError);
+      return {actors:roster};
+    }
     if(path==='cloud/tasks/read')return {version:1,snapshot:remote};
     if(path==='cloud/tasks/baseline')return {known:true,snapshot:baseline};
     if(path==='cloud/tasks/write')return {version:1};
@@ -40,6 +50,8 @@ vm.runInContext(between('function updateCloudIndicator(){','\nfunction roleSyncB
   '\nglobalThis.buttonHTML=()=>episodePublishButton({id:"p"},{id:"ep"});'+
   '\nglobalThis.runSync=syncStudioTasks;globalThis.updateButtons=updateCloudIndicator;',context);
 assert.equal(await context.runSync(),true);
+const nextTick=()=>new Promise(setImmediate);
+await nextTick();
 assert.equal(state.projects[0].episodes[0].tasks[0].title,'Changed on the website');
 assert.equal(button.disabled,false,'A render during synchronization must not leave Publish disabled afterwards');
 context.cloud.connected=false;context.updateButtons();
@@ -49,9 +61,41 @@ context.cloud.connected=true;context.updateButtons();
 assert.equal(button.disabled,false,'Reconnecting re-enables the existing button without a full page render');
 context.taskSyncBusy=true;context.updateButtons();
 assert.equal(button.disabled,true);assert.match(button.label.textContent,/синхрониз/i);
-context.taskSyncBusy=false;context.rolePublishBusy=true;context.updateButtons();
+context.taskSyncBusy=false;context.rolePublishPhase='checking';context.updateButtons();
 assert.equal(button.disabled,true,'Double clicks cannot prepare two concurrent publications');
-context.rolePublishBusy=false;context.updateButtons();assert.equal(button.disabled,false);
+assert.match(status.textContent,/проверка/i);
+context.rolePublishPhase='sending';context.updateButtons();
+assert.match(status.textContent,/публикация ролей/i);
+context.rolePublishPhase='';context.updateButtons();assert.equal(button.disabled,false);
+assert.match(context.buttonHTML(),/studio-publish-status[^>]*role="status"/);
+assert.doesNotMatch(source,/studio-cast-draft-note/,'The compact status replaces the draft banner');
+assert.equal(status.dataset.state,'neutral','An empty series has no roles to publish');
+const [project]=state.projects;
+const [episode]=project.episodes;
+project.episodes.push({id:'ep2',roles:[]});
+state.actors.push({id:'a',actorAccess:true},{id:'b',actorAccess:false});
+episode.roles.push({id:'hero',actorId:'a'},{id:'local-role',actorId:'b'});
+context.updateButtons();
+assert.equal(status.dataset.state,'pending','Saving the draft does not confirm publication');
+const publishIn=async episodeId=>{
+  roster=[{actorId:'a',enabled:true,feed:{roles:[{projectId:'p',episodeId,roleId:'hero'}]}}];
+  context.cloud.revision++;context.updateButtons();await nextTick();
+};
+await publishIn('ep2');
+assert.equal(status.dataset.state,'pending','A published assignment in another episode does not count');
+await publishIn('ep');
+assert.equal(status.dataset.state,'success','A matching published cast excludes actors without Cloud access');
+episode.roles[0].status='done';episode.roles[0].roleTier='extras';context.updateButtons();
+assert.equal(status.dataset.state,'success','Live processing and category changes do not dirty cast assignments');
+episode.roles.shift();context.updateButtons();
+assert.equal(status.dataset.state,'pending','Unpublished removal of an actor assignment is detected');
+context.rolePublicationResults.set(JSON.stringify([context.cloud.server,'p','ep']),{error:'Сервер отклонил публикацию'});
+context.updateButtons();
+assert.equal(status.dataset.state,'error');assert.match(status.title,/отклонил/);
+button.dataset.ep='ep2';context.updateButtons();
+assert.equal(status.dataset.state,'neutral','Publication errors stay with their episode');
+rosterError='Ошибка связи';context.cloud.revision++;context.updateButtons();await nextTick();
+assert.equal(status.dataset.state,'error');assert.equal(status.title,rosterError);
 console.log('PASS: publication button recovers after background synchronization and reconnecting');
 
 if(process.platform==='win32'){

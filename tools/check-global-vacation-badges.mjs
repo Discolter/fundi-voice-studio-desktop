@@ -18,7 +18,7 @@ const expected=[
   ['actor portal cards',"function renderActorPortal()"],
   ['actor portal badge',"${vacationTag(a.id)}${a.telegram?"],
   ['role table',"function rolesTable(rows,global=false)"],
-  ['role table badge',"${vacationTag(r.actorId)}</td>"],
+  ['role table badge',"${reserveLinks(p,ep,r)}${vacationTag(r.actorId)}"],
   ['unassigned actor badge',"${vacationTag(actor.id)}</div>"],
   ['actor details modal',"${actorAvatar(a,true)}${vacationTag(a.id)}"],
   ['actor portal role preview',"${vacationTag(id)}${rows}</div>"],

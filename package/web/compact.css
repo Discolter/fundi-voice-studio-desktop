@@ -760,39 +760,71 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 /* Casting importance: independent from the recording/processing status.
    Group headers remain readable in all Studio themes. */
 body{
-  --role-tier-main:#ffbd70;
-  --role-tier-supporting:#79e2aa;
-  --role-tier-extras:#f2e962;
+  --role-tier-main:#ffe36f;
+  --role-tier-supporting:#b5e86a;
+  --role-tier-extras:#e3a177;
+  --role-tier-main-text:var(--role-tier-main);
+  --role-tier-supporting-text:var(--role-tier-supporting);
+  --role-tier-extras-text:#f7c09b;
   --role-tier-surface:var(--surface);
 }
 body:is([data-theme=light],[data-theme=silver]){
-  --role-tier-main:#773900;
-  --role-tier-supporting:#164e34;
-  --role-tier-extras:#584b00;
+  --role-tier-main-text:#604900;
+  --role-tier-supporting-text:#3b5309;
+  --role-tier-extras-text:#77401f;
 }
 body[data-theme=slate]{--role-tier-surface:color-mix(in srgb,var(--surface) 32%,#1c2533)}
-:is(.role-tier-main,.role-tier-divider-main,[data-role-tier=main]){--tier-accent:var(--role-tier-main)}
-:is(.role-tier-supporting,.role-tier-divider-supporting,[data-role-tier=supporting]){--tier-accent:var(--role-tier-supporting)}
-:is(.role-tier-extras,.role-tier-divider-extras,[data-role-tier=extras]){--tier-accent:var(--role-tier-extras)}
+:is(.role-tier-main,.role-tier-divider-main,[data-role-tier=main]){
+  --tier-accent:var(--role-tier-main);--tier-text:var(--role-tier-main-text);
+}
+:is(.role-tier-supporting,.role-tier-divider-supporting,[data-role-tier=supporting]){
+  --tier-accent:var(--role-tier-supporting);--tier-text:var(--role-tier-supporting-text);
+}
+:is(.role-tier-extras,.role-tier-divider-extras,[data-role-tier=extras]){
+  --tier-accent:var(--role-tier-extras);--tier-text:var(--role-tier-extras-text);
+}
+body:not(:is([data-theme=light],[data-theme=silver])) :is(
+  .role-tier-divider-main .role-tier-divider-content strong,[data-role-tier=main] .fv-option-name
+){
+  text-shadow:0 0 7px color-mix(in srgb,var(--tier-accent) 24%,transparent);
+}
 .cast-table tbody tr.role-tier-divider td{
-  padding:11px 15px;
+  padding:0;
   background:color-mix(in srgb,var(--tier-accent) 9%,var(--role-tier-surface));
   border-top:1px solid color-mix(in srgb,var(--tier-accent) 30%,transparent);
   border-bottom:1px solid color-mix(in srgb,var(--tier-accent) 18%,transparent);
   border-left:3px solid var(--tier-accent);
   text-align:left;
 }
-.role-tier-divider-content{display:flex;align-items:center;justify-content:space-between;gap:14px}
-.role-tier-divider-content strong{font-size:12px;font-weight:750;letter-spacing:.015em;color:var(--tier-accent)}
-.role-tier-divider-content span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.role-tier-divider-content{display:flex;align-items:center;gap:10px;width:100%;padding:11px 15px}
+.role-tier-toggle{border:0;background:transparent;text-align:left;cursor:pointer}
+.role-tier-toggle:hover{background:color-mix(in srgb,var(--tier-accent) 6%,transparent)}
+.role-tier-toggle:focus-visible{outline:2px solid var(--tier-accent);outline-offset:-3px}
+.role-tier-divider-content strong{font-size:12px;font-weight:750;letter-spacing:.015em;color:var(--tier-text)}
+.role-tier-divider-content span{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.role-tier-chevron{color:var(--tier-text);flex:none;transition:transform 320ms cubic-bezier(.22,1,.36,1)}
+.role-tier-toggle[aria-expanded=true] .role-tier-chevron{transform:rotate(90deg)}
+.cast-table tbody.role-tier-rows tr.role-row>td{padding:0;border-bottom:0}
+.role-tier-cell-panel{display:grid;grid-template-rows:0fr;opacity:0;
+  transition:grid-template-rows 320ms cubic-bezier(.22,1,.36,1),opacity 220ms ease}
+.role-tier-cell-clip{min-height:0;overflow:hidden}
+.role-tier-cell-content{padding:15px 16px;border-bottom:1px solid var(--line)}
+.role-tier-rows td:first-child .role-tier-cell-content{padding-left:12px}
+.role-tier-rows tr:last-child .role-tier-cell-content{border-bottom-color:transparent}
+.role-tier-rows.is-expanded .role-tier-cell-panel{grid-template-rows:1fr;opacity:1}
+.role-tier-rows.is-expanded .role-tier-cell-clip{overflow:visible;animation:role-tier-unclip 320ms step-end}
+@keyframes role-tier-unclip{from{overflow:hidden}to{overflow:visible}}
+body[data-motion=off] :is(.role-tier-cell-panel,.role-tier-chevron){transition:none}
+body[data-motion=off] .role-tier-rows.is-expanded .role-tier-cell-clip{animation:none}
 .cast-table .row-select.role-tier{
-  min-width:135px;max-width:168px;font-weight:650;color:var(--tier-accent);
+  min-width:135px;max-width:168px;font-weight:650;color:var(--tier-text);
   background:color-mix(in srgb,var(--tier-accent) 10%,var(--role-tier-surface));
   border-color:color-mix(in srgb,var(--tier-accent) 38%,var(--line));
 }
 @media(max-width:960px){
   .cast-table .row-select.role-tier{min-width:119px;max-width:138px;font-size:10px}
-  .cast-table tbody tr.role-tier-divider td{padding:10px 12px}
+  .role-tier-divider-content{padding:10px 12px}
+  .role-tier-cell-content{padding:12px 11px}
 }
 
 /* Keep role casting menu scroll contained, even with hundreds of actors. */

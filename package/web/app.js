@@ -5,7 +5,7 @@ import {normalizeCalendarEntry} from './core.js';
 import {contentPath} from './software-library.js';
 import {createCasting} from './casting.js';
 import {formatBytes,storageMeter,transferPanel,fileStatus} from './file-tools.js';
-import {cloudHealth} from './cloud-health.js';
+import {cloudHealth,rolePublicationKey,draftRoleCast,publishedRoleCasts} from './cloud-health.js';
 import {outstandingCastMessage,outstandingEpisodeRoles} from './episode-debts.js';
 import {ageBadge,episodeAgeBadge} from './age.js';
 import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAccepted,unfinishedMyRoleEpisodes,MY_ROLE_ORDERS,validMyRoleOrder,sortMyRoleGroups} from './my-role-workload.js';
@@ -64,10 +64,13 @@ const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
 const expandedTaskProjects=new Set();
 const expandedRecommendationGroups=new Set();
 const expandedProjectRoles=new Set(); // Independent, ephemeral project-card disclosure.
+const collapsedRoleTiers=new Map();
 let taskHistoryQuery='';
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
 let syncedRoleSnapshotVersion=-1; // Version checked immediately before explicit episode publication.
-let rolePublishBusy=false;
+let rolePublishPhase='';
+let roleCastCheck=null;
+const rolePublicationResults=new Map();
 let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
 let textCastDraft=null;
 let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationFilter:'all'};
@@ -85,6 +88,11 @@ try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.la
   ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
   ui.debtProject=typeof saved.debtProject==='string'&&saved.debtProject.length<=80?saved.debtProject:'all';
   ui.recommendationFilter=validRecommendationFilter(saved.recommendationFilter);
+  for(const [id,tiers] of Object.entries(saved.collapsedRoleTiers||{})){
+    if(!Array.isArray(tiers))continue;
+    const collapsed=new Set(tiers.filter(tier=>ROLE_TIERS.some(([key])=>key===tier)));
+    if(collapsed.size)collapsedRoleTiers.set(id,collapsed);
+  }
 }catch{}
 const app=document.querySelector('#app'),modal=document.querySelector('#modal');
 const activeProjects=()=>state.projects.filter(p=>!p.archived&&!p.hidden);
@@ -210,16 +218,56 @@ function updateCloudIndicator(){
   if(text)text.textContent=health.label;
 }
 function updateEpisodePublishButtons(){
-  const disabled=!native||!cloud.connected||taskSyncBusy||refreshing||rolePublishBusy;
-  const label=rolePublishBusy?'Проверяем публикацию…':taskSyncBusy||refreshing?'Синхронизируем…':'Опубликовать роли';
+  const disabled=!native||!cloud.connected||taskSyncBusy||refreshing||Boolean(rolePublishPhase);
+  const label=rolePublishPhase==='sending'?'Публикуем роли…':rolePublishPhase?'Проверяем роли…':
+    taskSyncBusy||refreshing?'Синхронизируем…':'Опубликовать роли';
   const title=!cloud.connected?'Подключи Fundi Voice Cloud во вкладке «Доступ актёров».':
-    rolePublishBusy?'Дождись завершения публикации.':taskSyncBusy||refreshing?'Синхронизация черновика. Кнопка станет доступна после завершения.':
-    'Передать назначения только этой серии актёрам; остальные серии останутся без изменений';
-  for(const button of document.querySelectorAll('[data-action="publish-episode-roles"]')){
+    rolePublishPhase?'Дождись завершения операции.':taskSyncBusy||refreshing?'Синхронизация черновика. Кнопка станет доступна после завершения.':
+    'Передать назначения этой серии актёрам';
+  const buttons=document.querySelectorAll('[data-action="publish-episode-roles"]');
+  if(buttons.length)refreshRoleCasts();
+  for(const button of buttons){
     button.disabled=disabled;button.title=title;
     const text=button.querySelector('.studio-publish-label');
-    if(text)text.textContent=label;
+    if(text&&text.textContent!==label)text.textContent=label;
+    const status=button.parentElement.querySelector('.studio-publish-status');
+    const project=getProject(button.dataset.id),episode=project?.episodes.find(ep=>ep.id===button.dataset.ep);
+    if(!status||!episode)continue;
+    const [code,message,details='']=episodePublicationStatus(project,episode);
+    if(status.textContent!==message)status.textContent=message;
+    status.dataset.state=code;
+    status.title=details;
   }
+}
+const roleRosterKey=()=>JSON.stringify([cloud.server,cloud.revision]);
+const rolePublicationResultKey=(project,episode)=>JSON.stringify([cloud.server,project.id,episode.id]);
+function refreshRoleCasts(){
+  if(!native||!cloud.connected||rolePublishPhase||taskSyncBusy||refreshing)return;
+  const key=roleRosterKey();
+  if(roleCastCheck?.key===key&&(!roleCastCheck.error||Date.now()-roleCastCheck.started<30000))return;
+  const check={key,started:Date.now(),casts:null,error:''};
+  roleCastCheck=check;
+  api('cloud/actor-roster',{}).then(data=>{check.casts=publishedRoleCasts(data.actors);})
+    .catch(error=>{check.error=error.message;})
+    .finally(()=>{if(roleCastCheck===check)updateEpisodePublishButtons();});
+}
+function episodePublicationStatus(project,episode){
+  if(!cloud.connected)return ['neutral','Облако не подключено'];
+  if(rolePublishPhase)return ['busy',rolePublishPhase==='sending'?'Публикация ролей…':'Проверка перед публикацией…'];
+  if(taskSyncBusy||refreshing||cloud.busy)return ['busy','Синхронизация…'];
+  const last=rolePublicationResults.get(rolePublicationResultKey(project,episode));
+  if(last?.error)return ['error','Ошибка публикации',last.error];
+  if(saveError)return ['error','Ошибка сохранения',saveError];
+  if(cloud.conflict||taskSyncError||cloud.error)
+    return ['error','Ошибка синхронизации',taskSyncError||cloud.error||'Нужно согласовать изменения ролей.'];
+  const check=roleCastCheck?.key===roleRosterKey()?roleCastCheck:null;
+  if(check?.error)return ['error','Ошибка проверки ролей',check.error];
+  const draft=draftRoleCast(project,episode,state.actors);
+  const acknowledged=last?.cast===draft&&last.revision>=(cloud.revision??0);
+  if(!check?.casts)return acknowledged?['success','Роли синхронизированы']:['busy','Проверяем роли…'];
+  const published=check.casts.get(rolePublicationKey(project.id,episode.id))??'[]';
+  if(draft!==published)return ['pending','Роли ждут публикации'];
+  return draft==='[]'&&!acknowledged?['neutral','Нет ролей для публикации']:['success','Роли синхронизированы'];
 }
 function roleSyncBannerHTML(){
   if(taskSyncConflicts.length){
@@ -374,7 +422,10 @@ function flushSave(){
   saveChain=saveChain.catch(()=>{}).then(()=>api('state',JSON.parse(snapshot))).then(()=>{saving=false;saveError='';updateSaveStatus();}).catch(err=>{saving=false;saveError=err.message;updateSaveStatus();toast('Не удалось сохранить на диск. '+err.message,true);});return saveChain;
 }
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
-function saveUI(){try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationFilter:ui.recommendationFilter}));}catch{}}
+function saveUI(){
+  const tiers=Object.fromEntries([...collapsedRoleTiers].map(([id,collapsed])=>[id,[...collapsed]]));
+  try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationFilter:ui.recommendationFilter,collapsedRoleTiers:tiers}));}catch{}
+}
 function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if((['vacations','review'].includes(page)||['recommendations','calendar'].includes(page))&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles',actorKey='',characterKey=''){
   selectedTasks.clear();
@@ -734,9 +785,12 @@ function acceptedEpisodeRolesForActors(p,ep){
   });
 }
 const episodePublishButton=(p,ep)=>native?
-  `<button type="button" class="btn primary small studio-publish-roles" data-action="publish-episode-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}"
-    title="Передать назначения только этой серии актёрам; остальные серии останутся без изменений"
-    ${!cloud.connected||taskSyncBusy||refreshing||rolePublishBusy?'disabled':''}>${icon('upload')}<span class="studio-publish-label">Опубликовать роли</span></button>`:'';
+  `<div class="studio-publish-control">
+    <button type="button" class="btn primary small studio-publish-roles" data-action="publish-episode-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}"
+      title="Передать назначения этой серии актёрам" aria-describedby="studio-publish-status"
+      ${!cloud.connected||taskSyncBusy||refreshing||rolePublishPhase?'disabled':''}>${icon('upload')}<span class="studio-publish-label">Опубликовать роли</span></button>
+    <small class="studio-publish-status" id="studio-publish-status" role="status"></small>
+  </div>`:'';
 function episodeRoles(p,ep){
   const mine=state.settings.mode==='actor';
   const viewEp=withRoleReviews({projects:[p]},cloud.reviews||[]).projects[0].episodes.find(item=>item.id===ep.id);
@@ -752,7 +806,7 @@ function episodeRoles(p,ep){
   const assignmentCounts={all:all.length,assigned:assignedCount,unassigned:all.length-assignedCount};
   const assignmentOptions=ROLE_ASSIGNMENT_FILTERS.map(([key,label])=>[key,`${label} (${assignmentCounts[key]})`]);
   if(!ep.roles.length){
-    return `<div class="panel-head"><div class="role-count">Ролей: 0 · Актёров: 0</div><div class="btn-row">${episodePublishButton(p,ep)}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль вручную</button>${ep.stage==='done'?'':`<button class="btn ghost small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}</div></div>
+    return `<div class="panel-head episode-role-head"><div class="role-count">Ролей: 0 · Актёров: 0</div><div class="btn-row">${episodePublishButton(p,ep)}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль вручную</button>${ep.stage==='done'?'':`<button class="btn ghost small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}</div></div>
       <section class="ass-import-empty"><span class="ass-import-symbol">${icon('file')}</span>
       <h2>В этой серии пока нет персонажей</h2>
       <p>Импортируй ASS/SSA субтитры. Studio создаст роли по полю Name/Actor и предложит актёров из предыдущей серии.</p>
@@ -761,7 +815,7 @@ function episodeRoles(p,ep){
       <small>Поддерживаются .ass и .ssa · файл обрабатывается локально</small></section>`;
   }
 
-  return `<div class="panel-head"><div class="role-count" title="Уникальные исполнители, назначенные на роли в этой серии">Ролей: ${ep.roles.length} · Актёров: ${engagedActors}</div><div class="btn-row">${episodePublishButton(p,ep)}${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div>${native?'<p class="studio-cast-draft-note">Черновик ролей: любые назначения сохраняются на компьютере. Актёры получат состав только после нажатия «Опубликовать роли» для этой серии.</p>':''}<div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select><select class="row-select" id="role-assignment-filter" aria-label="Фильтр по назначению ролей">${options(assignmentOptions,ui.roleAssignment||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импорт из ASS</button><button class="text-button" data-action="text-cast-import" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('users')}Распределить по тексту</button><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${ep.roles.length&&!ep.roles.some(r=>r.actorId||r.actor)?`<div class="ass-unassigned-tip">Пока никому не назначены роли. Можно заполнить список из ASS и автоматически подобрать совпадения с предыдущей серией. <button type="button" class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать ASS</button></div>`:''}${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр назначения, персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
+  return `<div class="panel-head episode-role-head"><div class="role-count" title="Уникальные исполнители, назначенные на роли в этой серии">Ролей: ${ep.roles.length} · Актёров: ${engagedActors}</div><div class="btn-row">${episodePublishButton(p,ep)}${hideable.length?`<button type="button" class="btn ghost small episode-hide-accepted" data-action="hide-accepted-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Убрать принятые роли этой серии из активных списков актёров. Статусы, записи и таблица Studio останутся без изменений." ${!native||!cloud.connected?'disabled':''}>${icon('eye-off')}Скрыть принятые роли (${hideable.length})</button>`:''}<button class="btn ghost small" data-action="cast-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('copy')}Состав для чата</button><button class="btn ghost small" data-action="debts-preview" data-id="${e(p.id)}" data-ep="${e(ep.id)}" title="Скопировать ожидаемые записи и перезаписи в Telegram">${icon('debts')}Долги для чата (${outstandingEpisodeRoles(ep).length})</button>${ep.stage==='done'?`<span class="stage-badge" data-stage="done">Серия завершена</span>`:`<button class="btn primary small" data-action="complete-episode" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('check')}Серия завершена</button>`}<button class="btn primary small" data-action="new-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Роль</button></div></div><div class="role-toolbar"><select class="row-select" id="role-filter" aria-label="Фильтр по статусу">${options([['all','Все статусы'],...ROLE_STAGES],ui.roleFilter||'all')}</select><select class="row-select" id="role-actor-filter" aria-label="Фильтр по актёру">${options(actorOptions,ui.roleActor||'all')}</select><select class="row-select" id="role-order" aria-label="Сортировка ролей">${options([['original','По порядку'],['workload','Больше ролей сверху'],['actor','По имени актёра']],ui.roleOrder||'original')}</select><select class="row-select" id="role-character-filter" aria-label="Фильтр по персонажу">${options(characterOptions,ui.roleCharacter||'all')}</select><select class="row-select" id="role-assignment-filter" aria-label="Фильтр по назначению ролей">${options(assignmentOptions,ui.roleAssignment||'all')}</select>${episodeUnassignedList(ep)}<span class="role-filter-count">Показано ${rows.length} из ${all.length}</span><button class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импорт из ASS</button><button class="text-button" data-action="text-cast-import" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('users')}Распределить по тексту</button><button class="text-button" data-action="import-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('folder')}Импорт из озвучки</button></div>${ep.roles.length&&!ep.roles.some(r=>r.actorId||r.actor)?`<div class="ass-unassigned-tip">Пока никому не назначены роли. Можно заполнить список из ASS и автоматически подобрать совпадения с предыдущей серией. <button type="button" class="text-button" data-action="import-ass-roles" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('upload')}Импортировать ASS</button></div>`:''}${rolesTable(rows)||empty(all.length?'Ничего не найдено. Измени фильтр назначения, персонажа, актёра или статуса.':'Добавь персонажей серии','new-role','Добавить роль',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;
 }
 const actorLabel=a=>a.name+(a.telegram?' @'+a.telegram:'');
 // Встроенный визуальный выбор актёра: карточки загружаются в список только при открытии.
@@ -882,19 +936,45 @@ function multiActorCharacterMark(ep,r){
     ?`<span class="multi-actor-count" title="Один персонаж, отдельные записи и статусы у каждого исполнителя">${icon('users')} ${siblings.length} исполн.</span>`
     :'';
 }
-// Keep existing actor/status/order filters; only group the visible characters by their importance.
-function roleTierSortedRows(rows){
-  const rank=role=>ROLE_TIERS.findIndex(([key])=>key===validRoleTier(role.roleTier));
-  return [...rows].sort((a,b)=>rank(a.r)-rank(b.r));
+function rolesTable(rows,global=false){
+  if(!rows.length)return '';
+  const projectId=global?'':rows[0].p.id;
+  const groups=ROLE_TIERS.map(([tier])=>{
+    const matching=rows.filter(({r})=>validRoleTier(r.roleTier)===tier);
+    if(!matching.length)return '';
+    const panelId=`role-tier-${tier}-${projectId}`;
+    const expanded=!collapsedRoleTiers.get(projectId)?.has(tier);
+    const count=matching.length;
+    const title={main:'Главные роли',supporting:'Второстепенные роли',extras:'Массовка'}[tier];
+    const noun=count%10===1&&count%100!==11?'роль':
+      count%10>=2&&count%10<=4&&(count%100<12||count%100>14)?'роли':'ролей';
+    const summary=`<strong>${e(title)}</strong><span>${count} ${noun}</span>`;
+    const heading=projectId?`<button type="button" class="role-tier-divider-content role-tier-toggle"
+      data-action="toggle-role-tier" data-id="${e(projectId)}" data-tier="${tier}"
+      aria-expanded="${expanded}" aria-controls="${e(panelId)}">${summary}${icon('chevron','role-tier-chevron')}</button>`
+      :`<div class="role-tier-divider-content">${summary}</div>`;
+    return `<tbody><tr class="role-tier-divider role-tier-divider-${tier}">
+      <td colspan="${global?7:6}">${heading}</td></tr></tbody>
+      <tbody class="role-tier-rows${expanded?' is-expanded':''}" id="${e(panelId)}" aria-hidden="${!expanded}"${expanded?'':' inert'}>
+        ${matching.map(row=>castRoleRow(row,global)).join('')}
+      </tbody>`;
+  }).join('');
+  return `<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>
+    ${global?'<th>Проект</th>':''}<th>Категория</th><th>Обработка</th><th>Возраст</th><th></th></tr></thead>
+    ${groups}</table></div>`;
 }
-function roleTierDivider(rows,index){
-  const tier=validRoleTier(rows[index].r.roleTier);
-  if(index>0&&validRoleTier(rows[index-1].r.roleTier)===tier)return '';
-  const title=tier==='main'?'Главные роли':tier==='extras'?'Массовка':'Второстепенные роли';
-  const count=rows.filter(({r})=>validRoleTier(r.roleTier)===tier).length;
-  return `<tr class="role-tier-divider role-tier-divider-${e(tier)}"><td colspan="6"><div class="role-tier-divider-content"><strong>${e(title)}</strong><span>${count} ${count===1?'роль':count%10>=2&&count%10<=4&&(count%100<12||count%100>14)?'роли':'ролей'}</span></div></td></tr>`;
+function castRoleRow({p,ep,r},global){
+  const cell=content=>`<td><div class="role-tier-cell-panel"><div class="role-tier-cell-clip"><div class="role-tier-cell-content">${content}</div></div></div></td>`;
+  return `<tr class="role-row status-${e(r.status)} ${matchingCharacterRoles(ep,r).length>1?'multi-actor-role-row':''}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">
+    ${cell(`${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${multiActorCharacterMark(ep,r)}${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${validRoleVoice(r.voiceGender)?`<span class="role-voice-badge">${e(roleVoiceLabel(r.voiceGender))}</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}`)}
+    ${cell(`${actorPicker(r,{pid:p.id,eid:ep.id})}${reserveLinks(p,ep,r)}${vacationTag(r.actorId)}`)}
+    ${global?cell(`<button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div>`):''}
+    ${cell(`<select class="row-select role-tier role-tier-${e(validRoleTier(r.roleTier))}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Категория роли ${e(r.character)}">${options(ROLE_TIERS,validRoleTier(r.roleTier))}</select>`)}
+    ${cell(`<select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select>`)}
+    ${cell(`${ageBadge(r.createdAt)}`)}
+    ${cell(`<div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn multi-actor-add-btn" data-action="multi-role-actors" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Назначить несколько актёров на этого персонажа" aria-label="Добавить актёров на персонажа ${e(r.character)}">${icon('users')}</button><button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div>`)}
+  </tr>`;
 }
-function rolesTable(rows,global=false){return !rows.length?'':`<div class="table-wrap"><table class="cast-table"><thead><tr><th>Персонаж</th><th>Актёр</th>${global?'<th>Проект</th>':''}<th>Категория</th><th>Обработка</th><th>Возраст</th><th></th></tr></thead><tbody>${roleTierSortedRows(rows).map(({p,ep,r},i,arr)=>`${roleTierDivider(arr,i)}<tr class="role-row status-${e(r.status)} ${matchingCharacterRoles(ep,r).length>1?'multi-actor-role-row':''}" data-qv-context="role" data-qv-actor="${e(r.actorId||'')}" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}"><td>${roleImageThumb(r)}<button type="button" class="character-name qv-inline-trigger" data-qv-open="role" data-qv-project="${e(p.id)}" data-qv-episode="${e(ep.id)}" data-qv-role="${e(r.id)}">${e(r.character)}</button>${multiActorCharacterMark(ep,r)}${r.lineCount!==null&&Number.isInteger(r.lineCount)?`<span class="role-line-count" title="Количество реплик персонажа">${r.lineCount} репл.</span>`:''}${validRoleVoice(r.voiceGender)?`<span class="role-voice-badge">${e(roleVoiceLabel(r.voiceGender))}</span>`:''}${reviewMarker(r)}${effectiveRoleDue(r,ep)?`<small class="role-due ${dueClass(effectiveRoleDue(r,ep),r.status==='done')}">${icon('calendar')} ${e(dueLabel(effectiveRoleDue(r,ep)))}</small>`:''}${r.mine?' <span class="pill">Моя</span>':''}${r.notes?`<span class="note-dot" title="${e(r.notes)}">•</span>`:''}</td><td>${actorPicker(r,{pid:p.id,eid:ep.id})}${reserveLinks(p,ep,r)}${vacationTag(r.actorId)}</td>${global?`<td><button class="text-button" data-action="open-project" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-tab="roles">${e(p.title)}</button><div class="table-sub">${e(episodeLabel(p,ep))}</div></td>`:''}<td><select class="row-select role-tier role-tier-${e(validRoleTier(r.roleTier))}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Категория роли ${e(r.character)}">${options(ROLE_TIERS,validRoleTier(r.roleTier))}</select></td><td><select class="row-select role-status status-${e(r.status)}" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" aria-label="Обработка ${e(r.character)}">${options(ROLE_STAGES,r.status)}</select></td><td>${ageBadge(r.createdAt)}</td><td><div class="table-actions">${roleRecordingButton(p,ep,r)}${actorCabinetVisibilityButton(p,ep,r)}${native&&actorForRole(state,r)?.actorAccess?`<button class="icon-btn" data-action="review-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Ответить актёру" aria-label="Ответить актёру">${icon('chat')}</button>`:''}${r.folder?`<button class="icon-btn" data-action="role-folder" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Голос" aria-label="Папка голоса">${icon('folder')}</button>`:''}${r.subtitle?`<button class="icon-btn" data-action="role-subs" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Субтитры" aria-label="Субтитры персонажа">${icon('file')}</button>`:''}<button class="icon-btn multi-actor-add-btn" data-action="multi-role-actors" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Назначить несколько актёров на этого персонажа" aria-label="Добавить актёров на персонажа ${e(r.character)}">${icon('users')}</button><button class="icon-btn" data-action="edit-role" data-id="${e(p.id)}" data-ep="${e(ep.id)}" data-item="${e(r.id)}" title="Изменить роль" aria-label="Изменить роль">${icon('edit')}</button></div></td></tr>`).join('')}</tbody></table></div>`;}
 
 function episodeTasks(p,ep){return `<div class="panel-head"><h2>Задачи</h2><button class="btn primary small" data-action="new-task" data-id="${e(p.id)}" data-ep="${e(ep.id)}">${icon('plus')}Добавить</button></div>${tasksTable(ep.tasks.filter(t=>state.settings.mode!=='actor'||t.mine).map(t=>({p,ep,t})))||empty('Нет задач','new-task','Добавить задачу',`data-id="${e(p.id)}" data-ep="${e(ep.id)}"`)}`;}
 // Compact visual identity cells for task assignments; always derive from live project/role/actor data.
@@ -1364,7 +1444,7 @@ async function refreshAllStudio(button){
   if(refreshing)return;
   if(!native){toast('Проверка сервера доступна в Windows Studio.');return;}
   if(!cloud.connected){toast('Сначала подключи Studio к Fundi Voice Cloud.',true);return;}
-  refreshing=true;if(button)button.disabled=true;updateEpisodePublishButtons();
+  refreshing=true;roleCastCheck=null;if(button)button.disabled=true;updateEpisodePublishButtons();
   try{
     if(saving)await flushSave();
     if(!await syncStudioTasks(true))return;
@@ -2269,6 +2349,18 @@ function updateDisclosure(button,panel,expanded){
 }
 
 async function action(a,d,el){
+  if(a==='toggle-role-tier'){
+    const panel=document.getElementById(el.getAttribute('aria-controls'));
+    if(!panel||!d.id||!ROLE_TIERS.some(([tier])=>tier===d.tier))return;
+    const expanded=el.getAttribute('aria-expanded')!=='true';
+    const collapsed=collapsedRoleTiers.get(d.id)||new Set();
+    if(expanded)collapsed.delete(d.tier);else collapsed.add(d.tier);
+    if(collapsed.size)collapsedRoleTiers.set(d.id,collapsed);else collapsedRoleTiers.delete(d.id);
+    saveUI();
+    closeActorPickers();
+    updateDisclosure(el,panel,expanded);
+    return;
+  }
   if(a==='toggle-project-missing'){
     const panel=el.closest('.project-card')?.querySelector('.project-missing-panel');
     if(!panel)return;
@@ -2524,9 +2616,11 @@ async function action(a,d,el){
     case 'publish-episode-roles':{
       if(!native||!cloud.connected)throw Error('Для публикации подключи Fundi Voice Cloud.');
       if(!p||!ep)throw Error('Выбери серию в разделе ролей.');
-      if(rolePublishBusy)return;
+      if(rolePublishPhase)return;
       if(taskSyncBusy||refreshing)throw Error('Синхронизация ещё идёт. Повтори публикацию после её окончания.');
-      rolePublishBusy=true;updateEpisodePublishButtons();
+      const resultKey=rolePublicationResultKey(p,ep);
+      rolePublicationResults.delete(resultKey);
+      rolePublishPhase='checking';updateEpisodePublishButtons();
       try{
         await flushSave();
         if(saveError)throw Error('Черновик не сохранён: '+saveError);
@@ -2542,23 +2636,32 @@ async function action(a,d,el){
            <p>Актёры получат новые роли и изменения назначений <strong>только этой серии</strong>. Переназначенные роли исчезнут у прежних исполнителей. Другие серии и их черновики не затрагиваются.</p>
            <p class="small muted">Нажатие «Обновить» и автоматическое сохранение не публикуют роли.</p>`,
           'Опубликовать роли',async()=>{
-            if(localEditRevision!==approvedEditRevision)
-              throw Error('Черновик изменился после проверки. Закрой окно и проверь роли заново.');
-            if(rolePublishBusy)return;
-            rolePublishBusy=true;updateEpisodePublishButtons();
+            if(rolePublishPhase)return;
+            rolePublishPhase='sending';updateEpisodePublishButtons();
             try{
+              if(localEditRevision!==approvedEditRevision)
+                throw Error('Черновик изменился после проверки. Закрой окно и проверь роли заново.');
+              const cast=draftRoleCast(p,ep,state.actors);
               const result=await api('cloud/roles/publish-episode',{
                 projectId:p.id,episodeId:ep.id,snapshotVersion:approvedSnapshotVersion
               });
+              rolePublicationResults.set(resultKey,{cast,revision:result.revision});
+              roleCastCheck=null;
               modal.close();
               await refreshCloud(true);
               render();
               toast('Роли опубликованы: '+result.publishedRoles+' · актёров: '+result.affectedActors);
               // Roster publish may update owner snapshot revision; recheck it normally.
               scheduleTaskCloudSync();
-            }finally{rolePublishBusy=false;updateEpisodePublishButtons();}
+            }catch(error){
+              rolePublicationResults.set(resultKey,{error:error.message});
+              throw error;
+            }finally{rolePublishPhase='';updateEpisodePublishButtons();}
           });
-      }finally{rolePublishBusy=false;updateEpisodePublishButtons();}
+      }catch(error){
+        rolePublicationResults.set(resultKey,{error:taskSyncError||error.message});
+        throw error;
+      }finally{rolePublishPhase='';updateEpisodePublishButtons();}
       break;
     }
     case 'new-role':roleForm(p.id,ep.id);break;
@@ -2951,6 +3054,9 @@ function openReserveProject(projectId,episodeId,roleId){
   openProject(project.id,episode?.id,'roles',role?episodeRoleActorKey(state,role):'',role?episodeRoleCharacterKey(role):'');
   const row=role&&document.querySelector(`.cast-table tr[data-qv-role="${CSS.escape(role.id)}"]`);
   if(row){
+    const panel=row.parentElement;
+    const toggle=panel.previousElementSibling?.querySelector('.role-tier-toggle');
+    if(toggle?.getAttribute('aria-expanded')==='false')updateDisclosure(toggle,panel,true);
     row.classList.add('fvr-reserve-target');
     row.tabIndex=-1;
     row.focus({preventScroll:true});

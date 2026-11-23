@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
 import {ROLE_TIERS,validRoleTier,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState} from '../package/web/core.js';
 import {parseAssCharacters,applyAssCastImport} from '../package/web/ass-role-import.js';
 import {addActorsToCharacter} from '../package/web/multi-actor-roles.js';
@@ -54,16 +55,57 @@ const app=readFileSync('package/web/app.js','utf8');
 const css=readFileSync('package/web/compact.css','utf8');
 const visual=readFileSync('package/web/visual-selects.js','utf8');
 const visualCss=readFileSync('package/web/visual-selects.css','utf8');
-assert.match(app,/roleTierSortedRows\(rows\)\.map/);
-assert.match(app,/roleTierDivider\(arr,i\)/);
+const segment=(start,end)=>app.slice(app.indexOf(start),app.indexOf(end,app.indexOf(start)));
+const preferenceKey='role-tiers-test',id='test-project';
+let savedUI='{}';
+function castView(){
+  const buttonAttrs=new Map([['aria-controls',`role-tier-main-${id}`],['aria-expanded','true']]);
+  const button={getAttribute:key=>buttonAttrs.get(key),setAttribute:(key,value)=>buttonAttrs.set(key,value)};
+  const panel={setAttribute:(key,value)=>panel[key]=value,toggleAttribute:(key,value)=>panel[key]=value,
+    classList:{toggle:(key,value)=>panel[key]=value}};
+  const settingsFilter=value=>value??'all';
+  const context=vm.createContext({ROLE_TIERS,validRoleTier,UIKEY:preferenceKey,
+    TASK_PRIORITIES:[['all']],validTaskOrder:settingsFilter,validMyRoleOrder:settingsFilter,
+    validTaskStatusFilter:settingsFilter,validTaskLineFilter:settingsFilter,validRecommendationFilter:settingsFilter,
+    localStorage:{getItem:()=>savedUI,setItem:(key,value)=>{assert.equal(key,preferenceKey);savedUI=value;}},
+    document:{getElementById:key=>key===buttonAttrs.get('aria-controls')?panel:null},
+    closeActorPickers(){},icon:()=>'<svg></svg>',e:x=>x,
+    castRoleRow:row=>`<tr><td>${row.r.id}</td></tr>`});
+  vm.runInContext('const collapsedRoleTiers=new Map();'+
+    segment('let ui=','const app=')+segment('function saveUI(){','function navigate(page)')+
+    segment('function rolesTable(rows,global=false){','function castRoleRow(')+
+    segment('function updateDisclosure(button,panel,expanded){',"  if(a==='toggle-project-missing'){")+'}\n'+
+    'globalThis.table=rolesTable;globalThis.action=action;',context);
+  return {button,buttonAttrs,panel,table:context.table,action:context.action};
+}
+const rows=projectId=>['extras','supporting','main'].map(tier=>({p:{id:projectId},r:{id:tier,roleTier:tier}}));
+const firstView=castView();
+const open=firstView.table(rows(id));
+assert.equal([...open.matchAll(/aria-expanded="true"/g)].length,3,'New projects expand all categories');
+assert.ok(open.indexOf('Главные роли')<open.indexOf('Второстепенные роли'));
+assert.ok(open.indexOf('Второстепенные роли')<open.indexOf('Массовка'));
+await firstView.action('toggle-role-tier',{id,tier:'main'},firstView.button);
+assert.equal(firstView.buttonAttrs.get('aria-expanded'),'false');
+assert.equal(firstView.panel['aria-hidden'],'true');assert.equal(firstView.panel.inert,true);
+const collapsed=firstView.table(rows(id));
+assert.match(collapsed,/data-tier="main"\s+aria-expanded="false"/);
+assert.match(collapsed,/role-tier-main-test-project" aria-hidden="true" inert/);
+assert.match(collapsed,/data-tier="supporting"\s+aria-expanded="true"/);
+const secondView=castView();
+assert.match(secondView.table(rows(id)),/data-tier="main"\s+aria-expanded="false"/,'Collapse survives a restart');
+assert.equal([...secondView.table(rows('other-project')).matchAll(/aria-expanded="true"/g)].length,3);
+await firstView.action('toggle-role-tier',{id,tier:'main'},firstView.button);
+assert.equal(firstView.panel.inert,false);
+assert.deepEqual(JSON.parse(savedUI).collapsedRoleTiers,{});
+assert.match(css,/\.role-tier-cell-panel\{[^}]+transition:grid-template-rows/s);
 assert.match(app,/name="roleTier"/);
 assert.match(app,/class="row-select role-tier/);
 assert.match(app,/matchingCharacterRoles\(ep,r\)\)sibling\.roleTier/);
 for(const [tier] of ROLE_TIERS){
-  assert.match(css,new RegExp(`\\.role-tier-divider-${tier}[^\\n]+\\[data-role-tier=${tier}\\][^\\n]+var\\(--role-tier-${tier}\\)`));
+  assert.match(css,new RegExp(`\\.role-tier-divider-${tier}[^\\n]+\\[data-role-tier=${tier}\\][^{]*\\{\\s*--tier-accent:var\\(--role-tier-${tier}\\);\\s*--tier-text:var\\(--role-tier-${tier}-text\\)`));
 }
 assert.match(visual,/classList\.contains\('role-tier'\)\) return 'role-tier'/);
 assert.match(visual,/button\.dataset\.roleTier = option\?\.value/);
 assert.match(visual,/item\.dataset\.roleTier = option\.value/);
-assert.match(visualCss,/\.fv-type-role-tier[\s\S]+\.fv-option-name\{\s*color:var\(--tier-accent\)/);
-console.log('PASS: role tiers, ASS inheritance, multicasting, legacy persistence and colors on visible category controls');
+assert.match(visualCss,/\.fv-type-role-tier[\s\S]+\.fv-option-name\{\s*color:var\(--tier-text\)/);
+console.log('PASS: role tiers, ASS inheritance, multicasting, colors and independent persistent project disclosure');
