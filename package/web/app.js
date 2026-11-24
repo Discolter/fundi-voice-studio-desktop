@@ -27,13 +27,15 @@ import {roleDeliverySnapshot,trackRoleDeliveries} from './actor-statistics.js';
 import {actorSubtabs,renderActorStatistics} from './actor-statistics-view.js';
 import {ROLE_VOICE_OPTIONS,validRoleVoice,roleVoiceLabel,roleVoiceFromActor,applyRoleVoiceFromActor,episodeActorWorkload,rankActorsForRole} from './casting-assistant.js';
 import {installVisualSelects} from './visual-selects.js';
-import {buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,verifySharedTaskLinks,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
+import {PROJECT_PRIORITIES,projectPriority} from './core.js';
+import {applyProjectPriorities,buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,verifySharedTaskLinks,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
 import {archiveTask,restoreTask,taskHistoryRows,taskRoleFields,taskRoleIds} from './task-history.js';
 import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterKey,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,projectRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
+ICONS.more='M5 12h.01M12 12h.01M19 12h.01';
 ICONS.star='m12 2 3.1 6.3 7 1-5.1 4.9 1.2 7-6.2-3.3-6.2 3.3 1.2-7-5.1-4.9 7-1Z';
 ICONS.grip='M8 5h.01M8 12h.01M8 19h.01M16 5h.01M16 12h.01M16 19h.01';
 ICONS.debts='M12 3 2 21h20L12 3ZM12 9v5M12 18h.01';
@@ -65,6 +67,17 @@ const expandedTaskProjects=new Set();
 const expandedRecommendationGroups=new Set();
 const expandedProjectRoles=new Set(); // Independent, ephemeral project-card disclosure.
 const projectProgressEpisodes=new Map();
+const PROJECT_PRIORITY_FOLDS='fundi-voice-project-priority-folds';
+const collapsedPrioritySections=new Set();
+try{
+  const saved=JSON.parse(localStorage.getItem(PROJECT_PRIORITY_FOLDS)||'[]');
+  if(Array.isArray(saved))for(const [key] of PROJECT_PRIORITIES){
+    if(saved.includes(key))collapsedPrioritySections.add(key);
+  }
+}catch{}
+function saveProjectPriorityFolds(){
+  try{localStorage.setItem(PROJECT_PRIORITY_FOLDS,JSON.stringify([...collapsedPrioritySections]));}catch{}
+}
 const collapsedRoleTiers=new Map();
 let taskHistoryQuery='';
 let taskSyncBusy=false,taskSyncTimer=null,taskSyncError='',lastImageSync=null;
@@ -387,7 +400,8 @@ async function syncStudioTasks(visible=false){
       // submission still has a new review version and will be applied normally.
       if(version&&role.reviewSeen!==version){role.reviewSeen=version;reviewsModified=true;}
     }
-    const modified=tasksModified||assignmentsModified||stagesModified||reviewsModified;
+    const prioritiesModified=applyProjectPriorities(state,confirmed.snapshot.projects);
+    const modified=tasksModified||assignmentsModified||stagesModified||reviewsModified||prioritiesModified;
     if(modified){
       persist();editRevision=localEditRevision;await flushSave();
       if(saveError)throw Error('Не удалось сохранить согласованные роли на диск: '+saveError);
@@ -497,8 +511,18 @@ function renderProjects(c){
   let html=heading(hidden?'Скрытые проекты':archived?'Архив':'Проекты','',`<button class="btn primary" data-action="new-project">${icon('plus')}Новый проект</button>`);
   html+=`<div class="section-bar"><div class="filter-tabs"><button class="filter-tab ${!archived&&ui.filter==='all'?'active':''}" data-nav="projects">Активные <span>${c.projects}</span></button><button class="filter-tab ${!archived&&ui.filter==='favorite'?'active':''}" data-filter="favorite">Избранное</button><button class="filter-tab ${archived?'active':''}" data-nav="archive">Архив</button><button class="filter-tab ${hidden?'active':''}" data-nav="hidden">Скрытые <span>${state.projects.filter(p=>p.hidden).length}</span></button></div><div class="view-tools"><select id="sort-select" aria-label="Сортировка">${options([['recent','Недавние'],['due','По сроку'],['name','По названию'],['progress','По степени выполнения']],ui.sort)}</select><div class="view-switch"><button data-action="layout-grid" class="${ui.layout==='grid'?'active':''}" title="Карточки">${icon('grid')}</button><button data-action="layout-table" class="${ui.layout==='table'?'active':''}" title="Список">${icon('list')}</button></div></div></div>`;
   if(!projects.length)return html+empty(ui.query?'Ничего не найдено':hidden?'Скрытых проектов нет':archived?'Архив пуст':'Нет проектов',ui.query?'clear-search':archived||hidden?'':'new-project',ui.query?'Сбросить поиск':'Новый проект');
-  if(ui.layout==='grid')return html+`<div class="projects-grid">${projects.map(renderCard).join('')}</div>`;
-  return html+`<div class="table-wrap"><table class="projects-table"><thead><tr><th>Проект</th><th>Серия</th><th>Этап</th><th>Срок</th><th>Возраст</th><th>Роли</th><th></th></tr></thead><tbody>${projects.map(renderProjectListRow).join('')}</tbody></table></div>`;
+  if(hidden||archived||ui.filter!=='all')return html+renderProjectItems(projects);
+  return html+`<div class="project-priority-sections">${PROJECT_PRIORITIES.map(([priority,label])=>{
+    const group=projects.filter(p=>projectPriority(p.priority)===priority);
+    const title=`<span class="project-priority-mark" aria-hidden="true"></span><strong>${label}</strong><span class="project-priority-count">${group.length}</span>`;
+    const attrs=`class="project-priority-section" data-project-priority="${priority}"`;
+    if(!group.length)return `<section ${attrs}><div class="project-priority-heading">${title}</div></section>`;
+    return `<details ${attrs} ${collapsedPrioritySections.has(priority)?'':'open'}><summary class="project-priority-heading">${title}<span class="project-priority-chevron" aria-hidden="true"></span></summary>${renderProjectItems(group)}</details>`;
+  }).join('')}</div>`;
+}
+function renderProjectItems(projects){
+  if(ui.layout==='grid')return `<div class="projects-grid">${projects.map(renderCard).join('')}</div>`;
+  return `<div class="table-wrap"><table class="projects-table"><thead><tr><th>Проект</th><th>Серия</th><th>Этап</th><th>Срок</th><th>Возраст</th><th>Роли</th><th></th></tr></thead><tbody>${projects.map(renderProjectListRow).join('')}</tbody></table></div>`;
 }
 function projectArt(p,large=false){return p.cover?`<img class="project-poster ${large?'large':''}" src="${e(p.cover)}" alt="Обложка ${e(p.title)}">`:`<span class="mini-emblem color-${e(p.color)}">${art(p)}</span>`;}
 function projectEpisodePicker(p,episode){
@@ -510,6 +534,10 @@ function projectOpenAttrs(p,episode){
   const target=projectProgressEpisodes.get(p.id)===episode.id?` data-ep="${e(episode.id)}"`:'';
   return `data-action="open-project" data-id="${e(p.id)}"${target}`;
 }
+function projectPriorityButton(p){
+  if(p.archived||p.hidden)return '';
+  return `<button type="button" class="icon-btn project-priority-menu" data-action="project-priority" data-id="${e(p.id)}" title="Приоритет проекта" aria-label="Приоритет проекта · ${e(p.title)}" aria-haspopup="dialog">${icon('more')}</button>`;
+}
 function renderCard(p){
   const progress=projectRoleProgress(p,projectProgressEpisodes.get(p.id));
   const ep=progress.episode,open=projectOpenAttrs(p,ep);
@@ -517,7 +545,7 @@ function renderCard(p){
   const panelId='project-missing-'+p.id;
   const toggleAttrs='type="button" class="project-missing-toggle project-remaining-count" data-action="toggle-project-missing" data-id="'+e(p.id)+'" aria-controls="'+e(panelId)+'" aria-expanded="'+expanded+'" title="Незавершённые роли"';
   const progressLabel=projectRoleProgressLabel(p,progress,{toggleAttrs});
-  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" ${open} aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" ${open}>${e(p.title)}</button><div class="card-meta">${projectEpisodePicker(p,ep)}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button></div><div class="card-stage">${badge(ep)}${episodeAgeBadge(ep)}${progressLabel}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" ${open}>Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" ${open} aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" ${open}>${e(p.title)}</button><div class="card-meta">${projectEpisodePicker(p,ep)}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button>${projectPriorityButton(p)}</div><div class="card-stage">${badge(ep)}${episodeAgeBadge(ep)}${progressLabel}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" ${open}>Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
 }
 function renderProjectListRow(p){
   const progress=projectRoleProgress(p,projectProgressEpisodes.get(p.id));
@@ -526,7 +554,7 @@ function renderProjectListRow(p){
     <td class="muted">${projectEpisodePicker(p,ep)}</td><td>${badge(ep)}</td>
     <td class="small ${dueClass(ep.due,ep.stage==='done')}">${ep.due?dueLabel(ep.due):'—'}</td>
     <td>${episodeAgeBadge(ep,true)}</td><td>${projectRoleProgressLabel(p,progress)}</td>
-    <td><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button><button class="btn ghost small" ${open}>Открыть</button></td></tr>`;
+    <td>${projectPriorityButton(p)}<button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button><button class="btn ghost small" ${open}>Открыть</button></td></tr>`;
 }
 
 function projectRoleProgressLabel(p,{episode,accepted,total,remaining,tone},{toggleAttrs=''}={}){
@@ -1904,7 +1932,14 @@ function projectForm(id,section=''){
   if(section==='folder'){attachRoot(p.id);return;}
   if(section==='cover'){showModal('Картинка проекта',p.title,`<div class="form-grid">${coverEditor(p.cover||'')}</div>`,'Сохранить',data=>{p.cover=safeCover(data.cover);touch(p);modal.close();render();toast('Сохранено');});return;}
   if(section==='name'){showModal('Название проекта','',`<div class="form-grid">${field('Название *',input('title',p.title,'text','required maxlength="160"'),'',true)}${field('Сезон',input('season',p.season,'number','min="1" max="9999"'),'',true)}</div>`,'Сохранить',data=>{if(!data.title.trim())throw new Error('Укажи название.');p.title=data.title.trim();p.season=data.season||'';touch(p);modal.close();render();toast('Сохранено');});return;}
-  showModal('Дополнительно',p.title,`<div class="form-grid">${field('Другое название',input('alias',p.alias,'text','maxlength="300"'),'',true)}${field('Цвет',`<div class="color-picker">${COLORS.map(c=>`<button type="button" class="color-option color-${c} ${c===p.color?'selected':''}" data-action="color" data-color="${c}" title="${c}" aria-label="Цвет ${c}"></button>`).join('')}</div>${input('color',p.color,'hidden')}`)}${field('Приоритет',`<select name="priority">${options([['normal','Обычный'],['high','Высокий'],['low','Низкий']],p.priority)}</select>`)}${field('Заметки',area('notes',p.notes),'',true)}</div>`,'Сохранить',data=>{p.alias=(data.alias||'').trim();p.color=COLORS.includes(data.color)?data.color:'lime';p.priority=data.priority||'normal';p.notes=data.notes||'';touch(p);modal.close();render();});
+  showModal('Дополнительно',p.title,`<div class="form-grid">${field('Другое название',input('alias',p.alias,'text','maxlength="300"'),'',true)}${field('Цвет',`<div class="color-picker">${COLORS.map(c=>`<button type="button" class="color-option color-${c} ${c===p.color?'selected':''}" data-action="color" data-color="${c}" title="${c}" aria-label="Цвет ${c}"></button>`).join('')}</div>${input('color',p.color,'hidden')}`)}${field('Приоритет',`<select name="priority">${options(PROJECT_PRIORITIES,p.priority)}</select>`)}${field('Заметки',area('notes',p.notes),'',true)}</div>`,'Сохранить',data=>{p.alias=(data.alias||'').trim();p.color=COLORS.includes(data.color)?data.color:'lime';p.priority=projectPriority(data.priority);p.notes=data.notes||'';touch(p);modal.close();render();});
+}
+function projectPriorityMenu(p){
+  const choices=PROJECT_PRIORITIES.map(([key,label])=>{
+    const selected=key===projectPriority(p.priority);
+    return `<button type="button" data-action="set-project-priority" data-id="${e(p.id)}" data-priority="${key}" aria-pressed="${selected}"><span>${label}</span>${selected?icon('check'):''}</button>`;
+  });
+  showModal('Приоритет проекта',p.title,`<div class="project-edit-menu">${choices.join('')}</div>`);
 }
 function studioFolderForm(){showModal('Папка студии','',`<div class="form-grid">${field('Здесь хранятся проекты',pathField('studioRoot',state.settings.studioRoot||''),'',true)}</div>`,'Сохранить',async data=>{const path=trimPath(data.studioRoot);if(path&&native){const check=await api('check',{path});if(!check.folder)throw new Error('Выбери папку.');}state.settings.studioRoot=path;persist();modal.close();render();toast('Папка студии сохранена');});}
 function createFolderForm(pid,epid){
@@ -2528,6 +2563,18 @@ async function action(a,d,el){
     case 'choose-cover':modal.querySelector('#project-cover-input').click();break;
     case 'remove-cover':modal.querySelector('[name=cover]').value='';modal.querySelector('#cover-preview').innerHTML=icon('file');break;
     case 'edit-project':projectForm(d.id);break;
+    case 'project-priority':if(p)projectPriorityMenu(p);break;
+    case 'set-project-priority':{
+      if(!p||!PROJECT_PRIORITIES.some(([key])=>key===d.priority))break;
+      if(p.priority!==d.priority){
+        p.priority=d.priority;
+        collapsedPrioritySections.delete(p.priority);
+        saveProjectPriorityFolds();touch(p);
+      }
+      modal.close();render();
+      document.querySelector(`.project-priority-menu[data-id="${CSS.escape(p.id)}"]`)?.focus({preventScroll:true});
+      break;
+    }
     case 'reserve-open':studioResources.openReserve(d.id);navigate('reserves');break;
     case 'open-project':if(modal.open)modal.close();openProject(d.id,d.ep,d.tab||'roles',d.roleActor||'');break;
     case 'favorite':if(p){p.favorite=!p.favorite;touch(p);render();}break;
@@ -2788,6 +2835,14 @@ document.addEventListener('input',event=>{
   });
 });
 document.addEventListener('click',event=>{
+  const priorityHeading=event.target.closest('summary.project-priority-heading');
+  if(priorityHeading){
+    event.preventDefault();
+    const section=priorityHeading.parentElement,key=section.dataset.projectPriority;
+    section.open=!section.open;
+    if(section.open)collapsedPrioritySections.delete(key);else collapsedPrioritySections.add(key);
+    saveProjectPriorityFolds();return;
+  }
   const changesSummary=event.target.closest('.studio-vacation-changes > summary');
   if(changesSummary)vacationChangesExpanded=!changesSummary.parentElement.open;
   const mySummary=event.target.closest('.my-role-project-group > summary');

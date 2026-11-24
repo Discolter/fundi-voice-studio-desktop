@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {seedState,newProject} from '../package/web/core.js';
-import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,taskSyncDecisions} from '../package/web/task-cloud-sync.js';
+import {buildTaskSnapshot,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,applyProjectPriorities,taskSyncDecisions} from '../package/web/task-cloud-sync.js';
 
 const workspace=seedState(),p=newProject({title:'Тестовая серия'}),ep=p.episodes[0];
 workspace.projects=[p];workspace.actors=[{id:'actor-1',name:'Тестовый актёр'}];
@@ -83,6 +83,23 @@ test('preserves web-only catalog entries until local series becomes available',(
   const union=mergeTaskCatalog(local,{projects:[extra],actors:[{id:'remote-actor',name:'Актёр'}]});
   assert.equal(union.projects.length,2);
   assert.equal(union.actors.length,2);
+});
+test('project priorities sync in both directions and survive a legacy snapshot',()=>{
+  const base=buildTaskSnapshot(workspace);
+  const local=structuredClone(base);
+  local.projects[0].priority='high';
+  const legacy=structuredClone(base);
+  delete legacy.projects[0].priority;
+  assert.equal(mergeTaskCatalog(local,legacy,legacy).projects[0].priority,'high');
+  const web=structuredClone(base);
+  web.projects[0].priority='low';
+  assert.equal(mergeTaskCatalog(local,web,base).projects[0].priority,'high');
+  const merged=mergeTaskCatalog(base,web,base);
+  const copy=structuredClone(workspace);
+  assert.equal(applyProjectPriorities(copy,merged.projects),true);
+  assert.equal(copy.projects[0].priority,'low');
+  assert.deepEqual(copy.projects[0].episodes,workspace.projects[0].episodes);
+  assert.equal(applyProjectPriorities(copy,merged.projects),false);
 });
 test('desktop web and native sources contain task sync wiring',()=>{
  const app=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');

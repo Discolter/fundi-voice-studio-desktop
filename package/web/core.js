@@ -13,6 +13,8 @@ export const ROLE_ASSIGNMENT_FILTERS = [['all','Все роли'],['assigned','�
 export const TASK_PRIORITIES = [['urgent','Срочно'],['high','Высокий'],['normal','Обычный'],['low','Низкий']];
 export const taskPriority = value => TASK_PRIORITIES.some(([key])=>key===value)?value:'normal';
 export const taskPriorityName = value => TASK_PRIORITIES.find(([key])=>key===taskPriority(value))[1];
+export const PROJECT_PRIORITIES = [['high','Высокий приоритет'],['normal','Средний приоритет'],['low','Низкий приоритет']];
+export const projectPriority = value => PROJECT_PRIORITIES.some(([key])=>key===value)?value:'normal';
 export const TASK_ORDERS = [
   ['priority','По приоритету'], ['linesAsc','Сначала меньше реплик'],
   ['linesDesc','Сначала больше реплик'], ['dueAsc','Ближайший дедлайн'],
@@ -405,7 +407,7 @@ export function normalizeState(raw) {
   function normalizeProject(p) {
     if (!p || typeof p !== 'object' || !str(p.title,160).trim()) throw new Error('У проекта должно быть название.');
     if (!Array.isArray(p.episodes) || !p.episodes.length || p.episodes.length>500) throw new Error('В проекте должна быть хотя бы одна серия (не более 500).');
-    return {id:id(p.id),title:str(p.title,160).trim(),alias:str(p.alias,300),season:num(p.season),color:COLORS.includes(p.color)?p.color:'lime',symbol:['spark','hourglass','witch','bolt','swords','orbit','flower'].includes(p.symbol)?p.symbol:'spark',cover:safeCover(p.cover),priority:['normal','high','low'].includes(p.priority)?p.priority:'normal',root:str(p.root,2000),notes:str(p.notes,12000),favorite:!!p.favorite,archived:!!p.archived,hidden:!!p.hidden,createdAt:str(p.createdAt,50),updatedAt:str(p.updatedAt,50),lastOpened:str(p.lastOpened,50),episodes:p.episodes.map(ep=>{
+    return {id:id(p.id),title:str(p.title,160).trim(),alias:str(p.alias,300),season:num(p.season),color:COLORS.includes(p.color)?p.color:'lime',symbol:['spark','hourglass','witch','bolt','swords','orbit','flower'].includes(p.symbol)?p.symbol:'spark',cover:safeCover(p.cover),priority:projectPriority(p.priority),root:str(p.root,2000),notes:str(p.notes,12000),favorite:!!p.favorite,archived:!!p.archived,hidden:!!p.hidden,createdAt:str(p.createdAt,50),updatedAt:str(p.updatedAt,50),lastOpened:str(p.lastOpened,50),episodes:p.episodes.map(ep=>{
       if(!ep || typeof ep!=='object') throw new Error('Некорректная серия.');
       for(const key of ['resources','tasks','roles']) if(ep[key] && (!Array.isArray(ep[key]) || ep[key].length>2000)) throw new Error('Слишком много записей в серии.');
       return {id:id(ep.id),createdAt:str(ep.createdAt,50),number:num(ep.number),title:str(ep.title,120),stage:STAGES.some(s=>s[0]===ep.stage)?ep.stage:'unset',due:dateValue(ep.due),notes:str(ep.notes,12000),paths:Object.fromEntries(PATHS.map(([key])=>[key,str(ep.paths?.[key],2000)])),

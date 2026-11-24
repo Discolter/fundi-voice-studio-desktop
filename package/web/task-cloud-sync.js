@@ -3,6 +3,7 @@
 // Optimistic revision and three-way merge prevent silent loss from concurrent edits.
 export const TASK_SYNC_BASELINE_KEY='fundi-voice-tasks-cloud-baseline-v1';
 import {archiveTask,mergeTaskHistory,taskRoleFields,taskRoleIds} from './task-history.js';
+import {PROJECT_PRIORITIES,projectPriority} from './core.js';
 
 function taskRecord(project,ep,t){
   const ids=taskRoleIds(t).filter(id=>(ep.roles||[]).some(r=>r.id===id));
@@ -16,6 +17,7 @@ export function buildTaskSnapshot(state){
     tasks:(state.projects||[]).flatMap(p=>(p.episodes||[]).flatMap(ep=>(ep.tasks||[]).map(t=>taskRecord(p,ep,t)))),
     projects:(state.projects||[]).map(p=>({
       id:p.id,title:p.title,season:String(p.season||''),archived:!!p.archived,hidden:!!p.hidden,createdAt:p.createdAt||'',
+      priority:projectPriority(p.priority),
       episodes:(p.episodes||[]).map(ep=>({
         id:ep.id,number:String(ep.number||''),title:ep.title||'',
         roles:(ep.roles||[]).map(r=>({id:r.id,character:r.character,roleTier:['main','supporting','extras'].includes(r.roleTier)?r.roleTier:'supporting',actorId:r.actorId||'',actor:r.actor||'',
@@ -235,7 +237,12 @@ export function mergeTaskCatalog(local,remote,baseline=null){
     // Keep unknown remote entries, but do not resurrect a project deliberately
     // removed from the Windows workspace since the last successful sync.
     if(!existing){if(!priorProjects.has(p.id))projects.push(p);continue;}
-    const priorEpisodes=new Set((priorProjects.get(p.id)?.episodes||[]).map(ep=>ep.id));
+    const prior=priorProjects.get(p.id);
+    // Adopt Web changes when Windows still has the last synced value. Legacy
+    // snapshots used the default, so a saved Windows override takes precedence.
+    if(PROJECT_PRIORITIES.some(([key])=>key===p.priority)&&existing.priority===projectPriority(prior?.priority))
+      existing.priority=p.priority;
+    const priorEpisodes=new Set((prior?.episodes||[]).map(ep=>ep.id));
     for(const ep of p.episodes||[])
       if(!existing.episodes.some(x=>x.id===ep.id)&&!priorEpisodes.has(ep.id))existing.episodes.push(ep);
   }
@@ -243,6 +250,16 @@ export function mergeTaskCatalog(local,remote,baseline=null){
   for(const actor of remote.actors||[])
     if(!actors.some(a=>a.id===actor.id)&&!priorActors.has(actor.id))actors.push(actor);
   return {projects,actors};
+}
+
+export function applyProjectPriorities(state,projects){
+  const priorities=new Map(projects.map(p=>[p.id,p.priority]));
+  let changed=false;
+  for(const p of state.projects||[]){
+    const priority=priorities.get(p.id);
+    if(priority&&p.priority!==priority){p.priority=priority;changed=true;}
+  }
+  return changed;
 }
 
 export function applyTaskSnapshot(state,tasks){
