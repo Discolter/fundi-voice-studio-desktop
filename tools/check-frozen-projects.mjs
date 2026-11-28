@@ -4,7 +4,6 @@ import {SCHEMA,newActor,newProject,normalizeState,selectProjects,actorAssignment
   myRoleRows,debtRows,taskRows,actorPublicFeed} from '../package/web/core.js';
 import {buildTaskSnapshot} from '../package/web/task-cloud-sync.js';
 import {actorWorkloadRows} from '../package/web/actor-workload.js';
-import {collectRecommendations} from '../package/web/recommendations.js';
 
 const actor=newActor({id:'actor1',name:'Актёр',actorAccess:true});
 const project=newProject({id:'project1',title:'Приостановленный проект',favorite:true});
@@ -24,8 +23,7 @@ const visible=()=>({
  hidden:selectProjects(state,{hidden:true}).length, debts:debtRows(state).length,
  mine:myRoleRows(state).length, tasks:taskRows(state,{includeArchived:true}).length,
  actorRoles:actorAssignments(state,actor.id).length,
- workload:actorWorkloadRows(state).find(row=>row.actor.id===actor.id)?.total,
- recommendations:collectRecommendations(state,{connected:false},{now:new Date('2026-11-06')}).episodes.filter(r=>r.project?.id===project.id).length
+ workload:actorWorkloadRows(state).find(row=>row.actor.id===actor.id)?.total
 });
 const initial=visible();
 assert.equal(initial.active,1);

@@ -64,7 +64,7 @@ for(const needle of [
  "await flushSave()",
  "await api('cloud/sync',{replace:false})",
  "ui.page==='review'||reviewsChanged",
- "['vacations','review'].includes(page)",
+ "['vacations','review','calendar'].includes(page)",
  "const rows=vacationReviewRows(state,cloud.vacations||[])"
 ]){
   // A persisted reference to the transferred role can differ by statement structure.

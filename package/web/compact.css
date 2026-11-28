@@ -617,6 +617,27 @@ body[data-theme=light] .role-actor-hidden-label,body[data-theme=silver] .role-ac
 :is(.compact-project,.task-project-summary,.projects-table) .project-role-progress[data-progress="green"] .project-remaining-count b{color:#60dda2}
 :is(.compact-project,.task-project-summary,.projects-table) .project-role-progress[data-progress="none"]{color:var(--muted)}
 
+.project-progress-bar{
+  --project-progress-color:var(--muted);
+  appearance:none;
+  display:block;
+  width:100%;
+  height:5px;
+  border:0;
+  border-radius:999px;
+  overflow:hidden;
+  background:color-mix(in srgb,var(--project-progress-color) 22%,var(--surface));
+}
+.project-progress-bar[data-progress="red"]{--project-progress-color:#df4f61}
+.project-progress-bar[data-progress="orange"]{--project-progress-color:#d36a32}
+.project-progress-bar[data-progress="yellow"]{--project-progress-color:#bf8816}
+.project-progress-bar[data-progress="green"]{--project-progress-color:#329660}
+.project-progress-bar::-webkit-progress-bar{background:transparent}
+.project-progress-bar::-webkit-progress-value{background:var(--project-progress-color);border-radius:999px}
+.project-progress-bar::-moz-progress-bar{background:var(--project-progress-color);border-radius:999px}
+.compact-project>.project-progress-bar{margin-bottom:10px}
+.projects-table .project-progress-bar{margin-top:6px}
+
 
 /* Team-wide workload: a standalone overview, rather than an extra casting dialog. */
 .workload-dashboard-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:0 0 20px}

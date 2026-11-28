@@ -66,7 +66,7 @@ function castView(){
   const settingsFilter=value=>value??'all';
   const context=vm.createContext({ROLE_TIERS,validRoleTier,UIKEY:preferenceKey,
     TASK_PRIORITIES:[['all']],validTaskOrder:settingsFilter,validMyRoleOrder:settingsFilter,
-    validTaskStatusFilter:settingsFilter,validTaskLineFilter:settingsFilter,validRecommendationFilter:settingsFilter,
+    validTaskStatusFilter:settingsFilter,validTaskLineFilter:settingsFilter,
     localStorage:{getItem:()=>savedUI,setItem:(key,value)=>{assert.equal(key,preferenceKey);savedUI=value;}},
     document:{getElementById:key=>key===buttonAttrs.get('aria-controls')?panel:null},
     closeActorPickers(){},icon:()=>'<svg></svg>',e:x=>x,

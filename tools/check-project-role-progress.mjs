@@ -87,6 +87,15 @@ const {renderCard:display,renderProjectListRow}=new Function('projectRoleProgres
   ()=>'⬈',()=>'',()=>'',new Set(),{actors:[{id:'actor-5',name:'Test Actor',telegram:'test_actor',avatar:'data:image/png;base64,YQ=='}]},
   (state,r)=>state.actors.find(a=>a.id===r.actorId),a=>a?.avatar?'<img src="'+a.avatar+'">':a?.name||'?',v=>v||'',s=>s
 );
+function checkBar(markup,tone,accepted,total){
+  const match=markup.match(/<progress class="project-progress-bar" data-progress="([^"]+)" value="(\d+)" max="(\d+)"/);
+  assert.ok(match,'Expected a project progress bar');
+  assert.deepEqual(match.slice(1),[tone,String(accepted),String(total||1)]);
+}
+for(const [accepted,tone] of [[0,'red'],[1,'red'],[2,'orange'],[3,'orange'],[4,'yellow'],[5,'yellow'],[6,'green'],[8,'green']]){
+  project.episodes[1].roles=roles(8,accepted);
+  checkBar(display(project),tone,accepted,8);
+}
 project.episodes[1].roles=roles(8,4);
 let html=display(project);
 assert.match(html,/data-progress="yellow"/);
@@ -117,6 +126,8 @@ assert.match(app,/episodeAgeBadge\(ep,true\)/,'List view also displays episode a
 assert.match(html,/Незавершённые роли · 0/);
 assert.match(html,/Роли пока не добавлены/);
 assert.doesNotMatch(html,/data-role-id=/);
+checkBar(html,'none',0,0);
+assert.match(html,/aria-valuetext="Роли серии пока не добавлены"/);
 const blank={title:'Пустой',color:'violet',favorite:false,cover:'',episodes:[episode(2,0,0),episode(3,0,0)]};
 html=display(blank);
 assert.match(html,/data-progress="none"/);
@@ -155,6 +166,9 @@ assert.doesNotMatch(html,/data-role-id="role-12"/);
 const listRow=renderProjectListRow(updatedRecover);
 assert.match(listRow,/value="e1" selected>Серия 01/);
 assert.match(listRow,/project-accepted-count">13\/24/);
+checkBar(html,'yellow',13,24);
+checkBar(listRow,'yellow',13,24);
+assert.match(listRow,/aria-valuetext="54% · Принято 13 из 24"/);
 assert.match(display(project),/value="e12" selected/,'Another project has its own selection');
 recover.episodes[2].roles=roles(5,0);
 html=display(recover);
@@ -174,7 +188,7 @@ let stored='{}',changeHandler;
 const pass=value=>value??'all';
 function session(){
   const context=vm.createContext({UIKEY:'test-ui',TASK_PRIORITIES:[['all']],validTaskOrder:pass,
-    validMyRoleOrder:pass,validTaskStatusFilter:pass,validTaskLineFilter:pass,validRecommendationFilter:pass,
+    validMyRoleOrder:pass,validTaskStatusFilter:pass,validTaskLineFilter:pass,
     localStorage:{getItem:()=>stored,setItem:(_key,value)=>{stored=value;}},
     getProject:id=>id===recover.id?recover:null,
     document:{addEventListener:(_event,handler)=>{changeHandler=handler;}},
@@ -199,5 +213,8 @@ assert.match(app,/selectProjects\(withRoleReviews\(state,cloud.reviews\|\|\[\]\)
 for(const tone of ['red','yellow','green','none']){
   assert.ok(css.includes('.project-role-progress[data-progress="'+tone+'"]'),'Missing progress style for '+tone);
 }
+for(const tone of ['red','orange','yellow','green']){
+  assert.ok(css.includes('.project-progress-bar[data-progress="'+tone+'"]'),'Missing bar color for '+tone);
+}
 assert.match(app,/import \{[\s\S]*projectRoleProgress[\s\S]*\} from '\.\/core\.js'/);
-console.log('PASS: per-project episode picker, persistence, card and list counters, sorting and cloud review counts');
+console.log('PASS: per-project episode picker, persistence, card and list progress, sorting and cloud review counts');

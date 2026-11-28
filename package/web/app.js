@@ -12,8 +12,6 @@ import {summarizeMyRoleEpisodes,myRoleLineCount,myRoleWorkloadColor,isMyRoleAcce
 import {createSiteManager} from './site-manager.js';
 import {createActorCabinet} from './actor-cabinet.js';
 import {createQuickViews,roleSnapshot} from './quick-views.js';
-import {collectRecommendations,validRecommendationFilter} from './recommendations.js';
-import {renderRecommendationPage} from './recommendations-view.js';
 import {createStudioNavigation} from './navigation-history.js';
 import {startUpdateNotice} from './update-notice.js';
 import {openFileBrowser} from './file-browser.js';
@@ -64,7 +62,6 @@ let refreshing=false,manualRefreshAt=0;
 const selectedTasks=new Set(); // Ephemeral UI selection: never stored in the workspace.
 const expandedTaskGroups=new Set(); // Presentation only; never synced to Cloud.
 const expandedTaskProjects=new Set();
-const expandedRecommendationGroups=new Set();
 const expandedProjectRoles=new Set(); // Independent, ephemeral project-card disclosure.
 const projectProgressEpisodes=new Map();
 const PROJECT_PRIORITY_FOLDS='fundi-voice-project-priority-folds';
@@ -87,7 +84,7 @@ let roleCastCheck=null;
 const rolePublicationResults=new Map();
 let roleSyncConflicts=[],roleSyncDecisions=[],taskSyncConflicts=[],taskSyncChoices=[];
 let textCastDraft=null;
-let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:'',recommendationFilter:'all'};
+let ui={siteMode:'studio',sitePage:'releases',page:'projects',query:'',filter:'all',sort:'recent',layout:'grid',project:null,episode:null,tab:'roles',actorExpanded:[],actorSubtab:'list',actorStatSort:'speed',actorStatIncludeArchive:true,actorRegistrationFilter:'all',debtActor:'',debtStatus:'all',debtProject:'all',roleFilter:'all',roleActor:'all',roleCharacter:'all',roleAssignment:'all',roleOrder:'original',myRoleOrder:'original',taskPriority:'all',taskOrder:'priority',taskStatus:'all',taskLines:'all',taskActor:'all',taskProject:'all',workloadIncludeArchive:false,workloadQuery:''};
 try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.layout==='table'?'table':'grid';ui.sort=['recent','due','name','progress'].includes(saved.sort)?saved.sort:'recent';ui.actorExpanded=Array.isArray(saved.actorExpanded)?saved.actorExpanded.filter(k=>typeof k==='string'&&/^(?:cast:(?:main|support|unspecified)|voice:(?:main|support|unspecified):(?:male|female|unspecified))$/.test(k)):[];  ui.taskPriority=TASK_PRIORITIES.some(([key])=>key===saved.taskPriority)?saved.taskPriority:'all';
   ui.taskOrder=validTaskOrder(saved.taskOrder);
   ui.workloadIncludeArchive=saved.workloadIncludeArchive===true;
@@ -101,7 +98,6 @@ try{const saved=JSON.parse(localStorage.getItem(UIKEY)||'{}');ui.layout=saved.la
   ui.actorStatIncludeArchive=saved.actorStatIncludeArchive!==false;
   ui.taskProject=typeof saved.taskProject==='string'&&saved.taskProject.length<=80?saved.taskProject:'all';
   ui.debtProject=typeof saved.debtProject==='string'&&saved.debtProject.length<=80?saved.debtProject:'all';
-  ui.recommendationFilter=validRecommendationFilter(saved.recommendationFilter);
   for(const [projectId,episodeId] of Object.entries(saved.projectProgressEpisodes||{})){
     if(projectId&&projectId.length<=80&&typeof episodeId==='string'&&episodeId&&episodeId.length<=80)
       projectProgressEpisodes.set(projectId,episodeId);
@@ -206,7 +202,7 @@ const studioNavigation=createStudioNavigation({
   restore:route=>{
     ui.siteMode=['studio','site','cabinet'].includes(route.siteMode)?route.siteMode:'studio';
     ui.sitePage=['releases','news','notifications','ratings','users'].includes(route.sitePage)?route.sitePage:'releases';
-    const sections=['projects','archive','hidden','detail','mytasks','debts','actors','workload','actorportal','settings','review','recommendations','vacations','recovery','reserves','software'];
+    const sections=['projects','archive','hidden','detail','mytasks','debts','actors','workload','actorportal','settings','review','vacations','recovery','reserves','software'];
     ui.page=sections.includes(route.page)?route.page:'projects';
     if(ui.page==='reserves')studioResources.openReserve(typeof route.reserve==='string'?route.reserve:'');
     const project=state.projects.find(p=>p.id===route.project);
@@ -443,9 +439,9 @@ function flushSave(){
 function touch(p){if(p)p.updatedAt=new Date().toISOString();persist();}
 function saveUI(){
   const tiers=Object.fromEntries([...collapsedRoleTiers].map(([id,collapsed])=>[id,[...collapsed]]));
-  try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,recommendationFilter:ui.recommendationFilter,collapsedRoleTiers:tiers,projectProgressEpisodes:Object.fromEntries(projectProgressEpisodes)}));}catch{}
+  try{localStorage.setItem(UIKEY,JSON.stringify({layout:ui.layout,sort:ui.sort,actorExpanded:ui.actorExpanded,actorSubtab:ui.actorSubtab,actorStatSort:ui.actorStatSort,actorStatIncludeArchive:ui.actorStatIncludeArchive,taskPriority:ui.taskPriority,taskOrder:ui.taskOrder,myRoleOrder:ui.myRoleOrder,taskStatus:ui.taskStatus,taskLines:ui.taskLines,taskActor:ui.taskActor,taskProject:ui.taskProject,debtProject:ui.debtProject,actorRegistrationFilter:ui.actorRegistrationFilter,workloadIncludeArchive:ui.workloadIncludeArchive,collapsedRoleTiers:tiers,projectProgressEpisodes:Object.fromEntries(projectProgressEpisodes)}));}catch{}
 }
-function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if((['vacations','review'].includes(page)||['recommendations','calendar'].includes(page))&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
+function navigate(page){if(page==='recovery'&&native&&cloud.connected)api('cloud/recovery/requests',{}).then(data=>{recoveryRequests=data.requests||[];render();}).catch(err=>toast(err.message,true));if(page!=='mytasks')selectedTasks.clear();ui.page=page;ui.project=null;ui.query='';ui.filter='all';render();window.scrollTo(0,0);if(['vacations','review','calendar'].includes(page)&&native&&cloud.connected)api('cloud/vacations/refresh',{}).then(next=>{cloud=next;render();}).catch(err=>toast(err.message,true));}
 function openProject(id,episode,tab='roles',actorKey='',characterKey=''){
   selectedTasks.clear();
   const p=getProject(id);if(!p)return;
@@ -469,9 +465,9 @@ function render(){
   const screen=[ui.siteMode,ui.page,ui.project,ui.episode,ui.tab].join('/'),enter=screen!==lastScreen;lastScreen=screen;
   const c=counts(),activePage=ui.siteMode==='cabinet'?'cabinet-home':ui.siteMode==='site'?'site-'+ui.sitePage:(ui.page==='detail'||ui.page==='archive'||ui.page==='hidden'?'projects':ui.page);
   const sidebarNav=ui.siteMode==='cabinet'?[['cabinet-home','grid','Главная']]:ui.siteMode==='site'?[['site-releases','grid','Релизы'],['site-news','file','Новости'],['site-notifications','bell','Уведомления'],['site-ratings','star','Оценки'],['site-users','users','Пользователи']]:navs;
-  const section=ui.siteMode==='cabinet'?'Роли актёров':ui.siteMode==='site'?({releases:'Релизы',news:'Новости',notifications:'Уведомления',ratings:'Оценки',users:'Пользователи'}[ui.sitePage]||'Сайт'):([...navs,...studioResourceNavs].find(n=>n[0]===activePage)?.[2]||(ui.page==='vacations'?'Отпуска':ui.page==='recommendations'?'Рекомендации':ui.page==='review'?'Пересмотр':ui.page==='recovery'?'Сброс пароля':'Настройки'));
+  const section=ui.siteMode==='cabinet'?'Роли актёров':ui.siteMode==='site'?({releases:'Релизы',news:'Новости',notifications:'Уведомления',ratings:'Оценки',users:'Пользователи'}[ui.sitePage]||'Сайт'):([...navs,...studioResourceNavs].find(n=>n[0]===activePage)?.[2]||(ui.page==='vacations'?'Отпуска':ui.page==='review'?'Пересмотр':ui.page==='recovery'?'Сброс пароля':'Настройки'));
   const renderNavLink=([id,ic,label])=>`<button class="nav-item ${activePage===id?'active':''}" data-${ui.siteMode==='site'?'site-nav':ui.siteMode==='cabinet'?'cabinet':'nav'}="${ui.siteMode==='site'?id.slice(5):ui.siteMode==='cabinet'?'home':id}" title="${label}">${icon(ic)}<span>${label}</span>${['projects','actors','mytasks','debts'].includes(id)?`<span class="nav-count" aria-label="${id==='actors'?'Всего актёров':id==='mytasks'?'Моих ролей':id==='debts'?'Невыполненных записей':'Активных проектов'}: ${c[id]}">${c[id]}</span>`:''}</button>`;
-  app.innerHTML=`<div class="shell"><aside class="sidebar"><a class="brand" href="#" data-nav="projects" aria-label="Fundi Voice"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><div class="brand-title">Fundi Voice<span class="lime">.</span></div></a><nav>${sidebarNav.map(renderNavLink).join('')}${ui.siteMode==='studio'&&native&&cloud.connected?`<button class="nav-item" data-action="studio-files" aria-haspopup="dialog">${icon('file')}<span>Мои файлы</span><span class="nav-count nav-file-count" data-file-unread-count ${cloud.unreadFiles?'':'hidden'}>${cloud.unreadFiles>99?'99+':cloud.unreadFiles||''}</span></button>`:''}${ui.siteMode==='studio'?`<button class="nav-item vacation-review-nav ${ui.page==='review'?'active':''} ${c.review?'has-items':''}" data-nav="review" title="Пересмотр назначений из-за отпусков">${icon('review')}<span>Пересмотр</span>${c.review?`<span class="nav-count" aria-label="Ролей на пересмотр: ${c.review}">${c.review>99?'99+':c.review}</span>`:''}</button>`:''}${ui.siteMode==='studio'?`<button class="nav-item rec-nav ${ui.page==='recommendations'?'active':''}" data-nav="recommendations" title="Готовность серий и незавершённые роли">${icon('spark')}<span>Рекомендации</span></button>`:''}${ui.siteMode==='studio'?studioResourceNavs.map(renderNavLink).join(''):''}</nav><div class="sidebar-bottom">${ui.siteMode==='cabinet'?`<div class="nav-item" style="cursor:default;opacity:.7">${icon('eye')}<span>Режим просмотра</span></div>`:ui.siteMode==='site'?`<a class="nav-item" href="https://fundivoice-viewer-test.pages.dev/" target="_blank" rel="noopener noreferrer">${icon('external')}<span>Открыть сайт</span></a>`:`<button class="nav-item" data-action="help">${icon('help')}<span>Как пользоваться</span></button><button class="nav-item ${ui.page==='settings'?'active':''}" data-nav="settings">${icon('settings')}<span>Настройки</span></button><button class="nav-item studio-recovery-nav ${ui.page==='recovery'?'active':''}" data-nav="recovery" title="Сброс пароля" aria-label="Сброс пароля">${icon('password')}<span>Сброс пароля</span></button><button class="nav-item studio-vacation-nav ${ui.page==='vacations'?'active':''}" data-nav="vacations" title="Отпуска">${icon('vacation')}<span>Отпуска</span>${cloud.vacationUnread?`<b class="nav-count">${cloud.vacationUnread>99?'99+':cloud.vacationUnread}</b>`:''}</button>` }<div class="profile"><div class="avatar">${e(state.settings.name.slice(0,1).toUpperCase())}</div><div class="profile-name">${e(state.settings.name)}</div></div></div></aside><main class="main"><header class="topbar"><div class="site-topbar-group"><span class="topbar-title">${e(section)}</span><div class="site-mode-switch" role="group" aria-label="Рабочий режим"><button type="button" data-site-mode="studio" class="${ui.siteMode==='studio'?'active':''}" aria-pressed="${ui.siteMode==='studio'}">Студия</button><button type="button" data-site-mode="site" class="${ui.siteMode==='site'?'active':''}" aria-pressed="${ui.siteMode==='site'}">Сайт</button><button type="button" data-site-mode="cabinet" class="${ui.siteMode==='cabinet'?'active':''}" aria-pressed="${ui.siteMode==='cabinet'}">Роли актёров</button></div></div><div class="topbar-right">${ui.siteMode==='site'?`<span class="sm-toolbar-label">Управление зрительским сайтом</span>`:ui.siteMode==='cabinet'?`<span class="sm-toolbar-label">Проверка опубликованных назначений · только просмотр</span>`:`<button class="btn ghost studio-refresh-button" data-action="refresh-all" title="Проверить новые записи, уведомления и отпуска" aria-label="Обновить данные Studio" ${refreshing?'disabled':''}>${icon('refresh')}<span>${refreshing?'Обновляем…':'Обновить'}</span></button><button class="icon-btn notification-bell" data-action="studio-messages" title="Уведомления" aria-label="Уведомления">${icon('bell')}<b data-notification-count ${cloud.mailbox?.unread||cloud.mailbox?.failed?.length?'':'hidden'}>${cloud.mailbox?.unread||(cloud.mailbox?.failed?.length?'!':'')}</b></button><label class="search">${icon('search')}<span class="sr-only">Поиск</span><input id="search-input" placeholder="Поиск" value="${e(ui.query)}" autocomplete="off"><kbd>Ctrl K</kbd></label><div class="status-indicator" data-save-state="${saveStatusState()}"><span class="status-dot"></span><span id="save-status">${saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено'}</span></div><div class="cloud-sync-indicator" id="cloud-sync-indicator" data-cloud-state="${cloudStatusNow().code}" title="${e(cloudStatusNow().description)}" role="status" aria-live="polite"><span class="cloud-sync-dot"></span><span class="cloud-sync-text">${e(cloudStatusNow().label)}</span></div><button class="icon-btn" data-action="help" title="Как пользоваться" aria-label="Как пользоваться">${icon('help')}</button><button class="icon-btn mobile-settings" data-nav="settings" title="Настройки" aria-label="Настройки">${icon('settings')}</button>`}</div></header><div id="role-sync-alert">${roleSyncBannerHTML()}</div>${saveError?`<div class="save-warning">${e(saveError)} <button class="text-button" data-action="export">Скачать копию</button></div>`:''}<div class="content ${enter?'screen-enter':''}">${renderPage(c)}</div></main></div>`;
+  app.innerHTML=`<div class="shell"><aside class="sidebar"><a class="brand" href="#" data-nav="projects" aria-label="Fundi Voice"><span class="brand-mark"><img src="brand-mark.png" alt=""></span><div class="brand-title">Fundi Voice<span class="lime">.</span></div></a><nav>${sidebarNav.map(renderNavLink).join('')}${ui.siteMode==='studio'&&native&&cloud.connected?`<button class="nav-item" data-action="studio-files" aria-haspopup="dialog">${icon('file')}<span>Мои файлы</span><span class="nav-count nav-file-count" data-file-unread-count ${cloud.unreadFiles?'':'hidden'}>${cloud.unreadFiles>99?'99+':cloud.unreadFiles||''}</span></button>`:''}${ui.siteMode==='studio'?`<button class="nav-item vacation-review-nav ${ui.page==='review'?'active':''} ${c.review?'has-items':''}" data-nav="review" title="Пересмотр назначений из-за отпусков">${icon('review')}<span>Пересмотр</span>${c.review?`<span class="nav-count" aria-label="Ролей на пересмотр: ${c.review}">${c.review>99?'99+':c.review}</span>`:''}</button>`:''}${ui.siteMode==='studio'?studioResourceNavs.map(renderNavLink).join(''):''}</nav><div class="sidebar-bottom">${ui.siteMode==='cabinet'?`<div class="nav-item" style="cursor:default;opacity:.7">${icon('eye')}<span>Режим просмотра</span></div>`:ui.siteMode==='site'?`<a class="nav-item" href="https://fundivoice-viewer-test.pages.dev/" target="_blank" rel="noopener noreferrer">${icon('external')}<span>Открыть сайт</span></a>`:`<button class="nav-item" data-action="help">${icon('help')}<span>Как пользоваться</span></button><button class="nav-item ${ui.page==='settings'?'active':''}" data-nav="settings">${icon('settings')}<span>Настройки</span></button><button class="nav-item studio-recovery-nav ${ui.page==='recovery'?'active':''}" data-nav="recovery" title="Сброс пароля" aria-label="Сброс пароля">${icon('password')}<span>Сброс пароля</span></button><button class="nav-item studio-vacation-nav ${ui.page==='vacations'?'active':''}" data-nav="vacations" title="Отпуска">${icon('vacation')}<span>Отпуска</span>${cloud.vacationUnread?`<b class="nav-count">${cloud.vacationUnread>99?'99+':cloud.vacationUnread}</b>`:''}</button>` }<div class="profile"><div class="avatar">${e(state.settings.name.slice(0,1).toUpperCase())}</div><div class="profile-name">${e(state.settings.name)}</div></div></div></aside><main class="main"><header class="topbar"><div class="site-topbar-group"><span class="topbar-title">${e(section)}</span><div class="site-mode-switch" role="group" aria-label="Рабочий режим"><button type="button" data-site-mode="studio" class="${ui.siteMode==='studio'?'active':''}" aria-pressed="${ui.siteMode==='studio'}">Студия</button><button type="button" data-site-mode="site" class="${ui.siteMode==='site'?'active':''}" aria-pressed="${ui.siteMode==='site'}">Сайт</button><button type="button" data-site-mode="cabinet" class="${ui.siteMode==='cabinet'?'active':''}" aria-pressed="${ui.siteMode==='cabinet'}">Роли актёров</button></div></div><div class="topbar-right">${ui.siteMode==='site'?`<span class="sm-toolbar-label">Управление зрительским сайтом</span>`:ui.siteMode==='cabinet'?`<span class="sm-toolbar-label">Проверка опубликованных назначений · только просмотр</span>`:`<button class="btn ghost studio-refresh-button" data-action="refresh-all" title="Проверить новые записи, уведомления и отпуска" aria-label="Обновить данные Studio" ${refreshing?'disabled':''}>${icon('refresh')}<span>${refreshing?'Обновляем…':'Обновить'}</span></button><button class="icon-btn notification-bell" data-action="studio-messages" title="Уведомления" aria-label="Уведомления">${icon('bell')}<b data-notification-count ${cloud.mailbox?.unread||cloud.mailbox?.failed?.length?'':'hidden'}>${cloud.mailbox?.unread||(cloud.mailbox?.failed?.length?'!':'')}</b></button><label class="search">${icon('search')}<span class="sr-only">Поиск</span><input id="search-input" placeholder="Поиск" value="${e(ui.query)}" autocomplete="off"><kbd>Ctrl K</kbd></label><div class="status-indicator" data-save-state="${saveStatusState()}"><span class="status-dot"></span><span id="save-status">${saveError?'Ошибка сохранения':saving?'Сохраняем…':'Сохранено'}</span></div><div class="cloud-sync-indicator" id="cloud-sync-indicator" data-cloud-state="${cloudStatusNow().code}" title="${e(cloudStatusNow().description)}" role="status" aria-live="polite"><span class="cloud-sync-dot"></span><span class="cloud-sync-text">${e(cloudStatusNow().label)}</span></div><button class="icon-btn" data-action="help" title="Как пользоваться" aria-label="Как пользоваться">${icon('help')}</button><button class="icon-btn mobile-settings" data-nav="settings" title="Настройки" aria-label="Настройки">${icon('settings')}</button>`}</div></header><div id="role-sync-alert">${roleSyncBannerHTML()}</div>${saveError?`<div class="save-warning">${e(saveError)} <button class="text-button" data-action="export">Скачать копию</button></div>`:''}<div class="content ${enter?'screen-enter':''}">${renderPage(c)}</div></main></div>`;
   const selectAll=document.querySelector('#bulk-task-select-all');
   if(selectAll)selectAll.indeterminate=selectedTasks.size>0&&!selectAll.checked;
   if(focused){const input=document.querySelector('#search-input');input.focus();input.setSelectionRange(caret,caret);}
@@ -496,16 +492,11 @@ function renderPage(c){
   if(ui.page==='reserves'||ui.page==='software')return '<div id="studio-resources-root"></div>';
   if(ui.page==='calendar')return heading('Календарь')+'<div id="studio-calendar-root"></div>';
   if(ui.page==='detail')return renderDetail();if(ui.page==='actors')return renderActors();if(ui.page==='workload')return renderWorkload();if(ui.page==='mytasks')return renderMyTasks();if(ui.page==='debts')return renderDebts();if(ui.page==='vacations')return renderVacations();
-  if(ui.page==='recommendations')return renderRecommendations();if(ui.page==='review')return renderVacationReview();if(ui.page==='recovery')return renderRecoveries();if(ui.page==='actorportal')return renderActorPortal();if(ui.page==='settings')return renderSettings();return renderProjects(c);
+  if(ui.page==='review')return renderVacationReview();if(ui.page==='recovery')return renderRecoveries();if(ui.page==='actorportal')return renderActorPortal();if(ui.page==='settings')return renderSettings();return renderProjects(c);
 }
 function heading(title,desc='',actions=''){return `<div class="page-head"><div><h1>${e(title)}</h1>${desc?`<span class="heading-meta">${e(desc)}</span>`:''}</div><div class="page-actions">${actions}</div></div>`;}
 const modeSwitch=()=>`<div class="mode-switch"><button data-mode="studio" class="${state.settings.mode==='studio'?'active':''}">Все</button><button data-mode="actor" class="${state.settings.mode==='actor'?'active':''}">Мои</button></div>`;
 const empty=(title,action='',label='Добавить',data='')=>`<div class="empty">${icon('plus')}<h3>${e(title)}</h3>${action?`<button class="btn primary" data-action="${action}" ${data}>${e(label)}</button>`:''}</div>`;
-function renderRecommendations(){
-  const source=withRoleReviews(state,cloud.reviews||[]);
-  const dashboard=collectRecommendations(source,cloud,{reservesForRole:studioResources.forRole});
-  return renderRecommendationPage(dashboard,{filter:ui.recommendationFilter,query:ui.query,icon,expanded:expandedRecommendationGroups});
-}
 function renderProjects(c){
   const hidden=ui.page==='hidden',archived=ui.page==='archive',projects=selectProjects(withRoleReviews(state,cloud.reviews||[]),{query:ui.query,filter:ui.filter,sort:ui.sort,archived,hidden,progressEpisodes:projectProgressEpisodes});
   let html=heading(hidden?'Скрытые проекты':archived?'Архив':'Проекты','',`<button class="btn primary" data-action="new-project">${icon('plus')}Новый проект</button>`);
@@ -545,16 +536,26 @@ function renderCard(p){
   const panelId='project-missing-'+p.id;
   const toggleAttrs='type="button" class="project-missing-toggle project-remaining-count" data-action="toggle-project-missing" data-id="'+e(p.id)+'" aria-controls="'+e(panelId)+'" aria-expanded="'+expanded+'" title="Незавершённые роли"';
   const progressLabel=projectRoleProgressLabel(p,progress,{toggleAttrs});
-  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" ${open} aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" ${open}>${e(p.title)}</button><div class="card-meta">${projectEpisodePicker(p,ep)}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button>${projectPriorityButton(p)}</div><div class="card-stage">${badge(ep)}${episodeAgeBadge(ep)}${progressLabel}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div>${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" ${open}>Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
+  return `<article class="project-card compact-project" data-color="${e(p.color)}"><div class="project-card-main"><button class="project-picture" ${open} aria-label="Открыть ${e(p.title)}">${projectArt(p)}</button><div class="project-card-name"><button class="card-title" ${open}>${e(p.title)}</button><div class="card-meta">${projectEpisodePicker(p,ep)}</div></div><button class="icon-btn ${p.favorite?'faved':''}" data-action="favorite" data-id="${e(p.id)}" title="Избранное" aria-pressed="${p.favorite}">${icon('star')}</button><button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button>${projectPriorityButton(p)}</div><div class="card-stage">${badge(ep)}${episodeAgeBadge(ep)}${progressLabel}${ep.due?`<span class="small ${dueClass(ep.due,ep.stage==='done')}">${dueLabel(ep.due)}</span>`:''}</div>${renderProjectProgressBar(p,progress)}${projectMissingRolesHTML(p,ep,panelId,expanded)}<div class="compact-card-actions"><button class="btn ghost small" ${open}>Открыть${icon('arrow')}</button><div><button class="icon-btn" data-action="quick-reaper" data-id="${e(p.id)}" title="REAPER" aria-label="Открыть REAPER">${icon('reaper')}</button><button class="icon-btn" data-action="quick-folder" data-id="${e(p.id)}" title="Папка проекта" aria-label="Открыть папку">${icon('folder')}</button></div></div></article>`;
 }
 function renderProjectListRow(p){
   const progress=projectRoleProgress(p,projectProgressEpisodes.get(p.id));
   const ep=progress.episode,open=projectOpenAttrs(p,ep);
-  return `<tr><td class="table-title"><button ${open}>${e(p.title)}</button></td>
+  return `<tr><td class="table-title"><button ${open}>${e(p.title)}</button>${renderProjectProgressBar(p,progress)}</td>
     <td class="muted">${projectEpisodePicker(p,ep)}</td><td>${badge(ep)}</td>
     <td class="small ${dueClass(ep.due,ep.stage==='done')}">${ep.due?dueLabel(ep.due):'—'}</td>
     <td>${episodeAgeBadge(ep,true)}</td><td>${projectRoleProgressLabel(p,progress)}</td>
     <td>${projectPriorityButton(p)}<button class="icon-btn project-hide-toggle" data-action="toggle-hidden-project" data-id="${e(p.id)}" title="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}" aria-label="${p.hidden?'Восстановить проект':'Скрыть проект у всех'}">${icon(p.hidden?'eye':'eye-off')}</button><button class="btn ghost small" ${open}>Открыть</button></td></tr>`;
+}
+
+function renderProjectProgressBar(p,{episode,accepted,total}){
+  const percent=total?Math.floor(accepted*100/total):0;
+  const tone=total?['red','orange','yellow','green'][Math.min(3,Math.floor(percent/25))]:'none';
+  const summary=total?`${percent}% · Принято ${accepted} из ${total}`:
+    'Роли серии пока не добавлены';
+  const label=e(episodeLabel(p,episode));
+  return `<progress class="project-progress-bar" data-progress="${tone}" value="${accepted}" max="${total||1}"
+    aria-label="Готовность · ${label}" aria-valuetext="${summary}" title="${label} · ${summary}"></progress>`;
 }
 
 function projectRoleProgressLabel(p,{episode,accepted,total,remaining,tone},{toggleAttrs=''}={}){
@@ -1489,7 +1490,7 @@ async function refreshCloud(renderPage=false){
     cloud=next;updateCloudIndicator();const appliedReviews=applyRoleReviews(state,next.reviews||[]);if(appliedReviews)persist();updateNotificationBadge();updateFileBadge();renderTransferNotice();
     if(changed&&modal.open&&modal.dataset.view==='recordings')renderStudioFiles();
     if(renderPage&&changed&&modal.open&&modal.querySelector('.studio-notification-list'))showStudioMessages();
-    else if(renderPage&&(changed||appliedReviews)&&!modal.open&&!isActorPickerOpen()&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='recommendations'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
+    else if(renderPage&&(changed||appliedReviews)&&!modal.open&&!isActorPickerOpen()&&(ui.page==='actorportal'||ui.page==='vacations'||ui.page==='actors'||ui.page==='detail'||ui.page==='debts'||ui.page==='review'||reviewsChanged||vacationsChanged||appliedReviews))render();
   }catch{}
 }
 async function refreshAllStudio(button){
@@ -2444,15 +2445,6 @@ async function action(a,d,el){
   }
   const p=getProject(d.id),ep=getEpisode(p,d.ep);
   switch(a){
-    case 'recommend-filter':
-      ui.recommendationFilter=validRecommendationFilter(d.filterValue);
-      saveUI();
-      render();
-      document.querySelector('.rec-filter[aria-pressed="true"]')?.focus({preventScroll:true});
-      break;
-    case 'recommend-open-episode':
-      openProject(d.project,d.episode,d.tab==='tasks'?'tasks':'roles');
-      break;
     case 'close-modal':modal.close();break;
     case 'studio-files':await showStudioFiles();break;
     case 'vacation-review-transfer':vacationReviewTransferForm(d.id,d.ep,d.item);break;
@@ -2580,7 +2572,7 @@ async function action(a,d,el){
     case 'favorite':if(p){p.favorite=!p.favorite;touch(p);render();}break;
     case 'toggle-hidden-project':if(p){
       if(p.hidden){p.hidden=false;touch(p);if(modal.open)modal.close();render();toast('Проект восстановлен. Роли и задачи снова активны.');}
-      else confirmAction('Приостановить проект?',`<strong>${e(p.title)}</strong> исчезнет из активных списков, задач, долгов, рекомендаций и кабинетов актёров после синхронизации. Все роли, записи и материалы сохранятся.`, 'Скрыть проект',()=>{p.hidden=true;touch(p);toast('Проект перемещён в «Скрытые».');});
+      else confirmAction('Приостановить проект?',`<strong>${e(p.title)}</strong> исчезнет из активных списков, задач, долгов и кабинетов актёров после синхронизации. Все роли, записи и материалы сохранятся.`, 'Скрыть проект',()=>{p.hidden=true;touch(p);toast('Проект перемещён в «Скрытые».');});
     }break;
     case 'archive-project':if(p){if(modal.open)modal.close();p.archived=!p.archived;touch(p);navigate(p.archived?'archive':'projects');toast(p.archived?'Проект в архиве':'Проект возвращён в студию');}break;
     case 'delete-project':if(p)confirmAction('Удалить проект?',`Карточка <strong>${e(p.title)}</strong> и её серии будут перемещены в корзину. Восстановить их можно в настройках. Рабочие файлы останутся на диске.`,'Удалить проект',()=>{removeProject(state,p.id);persist();ui.page='projects';ui.project=null;toast('Проект перемещён в корзину');});break;
@@ -2947,12 +2939,6 @@ document.addEventListener('input',event=>{
 document.addEventListener('toggle',event=>{
   const el=event.target;
   if(el.tagName!=='DETAILS')return;
-  const recommendationGroup=el.dataset.recommendationGroup;
-  if(recommendationGroup&&el.isConnected){
-    if(el.open)expandedRecommendationGroups.add(recommendationGroup);
-    else expandedRecommendationGroups.delete(recommendationGroup);
-    return;
-  }
   const key=el.dataset.actorFold;if(!key)return;
   if(el.open){if(!ui.actorExpanded.includes(key))ui.actorExpanded.push(key);}else ui.actorExpanded=ui.actorExpanded.filter(x=>x!==key);
   saveUI();
@@ -3172,7 +3158,7 @@ const studioResources=createStudioResources({
     action:'resources/files/download',data:{id}})),cloud.server).href,
   reservesChanged:()=>{
     if(ui.siteMode!=='studio')return;
-    if(['detail','recommendations','mytasks'].includes(ui.page)&&!modal.open&&!isActorPickerOpen()){render();return;}
+    if(['detail','mytasks'].includes(ui.page)&&!modal.open&&!isActorPickerOpen()){render();return;}
     const badge=document.querySelector('[data-nav="mytasks"] .nav-count');
     if(badge){
       const count=myRoleRows(state).length;

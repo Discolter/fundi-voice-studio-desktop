@@ -6,10 +6,12 @@ const html=readFileSync(new URL('web/index.html',base),'utf8');
 const host=readFileSync(new URL('LocalServer.cs',base),'utf8');
 const app=readFileSync(new URL('web/app.js',base),'utf8');
 const items=['projects','mytasks','debts','casting','actors','workload','actorportal',
-  'review','recommendations','reserves','software','settings','recovery','vacations'];
+  'review','reserves','software','settings','recovery','vacations'];
 const studioMenu=app.match(/<nav>\$\{sidebarNav\.map[\s\S]*?<\/nav>/)?.[0];
-assert.match(studioMenu||'',/data-nav="recommendations"[\s\S]*studioResourceNavs\.map\(renderNavLink\)/,
-  'Resource tabs must be in the primary sidebar immediately after Recommendations');
+assert.match(studioMenu||'',/data-nav="review"[\s\S]*studioResourceNavs\.map\(renderNavLink\)/,
+  'Resource tabs must be in the primary sidebar immediately after Vacation Review');
+assert.doesNotMatch(app,/'recommendations'/,'The removed page must not be restorable through navigation history');
+for(const source of [css,html,host])assert.ok(!source.includes('recommendations'));
 assert.match(app,/const studioResourceNavs=\[\['reserves'[^\]]+\],\['software'/,
   'Reserve must be directly above Studio Software');
 for(const name of items){

@@ -72,7 +72,7 @@ assert.equal(personal().length,0);
 
 const app=readFileSync(new URL('../package/web/app.js',import.meta.url),'utf8');
 assert.match(app,/storedMyRoleRows\(source,\{reserves\}\)/);
-assert.match(app,/\['detail','recommendations','mytasks'\]/,'Refresh an open personal board after loading reserves');
+assert.match(app,/\['detail','mytasks'\]/,'Refresh an open personal board after loading reserves');
 assert.match(app,/const characterAction=reserve\?reserveAction:/,'Open the reserve record from the personal role');
 assert.ok(app.includes("isMyRoleAccepted(r)?'my-role-accepted':''"),
   'Partially accepted roles remain green in collapsed groups');
