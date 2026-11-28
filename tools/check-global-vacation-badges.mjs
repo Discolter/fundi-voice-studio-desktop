@@ -11,7 +11,7 @@ const expected=[
   ['debt actor filter',"${vacationTag(item.actor?.id)}</span>"],
   ['task rows',"${vacationTag(linked.actorId)}</td>"],
   ['task actor filter',"a.name+vacationOptionSuffix(a.id)"],
-  ['task assignment actor options',"${e(vacationOptionSuffix(a.id))}</option>"],
+  ['task assignment actor options',"${e(vacationOptionSuffix(actor.id))}</option>"],
   ['episode role filter',"vacationOptionSuffix(a.key.startsWith('id:')?a.key.slice(3):'')"],
   ['actor roster cards',"function actorCard(a)"],
   ['actor roster badge',"${vacationTag(a.id)}</div>"],

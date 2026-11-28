@@ -178,26 +178,24 @@ export function episodeRoleActorOptions(state, roles) {
 export function episodeEngagedActorCount(state,roles){
   return episodeRoleActorOptions(state,roles||[]).filter(item=>item.key!=='unassigned').length;
 }
-// Actors without any assigned role in the *current episode*, regardless of role status,
-// visible filters, REAPER state, or assignments in other episodes.
-export function episodeUnassignedActors(state, episode) {
-  const actors=state.actors||[];
-  const uniqueNames=new Map();
-  for(const actor of actors) {
+// Match legacy name-only assignments only when there is one matching profile.
+export function episodeAssignedActorIds(state, episode) {
+  const actorsByName=new Map();
+  for(const actor of state.actors||[]) {
     const name=String(actor.name||'').trim().toLocaleLowerCase('ru');
-    if(name)uniqueNames.set(name,(uniqueNames.get(name)||0)+1);
+    if(name)actorsByName.set(name,actorsByName.has(name)?null:actor.id);
   }
   const assigned=new Set();
   for(const role of episode?.roles||[]) {
-    if(role.actorId) { assigned.add(role.actorId); continue; }
-    // Legacy projects can have actor text without an actorId. Match only an
-    // unambiguous profile to avoid marking two equal names as assigned.
-    const legacy=String(role.actor||'').trim().toLocaleLowerCase('ru');
-    if(!legacy || uniqueNames.get(legacy)!==1)continue;
-    const match=actors.find(actor=>String(actor.name||'').trim().toLocaleLowerCase('ru')===legacy);
-    if(match)assigned.add(match.id);
+    const id=role.actorId||actorsByName.get(String(role.actor||'').trim().toLocaleLowerCase('ru'));
+    if(id)assigned.add(id);
   }
-  return actors.filter(actor=>!assigned.has(actor.id))
+  return assigned;
+}
+// Actors without an assigned role in the current episode, across all role statuses.
+export function episodeUnassignedActors(state, episode) {
+  const assigned=episodeAssignedActorIds(state,episode);
+  return (state.actors||[]).filter(actor=>!assigned.has(actor.id))
     .sort((a,b)=>a.name.localeCompare(b.name,'ru',{sensitivity:'base',numeric:true}));
 }
 // Character filter parallels actor filtering. Keys are case/whitespace normalized,

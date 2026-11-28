@@ -83,6 +83,7 @@ export function installVisualSelects({getActors, getVacation=()=>null, getCharac
         label:actor?.name || name,subtitle:absent ? '⛔ В отпуске — недоступен' : planned ? 'Отпуск запланирован' : actor?.telegram ? '@' + actor.telegram :
           (value === 'all' ? 'Показать все назначения' :
           value === 'unassigned' ? 'Без назначенного актёра' :
+          value === '' ? '' :
           actor ? 'Telegram не указан' : 'Старая запись / без профиля'),
         count:count?.[1] || '', actor, value, vacation
       };

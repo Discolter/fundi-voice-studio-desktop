@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
-import {normalizeState,seedState,newProject,taskRows,taskAssignment,groupTaskRows} from '../package/web/core.js';
+import {normalizeState,seedState,newProject,taskRows,taskAssignment,groupTaskRows,episodeAssignedActorIds,escapeHTML}
+  from '../package/web/core.js';
 import {taskRoleIds,archiveTask,restoreTask} from '../package/web/task-history.js';
 import {buildTaskSnapshot,applyTaskSnapshot,mergeTaskSnapshots,verifySharedTaskLinks} from '../package/web/task-cloud-sync.js';
 
@@ -72,9 +73,38 @@ assert.deepEqual(restoreTask(n,n.taskHistory[0].id).task.roleIds,['role1','role2
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const app=readFileSync(resolve(root,'package/web/app.js'),'utf8');
 const css=readFileSync(resolve(root,'package/web/task-priorities.css'),'utf8');
-for(const term of ['taskAssignmentFields(ep,t)','taskActorChoices','taskRolePicker','updateTaskAssignmentPickers',
+for(const term of ['taskAssignmentFields(ep,t)','taskActorPicker','taskRolePicker','updateTaskAssignmentPickers',
+  'type="checkbox" name="taskShowAllActors"',
   'name="actorId"','type="checkbox" name="roleIds"',"formData.getAll('roleIds')",'Один файл','<th>Актёр</th><th>Персонаж</th><th>Реплики</th>'])
   assert.ok(app.includes(term),'Task assignment UI missing: '+term);
+const roster={actors:[
+  {id:'cast',name:'Артур'},
+  {id:'legacy',name:'Борис'},
+  {id:'other',name:'Вера'},
+  {id:'removed',name:'Глеб',retiredAt:'2026-10-01'},
+  {id:'duplicate-1',name:'Даша'},
+  {id:'duplicate-2',name:'Даша'}
+]};
+const firstEpisode={roles:[
+  {actorId:'cast',status:'done'},{actorId:'cast',status:'waiting'},
+  {actor:' борис '},{actor:'Даша'},{actorId:'removed'},{}
+]};
+const secondEpisode={roles:[{actorId:'other'}]};
+const range=app.slice(app.indexOf('function taskActorPicker('),app.indexOf('function taskAssignmentFields('));
+const picker=new Function('state','episodeAssignedActorIds','e','vacationOptionSuffix','field',
+  range+';return taskActorPicker;')(roster,episodeAssignedActorIds,escapeHTML,()=>'',(_label,html,hint)=>html+hint);
+const values=markup=>[...markup.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]);
+assert.deepEqual(values(picker(firstEpisode)),['','cast','legacy'],'Show one option per eligible performer from this episode');
+assert.deepEqual(values(picker(secondEpisode)),['','other'],'Actors from another episode never carry over');
+assert.deepEqual(values(picker(firstEpisode,'',true)),['','cast','legacy','other','duplicate-1','duplicate-2'],
+  'Explicitly showing all opens the active studio roster');
+assert.deepEqual(values(picker({roles:[]})),['']);
+assert.match(picker({roles:[]}),/В серии пока нет назначенных актёров/);
+assert.match(picker(null),/Сначала выбери серию/);
+assert.match(picker(firstEpisode,'other'),/<optgroup label="Текущий исполнитель" data-task-current-assignee><option value="other" selected>/,
+  'Keep an existing task assignee through filtering');
+assert.match(picker(firstEpisode,'removed'),/<option value="removed" selected>/,
+  'Keep a retired assignee while editing an existing assignment');
 assert.ok(css.includes('.task-line-count'),'Workload column needs styling');
 assert.ok(css.includes('.task-character-cell'),'Character column needs styling');
-console.log('PASS: task actor and character links, live workload, old data and UI checks');
+console.log('PASS: episode cast picker, full roster override, retained assignees, task links and live workload');

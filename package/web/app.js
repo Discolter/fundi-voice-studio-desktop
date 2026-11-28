@@ -29,7 +29,7 @@ import {PROJECT_PRIORITIES,projectPriority} from './core.js';
 import {applyProjectPriorities,buildTaskSnapshot,addStudioMirrorToSnapshot,verifyStudioMirrorImages,verifySharedTaskLinks,mergeTaskSnapshots,mergeTaskCatalog,applyTaskSnapshot,mergeRoleStages,applyRoleStages,addRoleStagesToCatalog,roleStageDecisions,mergeRoleAssignments,applyRoleAssignments,addRoleAssignmentsToCatalog,taskSyncDecisions} from './task-cloud-sync.js';
 import {bulkTaskKey,retainVisibleTasks,deleteBulkTasks} from './task-bulk.js';
 import {archiveTask,restoreTask,taskHistoryRows,taskRoleFields,taskRoleIds} from './task-history.js';
-import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterKey,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,projectRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
+import {SCHEMA,ACTOR_GROUPS,CAST_GROUPS,STAGES,ROLE_STAGES,ROLE_ASSIGNMENT_FILTERS,ROLE_TIERS,validRoleTier,TASK_PRIORITIES,taskPriority,taskPriorityName,TASK_ORDERS,TASK_LINE_FILTERS,TASK_STATUS_FILTERS,validTaskOrder,validTaskLineFilter,validTaskStatusFilter,DEBT_STAGES,THEMES,diskFolderName,projectFolderName,episodeFolderName,expandFolderKeys,safeCover,safeRoleImage,newActor,cleanTelegram,actorForRole,actorName,actorAssignments,episodeRoleActorKey,episodeRoleActorOptions,episodeEngagedActorCount,episodeRoleCharacterKey,episodeRoleCharacterOptions,episodeRoleCharacterImage,episodeAssignedActorIds,episodeUnassignedActors,episodeRoleHasActor,filterEpisodeRoles,removeActor,pruneRetiredActors,castText,KINDS,COLORS,PATHS,uid,today,dateValue,seedState,newProject,newEpisode,cloneEpisodeCast,normalizeState,stageName,roleStageName,kindName,episodeLabel,projectProgress,currentEpisode,projectRoleProgress,nearestDue,projectMatches,selectProjects,taskRows,groupTaskRows,taskAssignment,taskRoleStatusTarget,normalizeTaskTemplates,addTaskTemplate,removeTaskTemplate,roleRows as storedRoleRows,myRoleRows as storedMyRoleRows,debtRows as storedDebtRows,withRoleReviews,roleReviewStage,reviewVersion,applyRoleReviews,actorPublicFeed,effectiveRoleDue,materialRows,removeProject,restoreProject,classifyFile,escapeHTML as e} from './core.js';
 
 const ICONS={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',check:'m5 12 4 4L19 6',tasks:'M9 5h11M9 12h11M9 19h11M3 5l1 1 2-2M3 12l1 1 2-2M3 19l1 1 2-2',folder:'M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',mic:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',archive:'M3 3h18v5H3zM5 8v13h14V8M10 12h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 3l-1 3-3 1-2 3 2 3-1 3 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-3 1-3-3-2-3 1-2-4Z',search:'M21 21l-5-5M17 10a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z',plus:'M12 5v14M5 12h14',chevron:'m9 5 7 7-7 7',arrow:'M5 12h14m-5-5 5 5-5 5',back:'M19 12H5m5-5-5 5 5 5',star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',edit:'m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',close:'m6 6 12 12M18 6 6 18',clock:'M12 7v5l3 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',calendar:'M4 5h16v16H4zM8 3v4M16 3v4M4 10h16',file:'M14 2H5v20h14V7ZM14 2v6h5M8 13h8M8 17h5',reaper:'M5 18V7l7-4 7 4v11l-7 3ZM8 9v7M12 7v12M16 9v7',copy:'M8 8h13v13H8zM16 8V3H3v13h5',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',external:'M14 3h7v7M21 3l-11 11M10 3H3v18h18v-7',help:'M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 3M12 18h.01M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-4-4',spark:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z',link:'m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 0 2-2a4 4 0 1 1 6 6l-4 4a4 4 0 0 1-6 0',restore:'M3 10a9 9 0 1 1 0 5M3 3v7h7M12 7v5l4 2',logout:'M9 3H3v18h6M12 12h10m-5-5 5 5-5 5',sort:'M8 4v16m-4-4 4 4 4-4M16 4h5M16 10h3M16 16h1'};
 ICONS.play='m8 5 12 7-12 7Z';
@@ -1968,10 +1968,6 @@ function resourceForm(pid,epid,itemId,kind='source'){
 
 function targetField(pid,epid){if(pid){const p=getProject(pid),ep=getEpisode(p,epid);return input('target',ep.id,'hidden');}return field('Проект и серия *',`<select name="target" required><option value="">Выбери серию</option>${activeProjects().map(p=>`<optgroup label="${e(p.title)}">${p.episodes.map(ep=>`<option value="${e(ep.id)}">${e(episodeLabel(p,ep))}</option>`).join('')}</optgroup>`).join('')}</select>`,'',true);}
 function resolveTarget(epid){for(const p of state.projects){const ep=p.episodes.find(x=>x.id===epid);if(ep)return {p,ep};}throw new Error('Выбери проект и серию.');}
-function taskActorChoices(selected='') {
-  const actors=[...(state.actors||[])].filter(a=>!a.retiredAt||a.id===selected).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
-  return '<option value="">Не указан</option>'+actors.map(a=>`<option value="${e(a.id)}" ${selected===a.id?'selected':''}>${e(a.name)}${a.telegram?' (@'+e(a.telegram)+')':''}${a.retiredAt?' · Удалённый актёр':''}${e(vacationOptionSuffix(a.id))}</option>`).join('');
-}
 function taskRoleCaption(roles){
   if(roles.length>1)return 'В одном файле: '+roles.length;
   const role=roles[0];
@@ -1988,12 +1984,27 @@ function taskRolePicker(ep,actorId,ids,open=false){
     </label>`).join(''):`<p class="small muted">${ep?'Нет доступных ролей':'Сначала выбери серию'}</p>`}</div>
   </details>`;
 }
-function taskActorPicker(actorId){
-  return `<select name="actorId" aria-label="Актёр для задачи">${taskActorChoices(actorId)}</select>`;
+function taskActorPicker(ep,selected='',showAll=false){
+  const directory=state.actors||[];
+  const cast=showAll?null:episodeAssignedActorIds(state,ep);
+  const actors=directory.filter(actor=>!actor.retiredAt&&(!cast||cast.has(actor.id)))
+    .sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  const option=actor=>`<option value="${e(actor.id)}" ${selected===actor.id?'selected':''}>${e(actor.name)}${actor.telegram?' (@'+e(actor.telegram)+')':''}${actor.retiredAt?' · Удалённый актёр':''}${e(vacationOptionSuffix(actor.id))}</option>`;
+  const retained=actors.some(actor=>actor.id===selected)?null:directory.find(actor=>actor.id===selected);
+  const current=retained?`<optgroup label="Текущий исполнитель" data-task-current-assignee>${option(retained)}</optgroup>`:'';
+  const emptyHint=showAll?'В базе пока нет актёров.':ep?'В серии пока нет назначенных актёров.':'Сначала выбери серию.';
+  return field('Актёр',`<select name="actorId" aria-label="Актёр для задачи">
+    <option value="">Не указан</option>${actors.map(option).join('')}${current}</select>`,actors.length?'':emptyHint);
 }
 function taskAssignmentFields(ep,t) {
   const {actorId,roleIds}=taskAssignment(state,ep,t);
-  return `<div class="field task-assignment-form"><label>Актёр</label><div id="task-actor-slot">${taskActorPicker(actorId)}</div><small class="task-assignment-help">Необязательно, из базы актёров студии.</small></div><div class="field"><label>Персонажи / роли</label><div id="task-role-slot">${taskRolePicker(ep,actorId,roleIds)}</div><small class="task-assignment-help">Отметь роли из одного файла.</small></div>`;
+  return `<div class="task-assignment-form">
+    <div id="task-actor-slot">${taskActorPicker(ep,actorId)}</div>
+    <label class="check-label task-actor-show-all"><input type="checkbox" name="taskShowAllActors">Показать всех актёров</label>
+  </div><div class="field">
+    <label>Персонажи / роли</label><div id="task-role-slot">${taskRolePicker(ep,actorId,roleIds)}</div>
+    <small class="task-assignment-help">Отметь роли из одного файла.</small>
+  </div>`;
 }
 function updateTaskAssignmentPickers(input) {
   const form=modal.querySelector('#modal-form');
@@ -2003,6 +2014,11 @@ function updateTaskAssignmentPickers(input) {
   const actorSlot=form.querySelector('#task-actor-slot');
   const roleSlot=form.querySelector('#task-role-slot');
   const actorId=actorSlot.querySelector('select').value;
+  const showAll=form.elements.taskShowAllActors;
+  if(input===showAll){
+    actorSlot.innerHTML=taskActorPicker(ep,actorId,showAll.checked);
+    return;
+  }
   if(input.name==='roleIds'){
     const ids=new FormData(form).getAll('roleIds');
     const actor=(!actorId&&input.checked)?ep?.roles.find(r=>r.id===input.value)?.actorId:'';
@@ -2010,11 +2026,17 @@ function updateTaskAssignmentPickers(input) {
       roleSlot.querySelector('.task-role-picker-value').textContent=taskRoleCaption((ep?.roles||[]).filter(r=>ids.includes(r.id)));
       return;
     }
-    actorSlot.innerHTML=taskActorPicker(actor);
+    actorSlot.innerHTML=taskActorPicker(ep,actor,showAll.checked);
     roleSlot.innerHTML=taskRolePicker(ep,actor,ids,true);
     [...roleSlot.querySelectorAll('input')].find(node=>node.value===input.value)?.focus();
   }else{
-    if(input.name==='target')actorSlot.innerHTML=taskActorPicker('');
+    if(input.name==='target'){
+      showAll.checked=false;
+      actorSlot.innerHTML=taskActorPicker(ep);
+    }else{
+      const retained=input.querySelector('[data-task-current-assignee]');
+      if(retained&&input.selectedOptions[0]?.parentElement!==retained)retained.remove();
+    }
     roleSlot.innerHTML=taskRolePicker(ep,input.name==='target'?'':actorId,[],!!roleSlot.querySelector('details[open]'));
   }
 }
@@ -2987,7 +3009,7 @@ document.addEventListener('change',event=>{const el=event.target;
   if(el.id==='role-character-filter'){ui.roleCharacter=el.value;render();}
   if(el.id==='role-assignment-filter'){ui.roleAssignment=ROLE_ASSIGNMENT_FILTERS.some(([key])=>key===el.value)?el.value:'all';render();}
   if(el.id==='role-order'){ui.roleOrder=el.value;render();}
-  if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleIds'].includes(el.name)){updateTaskAssignmentPickers(el);return;}
+  if(modal.open&&modal.querySelector('.task-assignment-form')&&['target','actorId','roleIds','taskShowAllActors'].includes(el.name)){updateTaskAssignmentPickers(el);return;}
   if(el.id==='task-priority-filter'){ui.taskPriority=el.value;saveUI();render();}
   if(el.id==='my-role-order'){ui.myRoleOrder=validMyRoleOrder(el.value);saveUI();render();}
   if(el.id==='task-order-filter'){ui.taskOrder=validTaskOrder(el.value);saveUI();render();}

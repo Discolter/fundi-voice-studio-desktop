@@ -43,6 +43,8 @@ dialog.task-history-modal{width:min(1000px,calc(100vw - 32px));max-width:1000px}
 .tasks-priority-table .task-line-count{display:inline-block;white-space:nowrap;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 #modal .task-assignment-help{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.35}
 #modal .task-assignment-form{min-width:0}
+#modal .task-actor-show-all{margin-top:9px;color:var(--text);cursor:pointer}
+#modal .task-actor-show-all input{width:16px;height:16px;min-height:0;margin:0;accent-color:var(--lime)}
 #modal .task-role-picker{min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
 #modal .task-role-picker>summary{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
